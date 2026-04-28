@@ -1,0 +1,7 @@
+include ':app'
+include ':JPlayer-java'
+include ':JPlayer-ijk'
+include ':JPlayer-exo'
+include ':JPlayer-vlc'
+include ':JPlayer-ui'
+include ':JPlayer-videocache'

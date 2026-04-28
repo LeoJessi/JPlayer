@@ -1,0 +1,23 @@
+apply plugin: 'com.android.library'
+apply from: '../constants.gradle'
+
+android {
+    namespace "top.jessi.videoplayer.vlc"
+    compileSdkVersion project.ext.compileSdkVersion
+    buildToolsVersion project.ext.buildToolsVersion
+
+    defaultConfig {
+        minSdkVersion project.ext.minSdkVersion
+        targetSdkVersion project.ext.targetSdkVersion
+    }
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_17
+        targetCompatibility JavaVersion.VERSION_17
+    }
+}
+
+dependencies {
+    implementation fileTree(include: ['*.jar'], dir: 'libs')
+    implementation project(':JPlayer-java')
+    api 'org.videolan.android:libvlc-all:3.6.4'
+}

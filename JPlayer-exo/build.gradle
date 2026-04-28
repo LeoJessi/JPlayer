@@ -1,0 +1,30 @@
+apply plugin: 'com.android.library'
+apply from: '../constants.gradle'
+
+android {
+    namespace "top.jessi.videoplayer.exo"
+    compileSdkVersion project.ext.compileSdkVersion
+    buildToolsVersion project.ext.buildToolsVersion
+
+    defaultConfig {
+        minSdkVersion project.ext.minSdkVersion
+        targetSdkVersion project.ext.targetSdkVersion
+    }
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_17
+        targetCompatibility JavaVersion.VERSION_17
+    }
+}
+
+dependencies {
+    implementation fileTree(include: ['*.jar'], dir: 'libs')
+    implementation project(':JPlayer-java')
+    def exoplayerVersion = "2.18.7"
+    implementation "androidx.annotation:annotation:1.3.0"
+    api "com.google.android.exoplayer:exoplayer-core:$exoplayerVersion"
+    api "com.google.android.exoplayer:exoplayer-dash:$exoplayerVersion"
+    api "com.google.android.exoplayer:exoplayer-hls:$exoplayerVersion"
+    api "com.google.android.exoplayer:exoplayer-rtsp:$exoplayerVersion"
+    api "com.google.android.exoplayer:extension-rtmp:$exoplayerVersion"
+    implementation 'com.squareup.okhttp3:okhttp:3.12.11'
+}

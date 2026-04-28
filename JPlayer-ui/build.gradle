@@ -1,0 +1,19 @@
+apply plugin: 'com.android.library'
+apply from: '../constants.gradle'
+
+android {
+    namespace "top.jessi.videocontroller"
+    compileSdkVersion project.ext.compileSdkVersion
+    buildToolsVersion project.ext.buildToolsVersion
+
+    defaultConfig {
+        minSdkVersion project.ext.minSdkVersion
+        targetSdkVersion project.ext.targetSdkVersion
+    }
+}
+
+dependencies {
+    implementation fileTree(include: ['*.jar'], dir: 'libs')
+    compileOnly project.ext.annotation
+    api project(':JPlayer-java')
+}
