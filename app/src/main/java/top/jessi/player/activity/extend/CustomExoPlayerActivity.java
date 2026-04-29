@@ -2,9 +2,9 @@ package top.jessi.player.activity.extend;
 
 import android.view.View;
 
-import com.google.android.exoplayer2.source.ClippingMediaSource;
-import com.google.android.exoplayer2.source.ConcatenatingMediaSource;
-import com.google.android.exoplayer2.source.MediaSource;
+import androidx.media3.exoplayer.source.ClippingMediaSource;
+import androidx.media3.exoplayer.source.ConcatenatingMediaSource;
+import androidx.media3.exoplayer.source.MediaSource;
 
 import top.jessi.player.R;
 import top.jessi.player.activity.BaseActivity;

@@ -3,7 +3,7 @@ apply from: "$rootDir/gradle/publish.gradle"
 
 android {
     namespace = "top.jessi.videoplayer"
-    compileSdk 34
+    compileSdk 36
 
     defaultConfig {
         minSdk 17

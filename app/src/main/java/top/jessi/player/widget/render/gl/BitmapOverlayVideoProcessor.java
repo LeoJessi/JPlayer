@@ -15,8 +15,6 @@
  */
 package top.jessi.player.widget.render.gl;
 
-import static com.google.android.exoplayer2.util.Assertions.checkNotNull;
-
 import android.content.Context;
 import android.content.pm.PackageManager;
 import android.graphics.Bitmap;
@@ -27,8 +25,8 @@ import android.graphics.drawable.BitmapDrawable;
 import android.opengl.GLES20;
 import android.opengl.GLUtils;
 
-import com.google.android.exoplayer2.util.GlProgram;
-import com.google.android.exoplayer2.util.GlUtil;
+import androidx.media3.common.util.Assertions;
+import androidx.media3.common.util.Assertions;
 
 import java.io.IOException;
 
@@ -83,7 +81,7 @@ import javax.microedition.khronos.opengles.GL10;
                     /* fragmentShaderFilePath= */ "bitmap_overlay_video_processor_fragment.glsl");
         } catch (IOException e) {
             throw new IllegalStateException(e);
-        } catch (GlUtil.GlException e) {
+        } catch (Exception e) {
             throw new RuntimeException(e);
         }
         program.setBufferAttribute(
@@ -123,7 +121,7 @@ import javax.microedition.khronos.opengles.GL10;
             GlUtil.checkGlError();
 
             // Run the shader program.
-            GlProgram program = checkNotNull(this.program);
+            GlProgram program = Assertions.checkNotNull(this.program);
             program.setSamplerTexIdUniform("uTexSampler0", frameTexture, /* texUnitIndex= */ 0);
             program.setSamplerTexIdUniform("uTexSampler1", textures[0], /* texUnitIndex= */ 1);
             program.setFloatUniform("uScaleX", bitmapScaleX);

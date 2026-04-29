@@ -21,7 +21,7 @@ import top.jessi.player.util.Utils
 import top.jessi.player.util.cache.ProxyVideoCacheManager
 import top.jessi.videoplayer.exo.ExoMediaPlayerFactory
 import top.jessi.videoplayer.ijk.IjkPlayerFactory
-import top.jessi.videoplayer.player.AndroidMediaPlayerFactory
+import top.jessi.videoplayer.sys.SystemPlayerFactory
 import top.jessi.videoplayer.player.PlayerFactory
 import top.jessi.videoplayer.player.VideoView
 import top.jessi.videoplayer.player.VideoViewManager
@@ -52,7 +52,7 @@ class MainActivity : BaseActivity<VideoView>(), NavigationBarView.OnItemSelected
             is IjkPlayerFactory -> {
                 setTitle(resources.getString(R.string.app_name) + " (IjkPlayer)")
             }
-            is AndroidMediaPlayerFactory -> {
+            is SystemPlayerFactory -> {
                 setTitle(resources.getString(R.string.app_name) + " (MediaPlayer)")
             }
             else -> {
@@ -100,7 +100,7 @@ class MainActivity : BaseActivity<VideoView>(), NavigationBarView.OnItemSelected
                         setTitle(resources.getString(R.string.app_name) + " (ExoPlayer)")
                     }
                     R.id.media -> {
-                        playerFactory = AndroidMediaPlayerFactory.create()
+                        playerFactory = SystemPlayerFactory.create()
                         setTitle(resources.getString(R.string.app_name) + " (MediaPlayer)")
                     }
                 }

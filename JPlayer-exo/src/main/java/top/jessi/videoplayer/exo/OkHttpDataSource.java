@@ -15,26 +15,25 @@
  */
 package top.jessi.videoplayer.exo;
 
-import static com.google.android.exoplayer2.upstream.HttpUtil.buildRangeRequestHeader;
-import static com.google.android.exoplayer2.util.Util.castNonNull;
+import static androidx.media3.datasource.HttpUtil.buildRangeRequestHeader;
 import static java.lang.Math.min;
 
 import android.net.Uri;
 
 import androidx.annotation.Nullable;
+import androidx.media3.common.C;
+import androidx.media3.common.PlaybackException;
+import androidx.media3.common.util.Assertions;
+import androidx.media3.common.util.UnstableApi;
+import androidx.media3.common.util.Util;
+import androidx.media3.datasource.BaseDataSource;
+import androidx.media3.datasource.DataSource;
+import androidx.media3.datasource.DataSourceException;
+import androidx.media3.datasource.DataSpec;
+import androidx.media3.datasource.HttpDataSource;
+import androidx.media3.datasource.HttpUtil;
+import androidx.media3.datasource.TransferListener;
 
-import com.google.android.exoplayer2.C;
-import com.google.android.exoplayer2.ExoPlayerLibraryInfo;
-import com.google.android.exoplayer2.PlaybackException;
-import com.google.android.exoplayer2.upstream.BaseDataSource;
-import com.google.android.exoplayer2.upstream.DataSource;
-import com.google.android.exoplayer2.upstream.DataSourceException;
-import com.google.android.exoplayer2.upstream.DataSpec;
-import com.google.android.exoplayer2.upstream.HttpDataSource;
-import com.google.android.exoplayer2.upstream.HttpUtil;
-import com.google.android.exoplayer2.upstream.TransferListener;
-import com.google.android.exoplayer2.util.Assertions;
-import com.google.android.exoplayer2.util.Util;
 import com.google.common.base.Predicate;
 import com.google.common.net.HttpHeaders;
 
@@ -45,6 +44,7 @@ import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 
 import okhttp3.CacheControl;
 import okhttp3.Call;
@@ -63,18 +63,14 @@ import okhttp3.ResponseBody;
  * priority) the {@code dataSpec}, {@link #setRequestProperty} and the default parameters used to
  * construct the instance.
  */
+@UnstableApi
 public class OkHttpDataSource extends BaseDataSource implements HttpDataSource {
-
-    static {
-        ExoPlayerLibraryInfo.registerModule("goog.exo.okhttp");
-    }
 
     /** {@link DataSource.Factory} for {@link OkHttpDataSource} instances. */
     public static final class Factory implements HttpDataSource.Factory {
 
         private final RequestProperties defaultRequestProperties;
         private final Call.Factory callFactory;
-
         @Nullable private String userAgent;
         @Nullable private TransferListener transferListener;
         @Nullable private CacheControl cacheControl;
@@ -184,14 +180,12 @@ public class OkHttpDataSource extends BaseDataSource implements HttpDataSource {
     private long bytesRead;
 
     /** @deprecated Use {@link Factory} instead. */
-    @SuppressWarnings("deprecation")
     @Deprecated
     public OkHttpDataSource(Call.Factory callFactory) {
         this(callFactory, /* userAgent= */ null);
     }
 
     /** @deprecated Use {@link Factory} instead. */
-    @SuppressWarnings("deprecation")
     @Deprecated
     public OkHttpDataSource(Call.Factory callFactory, @Nullable String userAgent) {
         this(callFactory, userAgent, /* cacheControl= */ null, /* defaultRequestProperties= */ null);
@@ -212,6 +206,7 @@ public class OkHttpDataSource extends BaseDataSource implements HttpDataSource {
                 /* contentTypePredicate= */ null);
     }
 
+    @UnstableApi
     private OkHttpDataSource(
             Call.Factory callFactory,
             @Nullable String userAgent,
@@ -269,6 +264,7 @@ public class OkHttpDataSource extends BaseDataSource implements HttpDataSource {
         requestProperties.clear();
     }
 
+    @UnstableApi
     @Override
     public long open(DataSpec dataSpec) throws HttpDataSourceException {
         this.dataSpec = dataSpec;
@@ -354,16 +350,18 @@ public class OkHttpDataSource extends BaseDataSource implements HttpDataSource {
         return bytesToRead;
     }
 
+    @UnstableApi
     @Override
     public int read(byte[] buffer, int offset, int length) throws HttpDataSourceException {
         try {
             return readInternal(buffer, offset, length);
         } catch (IOException e) {
             throw HttpDataSourceException.createForIOException(
-                    e, castNonNull(dataSpec), HttpDataSourceException.TYPE_READ);
+                    e, Objects.requireNonNull(dataSpec), HttpDataSourceException.TYPE_READ);
         }
     }
 
+    @UnstableApi
     @Override
     public void close() {
         if (opened) {
@@ -443,7 +441,7 @@ public class OkHttpDataSource extends BaseDataSource implements HttpDataSource {
         try {
             while (bytesToSkip > 0) {
                 int readLength = (int) min(bytesToSkip, skipBuffer.length);
-                int read = castNonNull(responseByteStream).read(skipBuffer, 0, readLength);
+                int read = Objects.requireNonNull(responseByteStream).read(skipBuffer, 0, readLength);
                 if (Thread.currentThread().isInterrupted()) {
                     throw new InterruptedIOException();
                 }
@@ -495,7 +493,7 @@ public class OkHttpDataSource extends BaseDataSource implements HttpDataSource {
             readLength = (int) min(readLength, bytesRemaining);
         }
 
-        int read = castNonNull(responseByteStream).read(buffer, offset, readLength);
+        int read = Objects.requireNonNull(responseByteStream).read(buffer, offset, readLength);
         if (read == -1) {
             return C.RESULT_END_OF_INPUT;
         }

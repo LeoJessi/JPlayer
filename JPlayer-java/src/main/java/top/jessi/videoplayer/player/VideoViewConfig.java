@@ -5,6 +5,7 @@ import androidx.annotation.Nullable;
 
 import top.jessi.videoplayer.render.RenderViewFactory;
 import top.jessi.videoplayer.render.TextureRenderViewFactory;
+import top.jessi.videoplayer.sys.SystemPlayerFactory;
 
 /**
  * 播放器全局配置
@@ -42,7 +43,7 @@ public class VideoViewConfig {
         mScreenScaleType = builder.mScreenScaleType;
         if (builder.mPlayerFactory == null) {
             //默认为AndroidMediaPlayer
-            mPlayerFactory = AndroidMediaPlayerFactory.create();
+            mPlayerFactory = SystemPlayerFactory.create();
         } else {
             mPlayerFactory = builder.mPlayerFactory;
         }

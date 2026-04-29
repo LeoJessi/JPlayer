@@ -1,9 +1,10 @@
-package top.jessi.videoplayer.player;
+package top.jessi.videoplayer.sys;
 
 import android.content.Context;
 import android.content.res.AssetFileDescriptor;
 import android.media.AudioManager;
 import android.media.MediaPlayer;
+import android.net.TrafficStats;
 import android.net.Uri;
 import android.os.Build;
 import android.view.Surface;
@@ -11,10 +12,14 @@ import android.view.SurfaceHolder;
 
 import java.util.Map;
 
+import top.jessi.videoplayer.player.AbstractPlayer;
+import top.jessi.videoplayer.player.TrackInfo;
+import top.jessi.videoplayer.player.TrackInfoBean;
+
 /**
  * 封装系统的MediaPlayer，不推荐，系统的MediaPlayer兼容性较差，建议使用IjkPlayer或者ExoPlayer
  */
-public class AndroidMediaPlayer extends AbstractPlayer implements MediaPlayer.OnErrorListener,
+public class SystemPlayer extends AbstractPlayer implements MediaPlayer.OnErrorListener,
         MediaPlayer.OnCompletionListener, MediaPlayer.OnInfoListener,
         MediaPlayer.OnBufferingUpdateListener, MediaPlayer.OnPreparedListener,
         MediaPlayer.OnVideoSizeChangedListener {
@@ -24,7 +29,7 @@ public class AndroidMediaPlayer extends AbstractPlayer implements MediaPlayer.On
     private Context mAppContext;
     private boolean mIsPreparing;
 
-    public AndroidMediaPlayer(Context context) {
+    public SystemPlayer(Context context) {
         mAppContext = context.getApplicationContext();
     }
 
@@ -103,6 +108,8 @@ public class AndroidMediaPlayer extends AbstractPlayer implements MediaPlayer.On
         mMediaPlayer.setSurface(null);
         mMediaPlayer.setDisplay(null);
         mMediaPlayer.setVolume(1, 1);
+        lastTotalRxBytes = 0;
+        lastTimeStamp = 0;
     }
 
     @Override
@@ -133,6 +140,8 @@ public class AndroidMediaPlayer extends AbstractPlayer implements MediaPlayer.On
         mMediaPlayer.setOnPreparedListener(null);
         mMediaPlayer.setOnVideoSizeChangedListener(null);
         stop();
+        lastTotalRxBytes = 0;
+        lastTimeStamp = 0;
         final MediaPlayer mediaPlayer = mMediaPlayer;
         mMediaPlayer = null;
         new Thread() {
@@ -221,10 +230,36 @@ public class AndroidMediaPlayer extends AbstractPlayer implements MediaPlayer.On
         return 1f;
     }
 
+    private long lastTotalRxBytes = 0;
+    private long lastTimeStamp = 0;
+
+    /**
+     * 检查流量统计是否不支持
+     */
+    private boolean unsupported() {
+        if (mAppContext == null) {
+            return true;
+        }
+        return TrafficStats.getUidRxBytes(mAppContext.getApplicationInfo().uid) == TrafficStats.UNSUPPORTED;
+    }
+
+    /**
+     * 获取当前下载速度
+     *
+     * @return 下载速度（字节/秒）
+     */
     @Override
     public long getTcpSpeed() {
-        // no support
-        return 0;
+        if (mAppContext == null || unsupported()) {
+            return 0;
+        }
+        long total = TrafficStats.getTotalRxBytes();
+        long time = System.currentTimeMillis();
+        long diff = total - lastTotalRxBytes;
+        long speed = diff / Math.max(time - lastTimeStamp, 1);
+        lastTimeStamp = time;
+        lastTotalRxBytes = total;
+        return speed * 1024;
     }
 
     // ==================== Track Info ====================

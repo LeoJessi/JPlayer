@@ -18,7 +18,7 @@ import top.jessi.videoplayer.controller.ControlWrapper;
 import top.jessi.videoplayer.controller.IControlComponent;
 import top.jessi.videoplayer.exo.ExoMediaPlayerFactory;
 import top.jessi.videoplayer.ijk.IjkPlayerFactory;
-import top.jessi.videoplayer.player.AndroidMediaPlayerFactory;
+import top.jessi.videoplayer.sys.SystemPlayerFactory;
 
 /**
  * 调试信息
@@ -85,7 +85,7 @@ public class DebugInfoView extends AppCompatTextView implements IControlComponen
             player = "ExoPlayer";
         } else if (playerFactory instanceof IjkPlayerFactory) {
             player = "IjkPlayer";
-        } else if (playerFactory instanceof AndroidMediaPlayerFactory) {
+        } else if (playerFactory instanceof SystemPlayerFactory) {
             player = "MediaPlayer";
         } else {
             player = "unknown";

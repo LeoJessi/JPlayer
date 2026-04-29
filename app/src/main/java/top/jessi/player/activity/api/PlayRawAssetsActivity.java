@@ -4,8 +4,8 @@ import android.content.res.AssetFileDescriptor;
 import android.content.res.AssetManager;
 import android.view.View;
 
-import com.google.android.exoplayer2.upstream.DataSpec;
-import com.google.android.exoplayer2.upstream.RawResourceDataSource;
+import androidx.media3.datasource.DataSpec;
+import androidx.media3.datasource.RawResourceDataSource;
 
 import java.io.IOException;
 
