@@ -25,6 +25,7 @@ import top.jessi.videoplayer.sys.SystemPlayerFactory
 import top.jessi.videoplayer.player.PlayerFactory
 import top.jessi.videoplayer.player.VideoView
 import top.jessi.videoplayer.player.VideoViewManager
+import top.jessi.videoplayer.vlc.VlcPlayerFactory
 import java.io.*
 
 class MainActivity : BaseActivity<VideoView>(), NavigationBarView.OnItemSelectedListener {
@@ -54,6 +55,9 @@ class MainActivity : BaseActivity<VideoView>(), NavigationBarView.OnItemSelected
             }
             is SystemPlayerFactory -> {
                 setTitle(resources.getString(R.string.app_name) + " (MediaPlayer)")
+            }
+            is VlcPlayerFactory -> {
+                setTitle(resources.getString(R.string.app_name) + " (VlcPlayer)")
             }
             else -> {
                 setTitle(resources.getString(R.string.app_name) + " (unknown)")
@@ -102,6 +106,10 @@ class MainActivity : BaseActivity<VideoView>(), NavigationBarView.OnItemSelected
                     R.id.media -> {
                         playerFactory = SystemPlayerFactory.create()
                         setTitle(resources.getString(R.string.app_name) + " (MediaPlayer)")
+                    }
+                    R.id.vlc->{
+                        playerFactory = VlcPlayerFactory.create()
+                        setTitle(resources.getString(R.string.app_name) + " (VlcPlayer)")
                     }
                 }
                 mPlayerFactoryField[config] = playerFactory
