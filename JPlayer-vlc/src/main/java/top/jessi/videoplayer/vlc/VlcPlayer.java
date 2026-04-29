@@ -147,7 +147,7 @@ public class VlcPlayer extends AbstractPlayer implements MediaPlayer.EventListen
     // 重新实现父类方法，提供 VLC 专用的 RenderViewFactory
     @Override
     public RenderViewFactory getRenderViewFactory(boolean isTextureView) {
-        return VlcRenderViewFactory.create(true);
+        return VlcRenderViewFactory.create(isTextureView);
     }
 
     /**
@@ -1117,7 +1117,7 @@ public class VlcPlayer extends AbstractPlayer implements MediaPlayer.EventListen
             case MediaPlayer.Event.Vout:
                 notifyVideoSize();
                 addAllSubtitlesOnVout();
-                if (mVlcRenderView != null && !mVlcRenderView.getUseTextureView()) {
+                if (mVlcRenderView != null && mEnableVlcSubtitles) {
                     applyScaleTypeToNative();
                 }
                 break;
