@@ -812,6 +812,7 @@ public class VlcPlayer extends AbstractPlayer implements MediaPlayer.EventListen
      */
     public void setVlcRenderView(VlcRenderView renderView) {
         this.mVlcRenderView = renderView;
+        Log.e(TAG, "attachToPlayer: ~~~~~~~~~~~~~~~~ 33333333333333  " + renderView);
     }
 
     /**
