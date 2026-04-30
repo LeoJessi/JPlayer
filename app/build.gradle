@@ -90,4 +90,8 @@ dependencies {
     implementation project(':JPlayer-exo')
     implementation project(':JPlayer-vlc')
     implementation project(':JPlayer-videocache')
+
+    implementation("com.github.LeoJessi.IJKPlayer:IJKPlayer:1.4.1")
+    def media3Version = "1.10.0"
+    implementation "androidx.media3:media3-exoplayer:$media3Version"
 }

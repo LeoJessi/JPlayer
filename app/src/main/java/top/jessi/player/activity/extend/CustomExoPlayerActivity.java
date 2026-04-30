@@ -48,7 +48,7 @@ public class CustomExoPlayerActivity extends BaseActivity<ExoVideoView> {
             mVideoView.setUrl("http://playertest.longtailvideo.com/adaptive/bipbop/gear4/prog_index.m3u8");
         } else if (id == R.id.btn_concat) {//将多个视频拼接在一起播放
             ConcatenatingMediaSource concatenatingMediaSource = new ConcatenatingMediaSource();
-            MediaSource mediaSource1 = mHelper.getMediaSource("https://www.w3schools.com/html/mov_bbb.mp4");
+            MediaSource mediaSource1 = mHelper.getMediaSource("http://technolhub.xyz:8880/series/test260327abc/a11223344/64263.mp4");
             MediaSource mediaSource2 = mHelper.getMediaSource("http://vfx.mtime.cn/Video/2019/03/21/mp4/190321153853126488.mp4");
             MediaSource mediaSource3 = mHelper.getMediaSource("http://vfx.mtime.cn/Video/2019/03/19/mp4/190319222227698228.mp4");
             concatenatingMediaSource.addMediaSource(mediaSource1);
@@ -56,7 +56,7 @@ public class CustomExoPlayerActivity extends BaseActivity<ExoVideoView> {
             concatenatingMediaSource.addMediaSource(mediaSource3);
             mVideoView.setMediaSource(concatenatingMediaSource);
         } else if (id == R.id.btn_clip) {
-            MediaSource mediaSource = mHelper.getMediaSource("https://www.w3schools.com/html/mov_bbb.mp4");
+            MediaSource mediaSource = mHelper.getMediaSource("http://technolhub.xyz:8880/series/test260327abc/a11223344/64263.mp4");
             //裁剪10-15秒的内容进行播放
             ClippingMediaSource clippingMediaSource = new ClippingMediaSource(mediaSource, 10_000_000, 15_000_000);
             mVideoView.setMediaSource(clippingMediaSource);

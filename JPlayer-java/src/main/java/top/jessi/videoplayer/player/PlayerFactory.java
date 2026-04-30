@@ -2,8 +2,8 @@ package top.jessi.videoplayer.player;
 
 import android.content.Context;
 
-import top.jessi.videoplayer.sys.SystemPlayer;
-import top.jessi.videoplayer.sys.SystemPlayerFactory;
+import top.jessi.videoplayer.media.SystemPlayer;
+import top.jessi.videoplayer.media.SystemPlayerFactory;
 
 /**
  * 此接口使用方法：

@@ -4,7 +4,6 @@ import android.Manifest
 import android.annotation.SuppressLint
 import android.os.Build
 import android.os.Bundle
-import android.util.Log
 import android.view.Menu
 import android.view.MenuItem
 import android.widget.Toast
@@ -22,7 +21,7 @@ import top.jessi.player.util.Utils
 import top.jessi.player.util.cache.ProxyVideoCacheManager
 import top.jessi.videoplayer.exo.ExoMediaPlayerFactory
 import top.jessi.videoplayer.ijk.IjkPlayerFactory
-import top.jessi.videoplayer.sys.SystemPlayerFactory
+import top.jessi.videoplayer.media.SystemPlayerFactory
 import top.jessi.videoplayer.player.PlayerFactory
 import top.jessi.videoplayer.player.VideoView
 import top.jessi.videoplayer.player.VideoViewManager

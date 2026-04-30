@@ -20,5 +20,5 @@ android {
 dependencies {
     implementation fileTree(include: ['*.jar'], dir: 'libs')
     implementation project(':JPlayer-java')
-    api 'org.videolan.android:libvlc-all:3.6.4'
+    implementation 'org.videolan.android:libvlc-all:3.7.0'
 }

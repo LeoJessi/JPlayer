@@ -18,7 +18,7 @@ import top.jessi.videoplayer.controller.ControlWrapper;
 import top.jessi.videoplayer.controller.IControlComponent;
 import top.jessi.videoplayer.exo.ExoMediaPlayerFactory;
 import top.jessi.videoplayer.ijk.IjkPlayerFactory;
-import top.jessi.videoplayer.sys.SystemPlayerFactory;
+import top.jessi.videoplayer.media.SystemPlayerFactory;
 
 /**
  * 调试信息

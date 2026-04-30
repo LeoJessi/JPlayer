@@ -16,5 +16,5 @@ android {
 dependencies {
     implementation fileTree(include: ['*.jar'], dir: 'libs')
     compileOnly project(':JPlayer-java')
-    api("com.github.LeoJessi.IJKPlayer:IJKPlayer:1.4.1")
+    implementation("com.github.LeoJessi.IJKPlayer:IJKPlayer:1.4.1")
 }

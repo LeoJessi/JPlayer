@@ -277,12 +277,9 @@ public class BaseVideoView<P extends AbstractPlayer> extends FrameLayout
         RenderViewFactory tempRenderViewFactory;
         if (mRenderViewFactory instanceof TextureRenderViewFactory) {
             tempRenderViewFactory = mMediaPlayer.getRenderViewFactory(true);
-            Log.e("Jessi", "addDisplay: ~~~~~~~~~~~~~~~~~~ Texture");
         } else {
             tempRenderViewFactory = mMediaPlayer.getRenderViewFactory(false);
-            Log.e("Jessi", "addDisplay: ~~~~~~~~~~~~~~~~~~ Surface");
         }
-        Log.e("Jessi", "addDisplay: ~~~~~~~~~~~~~~~~~~121 " + tempRenderViewFactory);
         if (tempRenderViewFactory != null) mRenderViewFactory = tempRenderViewFactory;
         mRenderView = mRenderViewFactory.createRenderView(getContext());
         mRenderView.attachToPlayer(mMediaPlayer);

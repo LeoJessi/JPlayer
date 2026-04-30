@@ -16,5 +16,5 @@ android {
 dependencies {
     implementation fileTree(include: ['*.jar'], dir: 'libs')
     compileOnly project.ext.annotation
-    api project(':JPlayer-java')
+    implementation project(':JPlayer-java')
 }

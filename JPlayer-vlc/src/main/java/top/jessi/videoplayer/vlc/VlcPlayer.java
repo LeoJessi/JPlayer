@@ -25,8 +25,6 @@ import java.util.Collection;
 import java.util.List;
 import java.util.Map;
 
-import top.jessi.videoplayer.vlc.VlcRenderView;
-import top.jessi.videoplayer.vlc.VlcRenderViewFactory;
 import top.jessi.videoplayer.player.AbstractPlayer;
 import top.jessi.videoplayer.player.BaseVideoView;
 import top.jessi.videoplayer.player.TrackInfo;
@@ -76,7 +74,7 @@ public class VlcPlayer extends AbstractPlayer implements MediaPlayer.EventListen
         HARDWARE
     }
 
-    private static final String TAG = "VlcPlayer";
+    private static final String TAG = "JPlayer—VlcPlayer";
     protected Context mAppContext;
     protected LibVLC mLibVLC;
     protected MediaPlayer mMediaPlayer;
@@ -146,6 +144,7 @@ public class VlcPlayer extends AbstractPlayer implements MediaPlayer.EventListen
         return this;
     }
 
+    // 重新实现父类方法，提供 VLC 专用的 RenderViewFactory
     @Override
     public RenderViewFactory getRenderViewFactory(boolean isTextureView) {
         return VlcRenderViewFactory.create(isTextureView);
@@ -231,9 +230,6 @@ public class VlcPlayer extends AbstractPlayer implements MediaPlayer.EventListen
         mLibVLC = new LibVLC(mAppContext, options);
         mMediaPlayer = new MediaPlayer(mLibVLC);
         mMediaPlayer.setEventListener(this);
-
-        Log.d(TAG, "VLC player initialized, decodeMode=" + mDecodeMode
-                + ", extraOptions=" + sExtraOptions.size());
     }
 
     /**
@@ -246,7 +242,7 @@ public class VlcPlayer extends AbstractPlayer implements MediaPlayer.EventListen
         // === 音频输出 ===
         options.add("--aout=audiotrack");
         // === 网络 ===
-        options.add("--network-caching=1500");
+        options.add("--network-caching=3000");
         options.add("--rtsp-tcp");
         options.add("--http-reconnect");
         // === 音视频同步 ===
@@ -286,7 +282,7 @@ public class VlcPlayer extends AbstractPlayer implements MediaPlayer.EventListen
     @Override
     public void setDataSource(String path, Map<String, String> headers) {
         if (path == null || path.isEmpty()) {
-            Log.e(TAG, "Error: path is null or empty");
+            Log.w(TAG, "Error: path is null or empty");
             if (mPlayerEventListener != null) {
                 mPlayerEventListener.onError();
             }
@@ -294,7 +290,6 @@ public class VlcPlayer extends AbstractPlayer implements MediaPlayer.EventListen
         }
 
         try {
-            Log.d(TAG, "Setting data source: " + path);
             if (mMedia != null) {
                 mMedia.release();
                 mMedia = null;
@@ -312,12 +307,12 @@ public class VlcPlayer extends AbstractPlayer implements MediaPlayer.EventListen
                 mMedia.addOption(":input-repeat=65535");
             }
 
-            mMedia.addOption(":network-caching=1500");
+            mMedia.addOption(":network-caching=3000");
 
             mMediaPlayer.setMedia(mMedia);
 
         } catch (Exception e) {
-            Log.e(TAG, "Error setting data source", e);
+            Log.w(TAG, "Error setting data source", e);
             if (mPlayerEventListener != null) {
                 mPlayerEventListener.onError();
             }
@@ -339,7 +334,7 @@ public class VlcPlayer extends AbstractPlayer implements MediaPlayer.EventListen
             mMedia = new Media(mLibVLC, fd.getFileDescriptor());
             mMediaPlayer.setMedia(mMedia);
         } catch (Exception e) {
-            Log.e(TAG, "Error setting asset data source", e);
+            Log.w(TAG, "Error setting asset data source", e);
             if (mPlayerEventListener != null) {
                 mPlayerEventListener.onError();
             }
@@ -358,13 +353,11 @@ public class VlcPlayer extends AbstractPlayer implements MediaPlayer.EventListen
                 }
                 if (mViewsAttached) {
                     mMediaPlayer.play();
-                    Log.d(TAG, "VLC player started with attached views");
                 } else {
-                    Log.w(TAG, "Starting player without attached views");
                     mMediaPlayer.play();
                 }
             } catch (Exception e) {
-                Log.e(TAG, "Error starting player", e);
+                Log.w(TAG, "Error starting player", e);
                 if (mPlayerEventListener != null) {
                     mPlayerEventListener.onError();
                 }
@@ -380,9 +373,8 @@ public class VlcPlayer extends AbstractPlayer implements MediaPlayer.EventListen
         if (mMediaPlayer != null) {
             try {
                 mMediaPlayer.pause();
-                Log.d(TAG, "VLC player paused");
             } catch (Exception e) {
-                Log.e(TAG, "Error pausing player", e);
+                Log.w(TAG, "Error pausing player", e);
                 if (mPlayerEventListener != null) {
                     mPlayerEventListener.onError();
                 }
@@ -398,9 +390,8 @@ public class VlcPlayer extends AbstractPlayer implements MediaPlayer.EventListen
         if (mMediaPlayer != null) {
             try {
                 mMediaPlayer.stop();
-                Log.d(TAG, "VLC player stopped");
             } catch (Exception e) {
-                Log.e(TAG, "Error stopping player", e);
+                Log.w(TAG, "Error stopping player", e);
                 if (mPlayerEventListener != null) {
                     mPlayerEventListener.onError();
                 }
@@ -414,7 +405,7 @@ public class VlcPlayer extends AbstractPlayer implements MediaPlayer.EventListen
     @Override
     public void prepareAsync() {
         if (mMediaPlayer == null || mMedia == null) {
-            Log.e(TAG, "Cannot prepare: MediaPlayer or Media is null");
+            Log.w(TAG, "Cannot prepare: MediaPlayer or Media is null");
             if (mPlayerEventListener != null) {
                 mPlayerEventListener.onError();
             }
@@ -422,8 +413,6 @@ public class VlcPlayer extends AbstractPlayer implements MediaPlayer.EventListen
         }
 
         mIsPreparing = true;
-        Log.d(TAG, "VLC player preparing...");
-
         try {
             if (mMediaPlayer.getMedia() == null) {
                 mMediaPlayer.setMedia(mMedia);
@@ -433,9 +422,8 @@ public class VlcPlayer extends AbstractPlayer implements MediaPlayer.EventListen
             applyScaleTypeToNative();
 
             mMediaPlayer.play();
-            Log.d(TAG, "VLC player play called");
         } catch (Exception e) {
-            Log.e(TAG, "Error in prepareAsync", e);
+            Log.w(TAG, "Error in prepareAsync", e);
             if (mPlayerEventListener != null) {
                 mPlayerEventListener.onError();
             }
@@ -450,22 +438,20 @@ public class VlcPlayer extends AbstractPlayer implements MediaPlayer.EventListen
      */
     private void attachVlcViews() {
         if (mViewsAttached) {
-            Log.d(TAG, "Views already attached, skipping");
             return;
         }
 
         if (mVlcRenderView == null) {
-            Log.e(TAG, "VlcRenderView is null, cannot attach views");
+            Log.w(TAG, "VlcRenderView is null, cannot attach views");
             return;
         }
 
         if (mMediaPlayer == null) {
-            Log.e(TAG, "MediaPlayer is null, cannot attach views");
+            Log.w(TAG, "MediaPlayer is null, cannot attach views");
             return;
         }
 
         boolean useTextureView = mVlcRenderView.getUseTextureView();
-        Log.d(TAG, "VLC attachViews: textureView=" + useTextureView);
 
         try {
             if (useTextureView) {
@@ -482,9 +468,8 @@ public class VlcPlayer extends AbstractPlayer implements MediaPlayer.EventListen
             }
 
             mViewsAttached = true;
-            Log.d(TAG, "VLC views attached successfully");
         } catch (Exception e) {
-            Log.e(TAG, "Error attaching VLC views", e);
+            Log.w(TAG, "Error attaching VLC views", e);
         }
     }
 
@@ -500,20 +485,20 @@ public class VlcPlayer extends AbstractPlayer implements MediaPlayer.EventListen
     private void attachSurfaceViewManually() {
         VLCVideoLayout vlcLayout = mVlcRenderView.getVlcVideoLayout();
         if (vlcLayout == null) {
-            Log.e(TAG, "VLCVideoLayout is null");
+            Log.w(TAG, "VLCVideoLayout is null");
             return;
         }
 
         IVLCVout vlcVout = mMediaPlayer.getVLCVout();
         if (vlcVout == null) {
-            Log.e(TAG, "IVLCVout is null");
+            Log.w(TAG, "IVLCVout is null");
             return;
         }
 
         // Step 1: 手动 inflate surface_stub ViewStub
         SurfaceView surfaceView = inflateSurfaceView(vlcLayout);
         if (surfaceView == null) {
-            Log.e(TAG, "Failed to inflate SurfaceView");
+            Log.w(TAG, "Failed to inflate SurfaceView");
             return;
         }
 
@@ -546,13 +531,10 @@ public class VlcPlayer extends AbstractPlayer implements MediaPlayer.EventListen
             Log.w(TAG, "Display size not ready, will set window size on layout");
         } else {
             vlcVout.setWindowSize(displayW, displayH);
-            Log.d(TAG, "setWindowSize: " + displayW + "x" + displayH);
         }
 
         // 添加布局监听器，在布局完成时设置窗口尺寸并应用缩放
         vlcLayout.addOnLayoutChangeListener(mSurfaceLayoutListener);
-
-        Log.d(TAG, "SurfaceView attached manually");
     }
 
     /**
@@ -561,7 +543,7 @@ public class VlcPlayer extends AbstractPlayer implements MediaPlayer.EventListen
     private SurfaceView inflateSurfaceView(VLCVideoLayout vlcLayout) {
         FrameLayout surfaceFrame = vlcLayout.findViewById(org.videolan.R.id.player_surface_frame);
         if (surfaceFrame == null) {
-            Log.e(TAG, "player_surface_frame not found");
+            Log.w(TAG, "player_surface_frame not found");
             return null;
         }
 
@@ -569,7 +551,6 @@ public class VlcPlayer extends AbstractPlayer implements MediaPlayer.EventListen
         ViewStub surfaceStub = surfaceFrame.findViewById(org.videolan.R.id.surface_stub);
         if (surfaceStub != null) {
             View inflated = surfaceStub.inflate();
-            Log.d(TAG, "Inflated surface_stub: " + inflated.getClass().getSimpleName());
             if (inflated instanceof SurfaceView) {
                 return (SurfaceView) inflated;
             }
@@ -578,7 +559,6 @@ public class VlcPlayer extends AbstractPlayer implements MediaPlayer.EventListen
         // ViewStub 已经被 inflate 过了，直接查找 surface_video
         SurfaceView sv = surfaceFrame.findViewById(org.videolan.R.id.surface_video);
         if (sv != null) {
-            Log.d(TAG, "Found existing surface_video SurfaceView");
             return sv;
         }
 
@@ -621,7 +601,6 @@ public class VlcPlayer extends AbstractPlayer implements MediaPlayer.EventListen
                         IVLCVout vlcVout = mMediaPlayer.getVLCVout();
                         if (vlcVout != null) {
                             vlcVout.setWindowSize(w, h);
-                            Log.d(TAG, "Layout changed, setWindowSize: " + w + "x" + h);
                         }
                         applyScaleTypeToNative();
                     }
@@ -639,7 +618,6 @@ public class VlcPlayer extends AbstractPlayer implements MediaPlayer.EventListen
                 if (mViewsAttached) {
                     mMediaPlayer.detachViews();
                     mViewsAttached = false;
-                    Log.d(TAG, "VLC detachViews() called");
                 }
             } catch (Exception e) {
                 Log.w(TAG, "Error detaching views during reset", e);
@@ -647,7 +625,6 @@ public class VlcPlayer extends AbstractPlayer implements MediaPlayer.EventListen
 
             try {
                 mMediaPlayer.stop();
-                Log.d(TAG, "VLC player stopped in reset");
             } catch (Exception e) {
                 Log.w(TAG, "Error stopping player during reset", e);
             }
@@ -687,9 +664,8 @@ public class VlcPlayer extends AbstractPlayer implements MediaPlayer.EventListen
         if (mMediaPlayer != null) {
             try {
                 mMediaPlayer.setTime(time);
-                Log.d(TAG, "Seek to: " + time);
             } catch (Exception e) {
-                Log.e(TAG, "Error seeking", e);
+                Log.w(TAG, "Error seeking", e);
                 if (mPlayerEventListener != null) {
                     mPlayerEventListener.onError();
                 }
@@ -741,8 +717,6 @@ public class VlcPlayer extends AbstractPlayer implements MediaPlayer.EventListen
         synchronized (mAddedSubtitles) {
             mAddedSubtitles.clear();
         }
-
-        Log.d(TAG, "VLC player released");
     }
 
     /**
@@ -812,7 +786,6 @@ public class VlcPlayer extends AbstractPlayer implements MediaPlayer.EventListen
      */
     public void setVlcRenderView(VlcRenderView renderView) {
         this.mVlcRenderView = renderView;
-        Log.e(TAG, "attachToPlayer: ~~~~~~~~~~~~~~~~ 33333333333333  " + renderView);
     }
 
     /**
@@ -827,9 +800,8 @@ public class VlcPlayer extends AbstractPlayer implements MediaPlayer.EventListen
             try {
                 int vlcVolume = (int) ((leftVolume + rightVolume) / 2 * 200);
                 mMediaPlayer.setVolume(vlcVolume);
-                Log.d(TAG, "Volume set to: " + vlcVolume);
             } catch (Exception e) {
-                Log.e(TAG, "Error setting volume", e);
+                Log.w(TAG, "Error setting volume", e);
                 if (mPlayerEventListener != null) {
                     mPlayerEventListener.onError();
                 }
@@ -895,9 +867,8 @@ public class VlcPlayer extends AbstractPlayer implements MediaPlayer.EventListen
                 // TextureView 模式：通过 VideoHelper
                 mMediaPlayer.setVideoScale(vlcScaleType);
             }
-            Log.d(TAG, "VLC video scale updated to: " + vlcScaleType);
         } catch (Exception e) {
-            Log.e(TAG, "Error setting VLC video scale", e);
+            Log.w(TAG, "Error setting VLC video scale", e);
         }
     }
 
@@ -979,10 +950,8 @@ public class VlcPlayer extends AbstractPlayer implements MediaPlayer.EventListen
                     mMediaPlayer.setScale(0);
                     break;
             }
-
-            Log.d(TAG, "Applied native scale: " + scaleType + " display=" + displayW + "x" + displayH);
         } catch (Exception e) {
-            Log.e(TAG, "Error applying native scale", e);
+            Log.w(TAG, "Error applying native scale", e);
         }
     }
 
@@ -1040,11 +1009,8 @@ public class VlcPlayer extends AbstractPlayer implements MediaPlayer.EventListen
 
             mMediaPlayer.setScale(scale);
             mMediaPlayer.setAspectRatio(null);
-
-            Log.d(TAG, "FIT_SCREEN: scale=" + scale + " video=" + videoWidth + "x" + videoHeight
-                    + " display=" + displayW + "x" + displayH + " sar=" + sarNum + ":" + sarDen);
         } catch (Exception e) {
-            Log.e(TAG, "Error applying FIT_SCREEN scale", e);
+            Log.w(TAG, "Error applying FIT_SCREEN scale", e);
             mMediaPlayer.setAspectRatio(null);
             mMediaPlayer.setScale(0);
         }
@@ -1061,9 +1027,8 @@ public class VlcPlayer extends AbstractPlayer implements MediaPlayer.EventListen
             try {
                 mSpeed = speed;
                 mMediaPlayer.setRate(speed);
-                Log.d(TAG, "Speed set to: " + speed);
             } catch (Exception e) {
-                Log.e(TAG, "Error setting speed", e);
+                Log.w(TAG, "Error setting speed", e);
                 if (mPlayerEventListener != null) {
                     mPlayerEventListener.onError();
                 }
@@ -1121,10 +1086,8 @@ public class VlcPlayer extends AbstractPlayer implements MediaPlayer.EventListen
         if (mPlayerEventListener == null) return;
         switch (event.type) {
             case MediaPlayer.Event.Opening:
-                Log.d(TAG, "VLC Event: Opening");
                 break;
             case MediaPlayer.Event.Playing:
-                Log.d(TAG, "VLC Event: Playing");
                 if (mIsPreparing) {
                     mPlayerEventListener.onPrepared();
                     mIsPreparing = false;
@@ -1133,17 +1096,14 @@ public class VlcPlayer extends AbstractPlayer implements MediaPlayer.EventListen
                 mPlayerEventListener.onInfo(MEDIA_INFO_RENDERING_START, 0);
                 break;
             case MediaPlayer.Event.Paused:
-                Log.d(TAG, "VLC Event: Paused");
                 break;
             case MediaPlayer.Event.Stopped:
-                Log.d(TAG, "VLC Event: Stopped");
                 break;
             case MediaPlayer.Event.EndReached:
-                Log.d(TAG, "VLC Event: EndReached");
                 mPlayerEventListener.onCompletion();
                 break;
             case MediaPlayer.Event.EncounteredError:
-                Log.e(TAG, "VLC Event: Error");
+                Log.w(TAG, "VLC Event: Error");
                 mPlayerEventListener.onError();
                 break;
             case MediaPlayer.Event.Buffering:
@@ -1155,7 +1115,6 @@ public class VlcPlayer extends AbstractPlayer implements MediaPlayer.EventListen
                 }
                 break;
             case MediaPlayer.Event.Vout:
-                Log.d(TAG, "VLC Event: Vout count=" + event.getVoutCount());
                 notifyVideoSize();
                 addAllSubtitlesOnVout();
                 if (mVlcRenderView != null && mEnableVlcSubtitles) {
@@ -1187,7 +1146,6 @@ public class VlcPlayer extends AbstractPlayer implements MediaPlayer.EventListen
                                 IMedia.VideoTrack videoTrack = (IMedia.VideoTrack) track;
                                 width = videoTrack.width;
                                 height = videoTrack.height;
-                                Log.d(TAG, "Got video size from parsed Media: " + width + "x" + height);
                                 break;
                             }
                         }
@@ -1205,7 +1163,6 @@ public class VlcPlayer extends AbstractPlayer implements MediaPlayer.EventListen
                         IMedia.VideoTrack videoTrack = (IMedia.VideoTrack) track;
                         width = videoTrack.width;
                         height = videoTrack.height;
-                        Log.d(TAG, "Got video size from Media track: " + width + "x" + height);
                         break;
                     }
                 }
@@ -1219,7 +1176,6 @@ public class VlcPlayer extends AbstractPlayer implements MediaPlayer.EventListen
             if (width != mVideoWidth || height != mVideoHeight) {
                 mVideoWidth = width;
                 mVideoHeight = height;
-                Log.d(TAG, "Video size changed: " + mVideoWidth + "x" + mVideoHeight);
                 mPlayerEventListener.onVideoSizeChanged(mVideoWidth, mVideoHeight);
             }
         } catch (Exception e) {
@@ -1314,7 +1270,7 @@ public class VlcPlayer extends AbstractPlayer implements MediaPlayer.EventListen
         try {
             return mMediaPlayer.setAudioTrack(trackId);
         } catch (Exception e) {
-            Log.e(TAG, "Error setting audio track", e);
+            Log.w(TAG, "Error setting audio track", e);
             return false;
         }
     }
@@ -1332,7 +1288,7 @@ public class VlcPlayer extends AbstractPlayer implements MediaPlayer.EventListen
         try {
             return mMediaPlayer.setSpuTrack(trackId);
         } catch (Exception e) {
-            Log.e(TAG, "Error setting subtitle track", e);
+            Log.w(TAG, "Error setting subtitle track", e);
             return false;
         }
     }
@@ -1385,7 +1341,6 @@ public class VlcPlayer extends AbstractPlayer implements MediaPlayer.EventListen
     private boolean doAddSlave(Uri uri) {
         synchronized (mAddedSubtitles) {
             if (mAddedSubtitles.contains(uri)) {
-                Log.d(TAG, "Subtitle already added, skip: " + uri);
                 return true;
             }
         }
@@ -1393,7 +1348,6 @@ public class VlcPlayer extends AbstractPlayer implements MediaPlayer.EventListen
             if (mMediaPlayer == null) return false;
             IVLCVout vlcVout = mMediaPlayer.getVLCVout();
             if (vlcVout == null) {
-                Log.w(TAG, "VLCVout not ready, cannot add subtitle: " + uri);
                 return false;
             }
             boolean success = mMediaPlayer.addSlave(Media.Slave.Type.Subtitle, uri, false);
@@ -1402,10 +1356,9 @@ public class VlcPlayer extends AbstractPlayer implements MediaPlayer.EventListen
                     mAddedSubtitles.add(uri);
                 }
             }
-            Log.d(TAG, "MediaPlayer.addSlave result=" + success + " uri=" + uri);
             return success;
         } catch (Exception e) {
-            Log.e(TAG, "Error adding slave: " + uri, e);
+            Log.w(TAG, "Error adding slave ", e);
             return false;
         }
     }

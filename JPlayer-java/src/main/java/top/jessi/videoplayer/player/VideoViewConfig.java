@@ -5,7 +5,7 @@ import androidx.annotation.Nullable;
 
 import top.jessi.videoplayer.render.RenderViewFactory;
 import top.jessi.videoplayer.render.TextureRenderViewFactory;
-import top.jessi.videoplayer.sys.SystemPlayerFactory;
+import top.jessi.videoplayer.media.SystemPlayerFactory;
 
 /**
  * 播放器全局配置
