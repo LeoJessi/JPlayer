@@ -4,6 +4,7 @@ import android.Manifest
 import android.annotation.SuppressLint
 import android.os.Build
 import android.os.Bundle
+import android.util.Log
 import android.view.Menu
 import android.view.MenuItem
 import android.widget.Toast
@@ -50,15 +51,19 @@ class MainActivity : BaseActivity<VideoView>(), NavigationBarView.OnItemSelected
             is ExoMediaPlayerFactory -> {
                 setTitle(resources.getString(R.string.app_name) + " (ExoPlayer)")
             }
+
             is IjkPlayerFactory -> {
                 setTitle(resources.getString(R.string.app_name) + " (IjkPlayer)")
             }
+
             is SystemPlayerFactory -> {
                 setTitle(resources.getString(R.string.app_name) + " (MediaPlayer)")
             }
+
             is VlcPlayerFactory -> {
                 setTitle(resources.getString(R.string.app_name) + " (VlcPlayer)")
             }
+
             else -> {
                 setTitle(resources.getString(R.string.app_name) + " (unknown)")
             }
@@ -82,12 +87,14 @@ class MainActivity : BaseActivity<VideoView>(), NavigationBarView.OnItemSelected
                 PIPManager.getInstance().stopFloatWindow()
                 PIPManager.getInstance().reset()
             }
+
             R.id.clear_cache -> if (ProxyVideoCacheManager.clearAllCache(this)) {
                 Toast.makeText(this, "清除缓存成功", Toast.LENGTH_SHORT).show()
             }
+
             R.id.cpu_info -> CpuInfoActivity.start(this)
         }
-        if (itemId == R.id.ijk || itemId == R.id.exo || itemId == R.id.media) {
+        if (itemId == R.id.ijk || itemId == R.id.exo || itemId == R.id.media || itemId == R.id.vlc) {
             //切换播放核心，不推荐这么做，我这么写只是为了方便测试
             val config = VideoViewManager.getConfig()
             try {
@@ -99,15 +106,18 @@ class MainActivity : BaseActivity<VideoView>(), NavigationBarView.OnItemSelected
                         playerFactory = IjkPlayerFactory.create()
                         setTitle(resources.getString(R.string.app_name) + " (IjkPlayer)")
                     }
+
                     R.id.exo -> {
                         playerFactory = ExoMediaPlayerFactory.create()
                         setTitle(resources.getString(R.string.app_name) + " (ExoPlayer)")
                     }
+
                     R.id.media -> {
                         playerFactory = SystemPlayerFactory.create()
                         setTitle(resources.getString(R.string.app_name) + " (MediaPlayer)")
                     }
-                    R.id.vlc->{
+
+                    R.id.vlc -> {
                         playerFactory = VlcPlayerFactory.create()
                         setTitle(resources.getString(R.string.app_name) + " (VlcPlayer)")
                     }

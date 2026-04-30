@@ -112,7 +112,7 @@ public class CustomIjkPlayerActivity extends BaseActivity<IjkVideoView> implemen
 
     private List<ConcatMedia> getConcatData() {
         List<ConcatMedia> medias = new ArrayList<>();
-        medias.add(new ConcatMedia("http://vfx.mtime.cn/Video/2019/02/04/mp4/190204084208765161.mp4", 31));
+        medias.add(new ConcatMedia("https://www.w3schools.com/html/mov_bbb.mp4", 31));
         medias.add(new ConcatMedia("http://vfx.mtime.cn/Video/2019/03/21/mp4/190321153853126488.mp4", 100));
         medias.add(new ConcatMedia("http://vfx.mtime.cn/Video/2019/03/19/mp4/190319222227698228.mp4", 60));
         return medias;

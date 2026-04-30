@@ -12,6 +12,7 @@ import android.os.Build;
 import android.os.Parcelable;
 import android.text.TextUtils;
 import android.util.AttributeSet;
+import android.util.Log;
 import android.view.Gravity;
 import android.view.View;
 import android.view.ViewGroup;
@@ -190,6 +191,7 @@ public class BaseVideoView<P extends AbstractPlayer> extends FrameLayout
 
     /**
      * 第一次播放
+     *
      * @return 是否成功开始播放
      */
     protected boolean startPlay() {
@@ -275,16 +277,16 @@ public class BaseVideoView<P extends AbstractPlayer> extends FrameLayout
         RenderViewFactory tempRenderViewFactory;
         if (mRenderViewFactory instanceof TextureRenderViewFactory) {
             tempRenderViewFactory = mMediaPlayer.getRenderViewFactory(true);
+            Log.e("Jessi", "addDisplay: ~~~~~~~~~~~~~~~~~~ Texture");
         } else {
             tempRenderViewFactory = mMediaPlayer.getRenderViewFactory(false);
+            Log.e("Jessi", "addDisplay: ~~~~~~~~~~~~~~~~~~ Surface");
         }
+        Log.e("Jessi", "addDisplay: ~~~~~~~~~~~~~~~~~~121 " + tempRenderViewFactory);
         if (tempRenderViewFactory != null) mRenderViewFactory = tempRenderViewFactory;
         mRenderView = mRenderViewFactory.createRenderView(getContext());
         mRenderView.attachToPlayer(mMediaPlayer);
-        LayoutParams params = new LayoutParams(
-                ViewGroup.LayoutParams.MATCH_PARENT,
-                ViewGroup.LayoutParams.MATCH_PARENT,
-                Gravity.CENTER);
+        LayoutParams params = new LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT, Gravity.CENTER);
         mPlayerContainer.addView(mRenderView.getView(), 0, params);
     }
 
@@ -306,6 +308,7 @@ public class BaseVideoView<P extends AbstractPlayer> extends FrameLayout
 
     /**
      * 设置播放数据
+     *
      * @return 播放数据是否设置成功
      */
     protected boolean prepareDataSource() {
@@ -1026,6 +1029,7 @@ public class BaseVideoView<P extends AbstractPlayer> extends FrameLayout
         public void onPlayerStateChanged(int playerState) {
 
         }
+
         @Override
         public void onPlayStateChanged(int playState) {
 
