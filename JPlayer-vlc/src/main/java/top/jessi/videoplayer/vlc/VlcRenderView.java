@@ -77,6 +77,7 @@ public class VlcRenderView extends FrameLayout implements IRenderView {
     @Override
     public void attachToPlayer(@NonNull AbstractPlayer player) {
         this.mMediaPlayer = player;
+        Log.e(TAG, "attachToPlayer: ~~~~~~~~~~ 000000000 " + player);
         if (player instanceof VlcPlayer) {
             ((VlcPlayer) player).setVlcRenderView(this);
             Log.e(TAG, "attachToPlayer: ~~~~~~~~~~~~~~~~ 1111111111111111");
