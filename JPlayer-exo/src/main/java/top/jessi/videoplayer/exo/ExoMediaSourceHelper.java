@@ -179,7 +179,8 @@ public final class ExoMediaSourceHelper {
 
     private DataSource.Factory getHttpDataSourceFactory() {
         if (mHttpDataSourceFactory == null) {
-            mHttpDataSourceFactory = new OkHttpDataSource.Factory(mOkClient)
+            OkHttpClient client = mOkClient != null ? mOkClient : new OkHttpClient();
+            mHttpDataSourceFactory = new OkHttpDataSource.Factory(client)
                     .setUserAgent(mUserAgent);
         }
         return mHttpDataSourceFactory;
