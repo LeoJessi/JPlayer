@@ -63,15 +63,20 @@ public class ExoMediaPlayer extends AbstractPlayer implements Player.Listener {
     public void initPlayer() {
         if (mRenderersFactory == null) {
             mRenderersFactory = new DefaultRenderersFactory(mAppContext);
+            // 硬解失败时自动回退到列表中下一个解码器
+            mRenderersFactory.setEnableDecoderFallback(true);
+            mRenderersFactory.setExtensionRendererMode(DefaultRenderersFactory.EXTENSION_RENDERER_MODE_PREFER);
         }
-        mRenderersFactory.setExtensionRendererMode(DefaultRenderersFactory.EXTENSION_RENDERER_MODE_PREFER);
         if (mTrackSelector == null) {
             mTrackSelector = new DefaultTrackSelector(mAppContext);
         }
         if (mLoadControl == null) {
             mLoadControl = new DefaultLoadControl();
         }
-        mTrackSelector.setParameters(mTrackSelector.getParameters().buildUpon().setTunnelingEnabled(true));
+        mTrackSelector.setParameters(
+                mTrackSelector.buildUponParameters()
+                        .setTunnelingEnabled(true)
+        );
         mMediaPlayer = new ExoPlayer.Builder(mAppContext)
                 .setLoadControl(mLoadControl)
                 .setRenderersFactory(mRenderersFactory)
@@ -314,7 +319,15 @@ public class ExoMediaPlayer extends AbstractPlayer implements Player.Listener {
     @Override
     public void onPlayerError(@NonNull PlaybackException error) {
         errorCode = error.errorCode;
-        Log.e("tag--", "" + error.errorCode);
+        Log.e("tag--", "onPlayerError: " + error.errorCode, error);
+        // 解码器错误（硬解不支持该格式）不应重试，直接上报
+        if (isDecoderError(error)) {
+            Log.e("tag--", "Decoder error, will not retry");
+            if (mPlayerEventListener != null) {
+                mPlayerEventListener.onError();
+            }
+            return;
+        }
         if (path != null) {
             setDataSource(path, headers);
             path = null;
@@ -325,6 +338,32 @@ public class ExoMediaPlayer extends AbstractPlayer implements Player.Listener {
                 mPlayerEventListener.onError();
             }
         }
+    }
+
+    /**
+     * 判断是否为解码器相关错误（硬解不支持该格式/编码）
+     * 这类错误重试无意义，应直接上报给上层处理
+     */
+    private boolean isDecoderError(@NonNull PlaybackException error) {
+        Throwable cause = error.getCause();
+        while (cause != null) {
+            if (cause instanceof IllegalStateException) {
+                String msg = cause.getMessage();
+                if (msg != null && (msg.contains("dequeueOutputBuffer")
+                        || msg.contains("configure")
+                        || msg.contains("start"))) {
+                    return true;
+                }
+            }
+            // MediaCodec 相关的 MediaCodecVideoDecoderException
+            String className = cause.getClass().getSimpleName();
+            if (className.contains("MediaCodec")
+                    && (className.contains("Decoder") || className.contains("Renderer"))) {
+                return true;
+            }
+            cause = cause.getCause();
+        }
+        return false;
     }
 
     @Override
