@@ -322,7 +322,7 @@ public class ExoMediaPlayer extends AbstractPlayer implements Player.Listener {
         Log.w(TAG, "onPlayerError: " + error.errorCode, error);
         // 解码器错误（硬解不支持该格式）不应重试，直接上报
         if (isDecoderError(error)) {
-            Log.w(TAG, "Decoder error, will not retry");
+            Log.w(TAG, "Decoder exception");
             if (mPlayerEventListener != null) {
                 mPlayerEventListener.onError();
             }
