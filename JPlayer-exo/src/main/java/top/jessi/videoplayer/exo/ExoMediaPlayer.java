@@ -38,6 +38,7 @@ import top.jessi.videoplayer.player.TrackInfoBean;
 @OptIn(markerClass = UnstableApi.class)
 public class ExoMediaPlayer extends AbstractPlayer implements Player.Listener {
 
+    private static final String TAG = "ExoMediaPlayer";
     protected Context mAppContext;
     protected ExoPlayer mMediaPlayer;
     protected MediaSource mMediaSource;
@@ -45,7 +46,6 @@ public class ExoMediaPlayer extends AbstractPlayer implements Player.Listener {
     protected ExoTrackNameProvider trackNameProvider;
     private PlaybackParameters mSpeedPlaybackParameters;
     private boolean mIsPreparing;
-
     private LoadControl mLoadControl;
     private DefaultRenderersFactory mRenderersFactory;
     private DefaultTrackSelector mTrackSelector;
@@ -319,10 +319,10 @@ public class ExoMediaPlayer extends AbstractPlayer implements Player.Listener {
     @Override
     public void onPlayerError(@NonNull PlaybackException error) {
         errorCode = error.errorCode;
-        Log.e("tag--", "onPlayerError: " + error.errorCode, error);
+        Log.w(TAG, "onPlayerError: " + error.errorCode, error);
         // 解码器错误（硬解不支持该格式）不应重试，直接上报
         if (isDecoderError(error)) {
-            Log.e("tag--", "Decoder error, will not retry");
+            Log.w(TAG, "Decoder error, will not retry");
             if (mPlayerEventListener != null) {
                 mPlayerEventListener.onError();
             }

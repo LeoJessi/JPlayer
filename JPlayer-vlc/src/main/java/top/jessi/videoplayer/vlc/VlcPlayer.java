@@ -240,7 +240,9 @@ public class VlcPlayer extends AbstractPlayer implements MediaPlayer.EventListen
         // === 解码模式 ===
         applyDecodeOptions(options);
         // === 音频输出 ===
-        options.add("--aout=audiotrack");
+        // 暂不设置，让 VLC 自动选择最优输出（通常是 OpenSL ES 或 AAudio）
+         options.add("--aout=audiotrack");
+        // options.add("--aout=opensles");
         // === 网络 ===
         options.add("--network-caching=3000");
         options.add("--rtsp-tcp");
@@ -798,8 +800,8 @@ public class VlcPlayer extends AbstractPlayer implements MediaPlayer.EventListen
     public void setVolume(float leftVolume, float rightVolume) {
         if (mMediaPlayer != null) {
             try {
-                int vlcVolume = (int) ((leftVolume + rightVolume) / 2 * 200);
-                mMediaPlayer.setVolume(vlcVolume);
+                int volume = (int)((leftVolume + rightVolume) / 2.0f * 100.0f);
+                mMediaPlayer.setVolume(volume);
             } catch (Exception e) {
                 Log.w(TAG, "Error setting volume", e);
                 if (mPlayerEventListener != null) {
