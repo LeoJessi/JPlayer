@@ -316,6 +316,11 @@ public class SystemPlayer extends AbstractPlayer implements MediaPlayer.OnErrorL
     @Override
     public void onBufferingUpdate(MediaPlayer mp, int percent) {
         mBufferedPercent = percent;
+        if (percent >= 100) {
+            // 缓冲完成，手动回调 MEDIA_INFO_BUFFERING_END
+            // 解决部分情况下系统 MediaPlayer 不自动发送 MEDIA_INFO_BUFFERING_END 导致 loading 不消失的问题
+            mPlayerEventListener.onInfo(MEDIA_INFO_BUFFERING_END, percent);
+        }
     }
 
     @Override
