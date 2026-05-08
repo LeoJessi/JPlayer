@@ -6,6 +6,7 @@ import android.content.res.AssetFileDescriptor;
 import android.net.Uri;
 import android.os.Bundle;
 import android.text.TextUtils;
+import android.util.Log;
 import android.view.Surface;
 import android.view.SurfaceHolder;
 
@@ -28,6 +29,7 @@ public class IjkPlayer extends AbstractPlayer implements IMediaPlayer.OnErrorLis
     protected IjkMediaPlayer mMediaPlayer;
     private int mBufferedPercent;
     private final Context mAppContext;
+    private boolean mBuffering;
 
     public IjkPlayer(Context context) {
         mAppContext = context;
@@ -226,6 +228,16 @@ public class IjkPlayer extends AbstractPlayer implements IMediaPlayer.OnErrorLis
 
     @Override
     public boolean onInfo(IMediaPlayer mp, int what, int extra) {
+        if (what == MEDIA_INFO_BUFFERING_START) {
+            mBuffering = true;
+        } else if (what == MEDIA_INFO_BUFFERING_END) {
+            mBuffering = false;
+        } else if (what == MEDIA_INFO_RENDERING_START && mBuffering) {
+            // 底层已发送 BUFFERING_START 但未发送 BUFFERING_END，
+            // 此时视频已开始渲染，说明缓冲已完成，补发 BUFFERING_END
+            mBuffering = false;
+            mPlayerEventListener.onInfo(MEDIA_INFO_BUFFERING_END, 0);
+        }
         mPlayerEventListener.onInfo(what, extra);
         return true;
     }
@@ -233,11 +245,6 @@ public class IjkPlayer extends AbstractPlayer implements IMediaPlayer.OnErrorLis
     @Override
     public void onBufferingUpdate(IMediaPlayer mp, int percent) {
         mBufferedPercent = percent;
-        if (percent >= 100) {
-            // 缓冲完成，手动回调 MEDIA_INFO_BUFFERING_END
-            // 解决部分情况下 IjkPlayer 底层不自动发送 MEDIA_INFO_BUFFERING_END 导致 loading 不消失的问题
-            mPlayerEventListener.onInfo(MEDIA_INFO_BUFFERING_END, percent);
-        }
     }
 
     @Override

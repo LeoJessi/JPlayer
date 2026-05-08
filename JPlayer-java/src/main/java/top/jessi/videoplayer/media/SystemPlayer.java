@@ -7,6 +7,7 @@ import android.media.MediaPlayer;
 import android.net.TrafficStats;
 import android.net.Uri;
 import android.os.Build;
+import android.util.Log;
 import android.view.Surface;
 import android.view.SurfaceHolder;
 
@@ -28,6 +29,7 @@ public class SystemPlayer extends AbstractPlayer implements MediaPlayer.OnErrorL
     private int mBufferedPercent;
     private Context mAppContext;
     private boolean mIsPreparing;
+    private boolean mBuffering;
 
     public SystemPlayer(Context context) {
         mAppContext = context.getApplicationContext();
@@ -301,26 +303,31 @@ public class SystemPlayer extends AbstractPlayer implements MediaPlayer.OnErrorL
 
     @Override
     public boolean onInfo(MediaPlayer mp, int what, int extra) {
-        //解决MEDIA_INFO_VIDEO_RENDERING_START多次回调问题
-        if (what == AbstractPlayer.MEDIA_INFO_RENDERING_START) {
+        if (what == MEDIA_INFO_BUFFERING_START) {
+            mBuffering = true;
+        } else if (what == MEDIA_INFO_BUFFERING_END) {
+            mBuffering = false;
+        } else if (what == AbstractPlayer.MEDIA_INFO_RENDERING_START) {
+            //解决MEDIA_INFO_VIDEO_RENDERING_START多次回调问题
             if (mIsPreparing) {
                 mPlayerEventListener.onInfo(what, extra);
                 mIsPreparing = false;
             }
-        } else {
-            mPlayerEventListener.onInfo(what, extra);
+            if (mBuffering) {
+                // 底层已发送 BUFFERING_START 但未发送 BUFFERING_END，
+                // 此时视频已开始渲染，说明缓冲已完成，补发 BUFFERING_END
+                mBuffering = false;
+                mPlayerEventListener.onInfo(MEDIA_INFO_BUFFERING_END, 0);
+            }
+            return true;
         }
+        mPlayerEventListener.onInfo(what, extra);
         return true;
     }
 
     @Override
     public void onBufferingUpdate(MediaPlayer mp, int percent) {
         mBufferedPercent = percent;
-        if (percent >= 100) {
-            // 缓冲完成，手动回调 MEDIA_INFO_BUFFERING_END
-            // 解决部分情况下系统 MediaPlayer 不自动发送 MEDIA_INFO_BUFFERING_END 导致 loading 不消失的问题
-            mPlayerEventListener.onInfo(MEDIA_INFO_BUFFERING_END, percent);
-        }
     }
 
     @Override
