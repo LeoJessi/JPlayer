@@ -29,7 +29,6 @@ public class IjkPlayer extends AbstractPlayer implements IMediaPlayer.OnErrorLis
     protected IjkMediaPlayer mMediaPlayer;
     private int mBufferedPercent;
     private final Context mAppContext;
-    private boolean mBuffering;
 
     public IjkPlayer(Context context) {
         mAppContext = context;
@@ -228,14 +227,9 @@ public class IjkPlayer extends AbstractPlayer implements IMediaPlayer.OnErrorLis
 
     @Override
     public boolean onInfo(IMediaPlayer mp, int what, int extra) {
-        if (what == MEDIA_INFO_BUFFERING_START) {
-            mBuffering = true;
-        } else if (what == MEDIA_INFO_BUFFERING_END) {
-            mBuffering = false;
-        } else if (what == MEDIA_INFO_RENDERING_START && mBuffering) {
+        if (what == IMediaPlayer.MEDIA_INFO_VIDEO_RENDERING_START) {
             // 底层已发送 BUFFERING_START 但未发送 BUFFERING_END，
             // 此时视频已开始渲染，说明缓冲已完成，补发 BUFFERING_END
-            mBuffering = false;
             mPlayerEventListener.onInfo(MEDIA_INFO_BUFFERING_END, 0);
         }
         mPlayerEventListener.onInfo(what, extra);

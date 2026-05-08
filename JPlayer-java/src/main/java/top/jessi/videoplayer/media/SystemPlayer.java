@@ -29,7 +29,6 @@ public class SystemPlayer extends AbstractPlayer implements MediaPlayer.OnErrorL
     private int mBufferedPercent;
     private Context mAppContext;
     private boolean mIsPreparing;
-    private boolean mBuffering;
 
     public SystemPlayer(Context context) {
         mAppContext = context.getApplicationContext();
@@ -112,7 +111,6 @@ public class SystemPlayer extends AbstractPlayer implements MediaPlayer.OnErrorL
         mMediaPlayer.setVolume(1, 1);
         lastTotalRxBytes = 0;
         lastTimeStamp = 0;
-        mBuffering = false;
     }
 
     @Override
@@ -146,7 +144,6 @@ public class SystemPlayer extends AbstractPlayer implements MediaPlayer.OnErrorL
         stop();
         lastTotalRxBytes = 0;
         lastTimeStamp = 0;
-        mBuffering = false;
         final MediaPlayer mediaPlayer = mMediaPlayer;
         mMediaPlayer = null;
         new Thread() {
@@ -308,22 +305,15 @@ public class SystemPlayer extends AbstractPlayer implements MediaPlayer.OnErrorL
 
     @Override
     public boolean onInfo(MediaPlayer mp, int what, int extra) {
-        if (what == MEDIA_INFO_BUFFERING_START) {
-            mBuffering = true;
-        } else if (what == MEDIA_INFO_BUFFERING_END) {
-            mBuffering = false;
-        } else if (what == AbstractPlayer.MEDIA_INFO_RENDERING_START) {
+        if (what == MediaPlayer.MEDIA_INFO_VIDEO_RENDERING_START) {
             //解决MEDIA_INFO_VIDEO_RENDERING_START多次回调问题
             if (mIsPreparing) {
                 mPlayerEventListener.onInfo(what, extra);
                 mIsPreparing = false;
             }
-            if (mBuffering) {
-                // 底层已发送 BUFFERING_START 但未发送 BUFFERING_END，
-                // 此时视频已开始渲染，说明缓冲已完成，补发 BUFFERING_END
-                mBuffering = false;
-                mPlayerEventListener.onInfo(MEDIA_INFO_BUFFERING_END, 0);
-            }
+            // 底层已发送 BUFFERING_START 但未发送 BUFFERING_END，
+            // 此时视频已开始渲染，说明缓冲已完成，补发 BUFFERING_END
+            mPlayerEventListener.onInfo(MEDIA_INFO_BUFFERING_END, 0);
             return true;
         }
         mPlayerEventListener.onInfo(what, extra);
