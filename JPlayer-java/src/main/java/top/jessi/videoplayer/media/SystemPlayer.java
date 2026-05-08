@@ -112,10 +112,12 @@ public class SystemPlayer extends AbstractPlayer implements MediaPlayer.OnErrorL
         mMediaPlayer.setVolume(1, 1);
         lastTotalRxBytes = 0;
         lastTimeStamp = 0;
+        mBuffering = false;
     }
 
     @Override
     public boolean isPlaying() {
+        if (mMediaPlayer == null) return false;
         return mMediaPlayer.isPlaying();
     }
 
@@ -144,6 +146,7 @@ public class SystemPlayer extends AbstractPlayer implements MediaPlayer.OnErrorL
         stop();
         lastTotalRxBytes = 0;
         lastTimeStamp = 0;
+        mBuffering = false;
         final MediaPlayer mediaPlayer = mMediaPlayer;
         mMediaPlayer = null;
         new Thread() {
@@ -160,11 +163,13 @@ public class SystemPlayer extends AbstractPlayer implements MediaPlayer.OnErrorL
 
     @Override
     public long getCurrentPosition() {
+        if (mMediaPlayer == null) return 0;
         return mMediaPlayer.getCurrentPosition();
     }
 
     @Override
     public long getDuration() {
+        if (mMediaPlayer == null) return 0;
         return mMediaPlayer.getDuration();
     }
 

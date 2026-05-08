@@ -353,11 +353,7 @@ public class VlcPlayer extends AbstractPlayer implements MediaPlayer.EventListen
                 if (mMediaPlayer.getMedia() == null && mMedia != null) {
                     mMediaPlayer.setMedia(mMedia);
                 }
-                if (mViewsAttached) {
-                    mMediaPlayer.play();
-                } else {
-                    mMediaPlayer.play();
-                }
+                mMediaPlayer.play();
             } catch (Exception e) {
                 Log.w(TAG, "Error starting player", e);
                 if (mPlayerEventListener != null) {
