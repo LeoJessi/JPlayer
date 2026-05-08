@@ -10,6 +10,7 @@ android {
     defaultConfig {
         minSdkVersion project.ext.minSdkVersion
         targetSdkVersion project.ext.targetSdkVersion
+        consumerProguardFiles 'consumer-proguard-rules.pro'
     }
 }
 
