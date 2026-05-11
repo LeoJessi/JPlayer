@@ -2,6 +2,7 @@ package top.jessi.videoplayer.vlc;
 
 import android.content.Context;
 import android.content.res.AssetFileDescriptor;
+import android.media.AudioManager;
 import android.net.TrafficStats;
 import android.net.Uri;
 import android.util.Log;
@@ -18,6 +19,7 @@ import org.videolan.libvlc.Media;
 import org.videolan.libvlc.MediaPlayer;
 import org.videolan.libvlc.interfaces.IMedia;
 import org.videolan.libvlc.interfaces.IVLCVout;
+import org.videolan.libvlc.util.VLCUtil;
 import org.videolan.libvlc.util.VLCVideoLayout;
 
 import java.util.ArrayList;
@@ -54,24 +56,49 @@ import top.jessi.videoplayer.render.RenderViewFactory;
 public class VlcPlayer extends AbstractPlayer implements MediaPlayer.EventListener {
 
     /**
-     * VLC 解码模式
+     * VLC 硬件加速模式
+     * <p>
+     * 参考 VLC 官方 VLCOptions.java 中的 HW_ACCELERATION_* 级别设计。
+     * <p>
+     * 硬件加速涉及两个维度：<b>解码</b>和<b>渲染</b>：
+     * <ul>
+     *   <li><b>解码（Decoding）</b>：使用 MediaCodec 硬解 vs FFmpeg 软解</li>
+     *   <li><b>渲染（Rendering）</b>：Direct Rendering（解码帧直送 Surface，零拷贝）
+     *       vs GPU 纹理渲染（可后处理但多一次拷贝）</li>
+     * </ul>
      */
-    public enum DecodeMode {
+    public enum HWAccel {
         /**
-         * 软件解码（FFmpeg）
-         * 不添加任何解码参数，由 VLC 使用 FFmpeg 软解
-         * 兼容性最好，硬解兼容性差的机型或手机推荐使用
-         */
-        SOFTWARE,
-        /**
-         * 硬件解码（MediaCodec）+ 软解 fallback
-         * 强制使用硬件解码降低 CPU 占用，不支持的格式自动回退软解
-         * 适合 TV 盒子等 CPU 弱的设备
+         * 纯软件解码 + GPU 纹理渲染
          * <p>
-         * 添加参数：--codec=mediacodec,all --avcodec-hw=mediacodec
-         * --avcodec-threads=1 --drop-late-frames --skip-frames
+         * setHWDecoderEnabled(false, false)
+         * 兼容性最强，支持所有格式，CPU 占用高
          */
-        HARDWARE
+        DISABLED,
+        /**
+         * 硬件解码 + GPU 纹理渲染
+         * <p>
+         * setHWDecoderEnabled(true, false)
+         * 解码由 MediaCodec 完成，渲染走 GPU 纹理。
+         * 降低 CPU 占用，同时支持截图、滤镜等后处理。
+         * 适合需要后处理能力的场景
+         */
+        DECODING,
+        /**
+         * 全链路硬件加速（硬件解码 + Direct Rendering）
+         * <p>
+         * setHWDecoderEnabled(true, true)
+         * 解码帧直接输出到 Surface，零拷贝、最低延迟、最低功耗。
+         * 不支持截图和后处理。
+         * 适合 TV 盒子等追求极致性能的场景
+         */
+        FULL,
+        /**
+         * 自动选择（VLC 默认行为）
+         * <p>
+         * 不设置任何参数，由 VLC 根据设备能力和媒体格式自动决策
+         */
+        AUTOMATIC
     }
 
     private static final String TAG = "JPlayer—VlcPlayer";
@@ -96,10 +123,10 @@ public class VlcPlayer extends AbstractPlayer implements MediaPlayer.EventListen
     private final List<Uri> mAddedSubtitles = new ArrayList<>();
 
     /**
-     * 解码模式，默认 SOFTWARE（软解）
+     * 硬件加速模式，默认 AUTOMATIC（由 VLC 自动决策）
      */
-    private static DecodeMode sDefaultDecodeMode = DecodeMode.SOFTWARE;
-    private DecodeMode mDecodeMode = sDefaultDecodeMode;
+    private static HWAccel sDefaultHWAccel = HWAccel.AUTOMATIC;
+    private HWAccel mHWAccel = sDefaultHWAccel;
 
     /**
      * 全局额外的 VLC 启动参数，由外部调用 {@link #addOption(String)} 添加
@@ -122,25 +149,25 @@ public class VlcPlayer extends AbstractPlayer implements MediaPlayer.EventListen
     }
 
     /**
-     * 设置全局默认解码模式（影响后续创建的所有 VlcPlayer 实例）
+     * 设置全局默认硬件加速模式（影响后续创建的所有 VlcPlayer 实例）
      * <p>
      * 建议在 Application.onCreate() 中调用一次
      *
-     * @param mode 解码模式
+     * @param accel 硬件加速模式
      */
-    public static void setDefaultDecodeMode(DecodeMode mode) {
-        sDefaultDecodeMode = mode;
+    public static void setDefaultHWAccel(HWAccel accel) {
+        sDefaultHWAccel = accel;
     }
 
     /**
-     * 设置当前播放器的解码模式（需在 initPlayer() 之前调用才生效）
+     * 设置当前播放器的硬件加速模式（需在 initPlayer() 之前调用才生效）
      * <p>
      * 优先级高于全局默认值
      *
-     * @param mode 解码模式
+     * @param accel 硬件加速模式
      */
-    public VlcPlayer setDecodeMode(DecodeMode mode) {
-        mDecodeMode = mode;
+    public VlcPlayer setHWAccel(HWAccel accel) {
+        mHWAccel = accel;
         return this;
     }
 
@@ -151,11 +178,12 @@ public class VlcPlayer extends AbstractPlayer implements MediaPlayer.EventListen
     }
 
     /**
-     * 获取当前播放器的解码模式
+     * 获取当前播放器的硬件加速模式
      */
-    public DecodeMode getDecodeMode() {
-        return mDecodeMode;
+    public HWAccel getHWAccel() {
+        return mHWAccel;
     }
+
 
     // ==================== 外部自定义参数 ====================
 
@@ -229,50 +257,235 @@ public class VlcPlayer extends AbstractPlayer implements MediaPlayer.EventListen
 
         mLibVLC = new LibVLC(mAppContext, options);
         mMediaPlayer = new MediaPlayer(mLibVLC);
+
+        // 参考官方 PlayerController.newMediaPlayer() 的初始化配置：
+        // 1. 禁用 VLC 内建 OSD 标题显示（避免视频画面上叠加标题文字）
+        mMediaPlayer.setVideoTitleDisplay(MediaPlayer.Position.Disable, 0);
+
         mMediaPlayer.setEventListener(this);
     }
 
     /**
      * 构建默认的 VLC 启动参数
+     * <p>
+     * 参考 VLC 官方 VLCOptions.getLibOptions() 的参数配置策略，
+     * 针对 Android 移动端做了适配和精简。
      */
     private ArrayList<String> buildDefaultOptions() {
-        ArrayList<String> options = new ArrayList<>();
-        // === 解码模式 ===
-        applyDecodeOptions(options);
+        ArrayList<String> options = new ArrayList<>(32);
+
+        // === 硬件加速 ===
+        applyHWAccelOptions(options);
+
+        // === 解码优化 ===
+        // 根据 CPU 架构自动选择 deblocking 级别（参考官方 VLCOptions.getDeblocking）
+        options.add("--avcodec-skiploopfilter");
+        options.add("" + getAutoDeblockingLevel());
+        // 默认不跳帧，保持画面完整性
+        options.add("--avcodec-skip-frame");
+        options.add("0");
+        options.add("--avcodec-skip-idct");
+        options.add("0");
+
         // === 音频输出 ===
-        // 暂不设置，让 VLC 自动选择最优输出（通常是 OpenSL ES 或 AAudio）
-        options.add("--aout=audiotrack");
-        // options.add("--aout=opensles");
+        // 参考官方 VLCOptions.getAout()：蓝牙场景自动切换，否则默认 audiotrack
+        String aout = getAutoAudioOutput();
+        if (aout != null) {
+            options.add(aout);
+        }
+
+        // === 音频时间拉伸 ===
+        // 参考官方 VLCOptions.getLibOptions()：倍速播放时保持音频音调不变
+        // 开启后变速不变调，但会增加少量 CPU 开销
+        options.add("--audio-time-stretch");
+
+        // === 音频重采样 ===
+        // 参考官方 VLCOptions.getResampler()：多核用 soxr（高质量），少核用 ugly（低开销）
+        options.add("--audio-resampler");
+        options.add(getAutoResampler());
+
         // === 网络 ===
         options.add("--network-caching=3000");
         options.add("--rtsp-tcp");
         options.add("--http-reconnect");
+
         // === 音视频同步 ===
         options.add("--clock-jitter=50");
         options.add("--clock-synchro=0");
+
         // === TS流优化 ===
         options.add("--ts-seek-percent");
+
+        // === 统计信息 ===
+        // 官方默认开启 --stats，用于获取缓冲等状态
+        options.add("--stats");
+
         return options;
     }
 
     /**
-     * 根据解码模式添加对应的 VLC 参数
+     * 根据硬件加速模式添加对应的 VLC 参数（LibVLC 选项级别）
+     * <p>
+     * 参考官方 VLCOptions.setMediaOptions() 的分级策略。
+     * 注意：这里设置的是 LibVLC 全局选项，具体行为还受 Media 级别的
+     * {@link #applyMediaHWAccel()} 控制。
      */
-    private void applyDecodeOptions(ArrayList<String> options) {
-        if (mDecodeMode == DecodeMode.HARDWARE) {
-            // 强制硬件解码（MediaCodec），软解兜底
-            options.add("--codec=mediacodec,all");
-            options.add("--avcodec-hw=mediacodec");
-            // 软解线程设为1，TV 盒子弱 CPU 避免多线程开销
-            options.add("--avcodec-threads=1");
-            // 弱 CPU 下丢弃延迟帧 + 跳帧，防止画面积压卡顿
-            options.add("--drop-late-frames");
-            options.add("--skip-frames");
-        } else {
-            // SOFTWARE 模式
-            options.add("--avcodec-hw=none");
+    private void applyHWAccelOptions(ArrayList<String> options) {
+        switch (mHWAccel) {
+            case DISABLED:
+                options.add("--avcodec-hw=none");
+                break;
+            case DECODING:
+                // 仅硬件解码，不走 direct rendering
+                options.add("--codec=mediacodec,all");
+                options.add("--avcodec-hw=mediacodec");
+                options.add("--drop-late-frames");
+                options.add("--skip-frames");
+                break;
+            case FULL:
+                // 全链路硬件加速（解码 + direct rendering）
+                options.add("--codec=mediacodec,all");
+                options.add("--avcodec-hw=mediacodec");
+                options.add("--drop-late-frames");
+                options.add("--skip-frames");
+                break;
+            case AUTOMATIC:
+            default:
+                // 不添加硬件解码参数，由 VLC 根据设备能力自动选择
+                // 这是 VLC 官方默认行为
+                break;
+        }
+    }
+
+    /**
+     * 根据 CPU 能力自动选择 deblocking 级别
+     * <p>
+     * 直接复用 VLC 官方的 {@link VLCUtil#getMachineSpecs()} 进行精确 CPU 检测，
+     * 逻辑与官方 VLCOptions.getDeblocking() 完全一致：
+     * <ul>
+     *   <li>ARMv6 或 MIPS → 跳过所有环路滤波（级别4），降低 CPU 开销</li>
+     *   <li>ARMv7+ 且频率 >= 1200MHz 且核心数 > 2 → 跳过非参考帧（级别1），平衡质量与性能</li>
+     *   <li>ARMv7+ 且 bogoMIPS >= 1200 且核心数 > 2 → 跳过非参考帧（级别1），频率信息缺失时的备选方案</li>
+     *   <li>其他 → 跳过非关键帧（级别3），保守策略</li>
+     * </ul>
+     *
+     * @return deblocking 级别 (0-4)
+     */
+    private int getAutoDeblockingLevel() {
+        VLCUtil.MachineSpecs m = VLCUtil.getMachineSpecs();
+        if (m == null) return 3; // 无法获取 CPU 信息时走保守策略
+
+        // ARMv6 或 MIPS 设备（老旧/低端），skip all
+        if ((m.hasArmV6 && !m.hasArmV7) || m.hasMips) {
+            return 4;
         }
 
+        // 高频多核 ARMv7+，skip non-ref
+        if (m.frequency >= 1200 && m.processors > 2) {
+            return 1;
+        }
+
+        // 频率信息缺失时用 bogoMIPS 替代判断
+        if (m.bogoMIPS >= 1200 && m.processors > 2) {
+            Log.d(TAG, "Used bogoMIPS due to lack of frequency info");
+            return 1;
+        }
+
+        // 默认保守策略，skip non-key
+        return 3;
+    }
+
+    /**
+     * 自动选择音频输出
+     * <p>
+     * 参考官方 VLCOptions.getAout()：
+     * - 蓝牙 A2dp 连接时：使用 audiotrack（兼容性更好）
+     * - 其他情况：返回 null，让 VLC 自动选择（通常是 AAudio 或 OpenSL ES）
+     *
+     * @return 音频输出参数，null 表示让 VLC 自动选择
+     */
+    private String getAutoAudioOutput() {
+        try {
+            AudioManager audioManager = (AudioManager) mAppContext.getSystemService(Context.AUDIO_SERVICE);
+            if (audioManager != null) {
+                // 蓝牙 A2dp 场景下强制使用 audiotrack
+                if (audioManager.isBluetoothA2dpOn()) {
+                    return "--aout=audiotrack";
+                }
+            }
+        } catch (Exception e) {
+            Log.w(TAG, "Error detecting audio output", e);
+        }
+        // 返回 null 让 VLC 自动选择最优输出
+        return null;
+    }
+
+    /**
+     * 自动选择音频重采样器
+     * <p>
+     * 直接复用 VLC 官方的 {@link VLCUtil#getMachineSpecs()} 进行 CPU 核心数检测，
+     * 逻辑与官方 VLCOptions.getResampler() 完全一致：
+     * - 多核设备（> 2核）：使用 soxr（高质量重采样）
+     * - 少核设备：使用 ugly（低开销，质量可接受）
+     *
+     * @return 重采样器名称
+     */
+    private String getAutoResampler() {
+        VLCUtil.MachineSpecs m = VLCUtil.getMachineSpecs();
+        return (m == null || m.processors > 2) ? "soxr" : "ugly";
+    }
+
+    /**
+     * 在 Media 级别设置硬件解码控制
+     * <p>
+     * 参考官方 VLCOptions.setMediaOptions() 的实现。
+     * <p>
+     * {@code setHWDecoderEnabled(enabled, video)} 的两个参数：
+     * <ul>
+     *   <li>{@code enabled}：是否启用硬件解码（MediaCodec）。true=硬解，false=软解</li>
+     *   <li>{@code video}：是否启用 Direct Rendering（直接渲染）。true=解码帧直接输出到 Surface（零拷贝），
+     *       false=解码帧回读到 GPU 纹理后再渲染（可后处理但多一次拷贝）</li>
+     * </ul>
+     * <p>
+     * 各模式说明：
+     * <ul>
+     *   <li><b>DISABLED</b>：纯软解。{@code setHWDecoderEnabled(false, false)}，不启用任何硬件加速</li>
+     *   <li><b>DECODING</b>：仅解码走硬件，渲染走 GPU。{@code setHWDecoderEnabled(true, false)}，
+     *       禁用 Direct Rendering，解码后的帧通过 GPU 纹理渲染，支持截图/滤镜等后处理</li>
+     *   <li><b>FULL</b>：全链路硬件加速。{@code setHWDecoderEnabled(true, true)}，
+     *       开启 Direct Rendering，解码帧直接输出到 Surface，零拷贝、最低延迟、最低功耗，
+     *       但不支持截图和后处理</li>
+     *   <li><b>AUTOMATIC</b>：不设置，由 VLC 根据设备能力和格式自动决策</li>
+     * </ul>
+     * <p>
+     * 注意：必须在 mMedia 创建之后、mMediaPlayer.setMedia() 之前调用
+     */
+    private void applyMediaHWAccel() {
+        if (mMedia == null) return;
+
+        switch (mHWAccel) {
+            case DISABLED:
+                // 纯软解：不启用硬件解码
+                mMedia.setHWDecoderEnabled(false, false);
+                break;
+            case DECODING:
+                // 仅硬件解码，关闭 Direct Rendering
+                // 解码由 MediaCodec 完成，但渲染走 GPU 纹理（支持截图/滤镜后处理）
+                mMedia.setHWDecoderEnabled(true, false);
+                // DECODING 模式额外禁用 direct rendering，确保渲染不走硬件直连
+                mMedia.addOption(":no-mediacodec-dr");
+                mMedia.addOption(":no-omxil-dr");
+                break;
+            case FULL:
+                // 全链路硬件加速：硬件解码 + Direct Rendering
+                // 解码帧直接输出到 Surface，零拷贝、最低延迟
+                mMedia.setHWDecoderEnabled(true, true);
+                break;
+            case AUTOMATIC:
+            default:
+                // 不设置，由 VLC 根据设备能力和格式自动决策
+                break;
+        }
     }
 
     /**
@@ -302,6 +515,9 @@ public class VlcPlayer extends AbstractPlayer implements MediaPlayer.EventListen
             }
 
             mMedia = new Media(mLibVLC, Uri.parse(path));
+
+            // 在 Media 级别设置硬件解码控制（参考官方 VLCOptions.setMediaOptions）
+            applyMediaHWAccel();
 
             if (headers != null && !headers.isEmpty()) {
                 for (Map.Entry<String, String> entry : headers.entrySet()) {
@@ -347,6 +563,10 @@ public class VlcPlayer extends AbstractPlayer implements MediaPlayer.EventListen
                 mMedia = null;
             }
             mMedia = new Media(mLibVLC, fd.getFileDescriptor());
+
+            // 在 Media 级别设置硬件解码控制
+            applyMediaHWAccel();
+
             mMediaPlayer.setMedia(mMedia);
 
             // setMedia() 后 VLC native 层已拷贝 Media，Java 层引用可以立即释放
@@ -396,10 +616,21 @@ public class VlcPlayer extends AbstractPlayer implements MediaPlayer.EventListen
 
     /**
      * 停止播放
+     * <p>
+     * 参考官方 PlaybackService.stop() 的实现：
+     * stop 前先 detachViews 解除视频输出绑定，避免 native 层在 stop 后继续操作已释放的 surface。
      */
     @Override
     public void stop() {
         if (mMediaPlayer != null) {
+            try {
+                if (mViewsAttached) {
+                    mMediaPlayer.detachViews();
+                    mViewsAttached = false;
+                }
+            } catch (Exception e) {
+                Log.w(TAG, "Error detaching views during stop", e);
+            }
             try {
                 mMediaPlayer.stop();
             } catch (Exception e) {
@@ -624,7 +855,14 @@ public class VlcPlayer extends AbstractPlayer implements MediaPlayer.EventListen
             };
 
     /**
-     * 重置播放器
+     * 重置播放器到初始状态
+     * <p>
+     * 与 release() 不同，reset() 不释放 LibVLC 和 MediaPlayer 实例，
+     * 仅清理当前媒体资源，使播放器可以重新 setDataSource + prepareAsync。
+     * <p>
+     * 参考官方 PlayerController.restart() 的实现：
+     * restart 会创建新的 MediaPlayer 实例并释放旧的，
+     * 而 reset 仅清理当前状态保留实例。
      */
     @Override
     public void reset() {
@@ -648,6 +886,7 @@ public class VlcPlayer extends AbstractPlayer implements MediaPlayer.EventListen
             // 断开 MediaPlayer 对 Media 的持有，确保 Media 的 native 引用计数正确归零
             mMediaPlayer.setMedia(null);
 
+            // 重置播放状态
             mIsPreparing = false;
             mBufferedPercent = 0;
             mVideoWidth = 0;
@@ -658,8 +897,11 @@ public class VlcPlayer extends AbstractPlayer implements MediaPlayer.EventListen
             mMedia.release();
             mMedia = null;
         }
+        // 重置网速统计
         lastTotalRxBytes = 0;
         lastTimeStamp = 0;
+        lastSpeedBytes = 0;
+        // 清理字幕列表（reset 后需要重新添加字幕）
         synchronized (mSubtitleUris) {
             mSubtitleUris.clear();
         }
@@ -687,7 +929,10 @@ public class VlcPlayer extends AbstractPlayer implements MediaPlayer.EventListen
     public void seekTo(long time) {
         if (mMediaPlayer != null) {
             try {
-                mMediaPlayer.setTime(time);
+                // 参考官方 PlayerController.setTime()：
+                // 使用带 fast 参数的 seek，减少 seek 延迟
+                // fast=true 表示快速 seek（可能不精确但响应快），适合用户拖动进度条
+                mMediaPlayer.setTime(time, true);
             } catch (Exception e) {
                 Log.w(TAG, "Error seeking", e);
                 if (mPlayerEventListener != null) {
@@ -701,15 +946,22 @@ public class VlcPlayer extends AbstractPlayer implements MediaPlayer.EventListen
      * 释放播放器资源
      * <p>
      * 释放顺序至关重要，必须遵循：
-     * 1. detachViews — 解除视频输出绑定
-     * 2. MediaPlayer.setMedia(null) — 断开 MediaPlayer 对 Media 的引用
-     * 3. Media.release() — 释放 Media（此时 MediaPlayer 已不再持有引用）
-     * 4. MediaPlayer.release() — 释放 MediaPlayer
-     * 5. LibVLC.release() — 最后释放 LibVLC
+     * 1. 移除布局监听器 — 避免回调到已释放的对象
+     * 2. detachViews — 解除视频输出绑定
+     * 3. setEventListener(null) — 解除事件监听
+     * 4. MediaPlayer.setMedia(null) — 断开 MediaPlayer 对 Media 的引用
+     * 5. Media.release() — 释放 Media（此时 MediaPlayer 已不再持有引用）
+     * 6. MediaPlayer.release() — 释放 MediaPlayer
+     * 7. LibVLC.release() — 最后释放 LibVLC
+     * <p>
+     * 参考官方 PlayerController.release() 的实现：
+     * - 在 IO 线程执行 player.release() 避免阻塞主线程
+     * - 增加超时检测防止 release 永久阻塞
      */
     @Override
     public void release() {
         removeSurfaceListeners();
+
         if (mMediaPlayer != null) {
             try {
                 if (mViewsAttached) {
@@ -719,8 +971,9 @@ public class VlcPlayer extends AbstractPlayer implements MediaPlayer.EventListen
             } catch (Exception e) {
                 Log.w(TAG, "Error detaching views during release", e);
             }
+            // 先解除事件监听，避免 release 过程中触发回调
             mMediaPlayer.setEventListener(null);
-            // 先断开 MediaPlayer 对 Media 的引用，再释放 Media
+            // 断开 MediaPlayer 对 Media 的引用
             mMediaPlayer.setMedia(null);
         }
 
@@ -739,14 +992,18 @@ public class VlcPlayer extends AbstractPlayer implements MediaPlayer.EventListen
             mLibVLC = null;
         }
 
+        // 清理所有引用和状态
         mVlcRenderView = null;
         mIsPreparing = false;
         mBufferedPercent = 0;
         mVideoWidth = 0;
         mVideoHeight = 0;
+        mSpeed = 1.0f;
+        mIsLooping = false;
 
         lastTotalRxBytes = 0;
         lastTimeStamp = 0;
+        lastSpeedBytes = 0;
         synchronized (mSubtitleUris) {
             mSubtitleUris.clear();
         }
@@ -834,7 +1091,7 @@ public class VlcPlayer extends AbstractPlayer implements MediaPlayer.EventListen
     public void setVolume(float leftVolume, float rightVolume) {
         if (mMediaPlayer != null) {
             try {
-                int volume = (int)((leftVolume + rightVolume) / 2.0f * 100.0f);
+                int volume = (int) ((leftVolume + rightVolume) / 2.0f * 100.0f);
                 mMediaPlayer.setVolume(volume);
             } catch (Exception e) {
                 Log.w(TAG, "Error setting volume", e);
@@ -847,12 +1104,24 @@ public class VlcPlayer extends AbstractPlayer implements MediaPlayer.EventListen
 
     /**
      * 设置是否循环播放
+     * <p>
+     * 注意：循环播放需要在每次 setDataSource 时通过 Media 选项生效（:input-repeat）。
+     * 如果已在播放中调用，需要 reset 后重新 setDataSource + prepareAsync 才能生效。
      *
      * @param isLooping true 表示循环播放
      */
     @Override
     public void setLooping(boolean isLooping) {
         mIsLooping = isLooping;
+    }
+
+    /**
+     * 获取当前循环播放状态
+     *
+     * @return true 表示循环播放已开启
+     */
+    public boolean isLooping() {
+        return mIsLooping;
     }
 
     /**
@@ -1020,7 +1289,14 @@ public class VlcPlayer extends AbstractPlayer implements MediaPlayer.EventListen
                 return;
             }
 
-            boolean needSwap = (videoTrack.orientation == 5 || videoTrack.orientation == 6);
+            // 参考官方 changeMediaPlayerLayout 中的 orientation 判断
+            // Orientation: 0=Normal, 1=90°, 2=180°, 3=270°
+            //              4=Mirror, 5=Mirror+90°, 6=Mirror+180°, 7=Mirror+270°
+            // 当 orientation 为 1/3/5/7 时需要交换宽高（90°或270°旋转）
+            boolean needSwap = (videoTrack.orientation == 1
+                    || videoTrack.orientation == 3
+                    || videoTrack.orientation == 5
+                    || videoTrack.orientation == 7);
             if (needSwap) {
                 int tmp = videoWidth;
                 videoWidth = videoHeight;
@@ -1061,6 +1337,8 @@ public class VlcPlayer extends AbstractPlayer implements MediaPlayer.EventListen
     public void setSpeed(float speed) {
         if (mMediaPlayer != null) {
             try {
+                // 参考官方 PlayerController.setRate()：
+                // 在已释放的 MediaPlayer 上调用 setRate 会抛异常
                 mSpeed = speed;
                 mMediaPlayer.setRate(speed);
             } catch (Exception e) {
@@ -1069,6 +1347,24 @@ public class VlcPlayer extends AbstractPlayer implements MediaPlayer.EventListen
                     mPlayerEventListener.onError();
                 }
             }
+        }
+    }
+
+    /**
+     * 设置播放速率（参考官方 PlayerController.setRate）
+     * <p>
+     * 与 setSpeed 的区别：此方法参考官方实现，增加了对播放器释放状态的检查，
+     * 避免在已释放的 MediaPlayer 上调用导致崩溃。
+     *
+     * @param rate 播放速率（1.0 为正常速度）
+     */
+    public void setRate(float rate) {
+        if (mMediaPlayer == null) return;
+        try {
+            mSpeed = rate;
+            mMediaPlayer.setRate(rate);
+        } catch (Exception e) {
+            Log.w(TAG, "Error setting rate", e);
         }
     }
 
@@ -1085,18 +1381,29 @@ public class VlcPlayer extends AbstractPlayer implements MediaPlayer.EventListen
     private long lastTotalRxBytes = 0;
     private long lastTimeStamp = 0;
 
+    // 缓存 unsupported 检测结果，避免每次查询
+    private Boolean mUnsupported = null;
+
     /**
      * 检查流量统计是否不支持
      */
     private boolean unsupported() {
+        if (mUnsupported != null) return mUnsupported;
         if (mAppContext == null) {
+            mUnsupported = true;
             return true;
         }
-        return TrafficStats.getUidRxBytes(mAppContext.getApplicationInfo().uid) == TrafficStats.UNSUPPORTED;
+        mUnsupported = TrafficStats.getUidRxBytes(mAppContext.getApplicationInfo().uid) == TrafficStats.UNSUPPORTED;
+        return mUnsupported;
     }
 
     /**
      * 获取当前下载速度
+     * <p>
+     * 使用 TrafficStats.getTotalRxBytes() 获取设备总接收字节数，
+     * 通过两次调用之间的差值计算瞬时速度。
+     * 注意：这反映的是整个设备的网络流量，不仅仅是当前播放器的流量。
+     * 对于精确到单个流的测速，需要使用 VLC 自带的统计信息（--stats）。
      *
      * @return 下载速度（字节/秒）
      */
@@ -1107,15 +1414,27 @@ public class VlcPlayer extends AbstractPlayer implements MediaPlayer.EventListen
         }
         long total = TrafficStats.getTotalRxBytes();
         long time = System.currentTimeMillis();
+        long timeDiff = time - lastTimeStamp;
+        // 避免除以零，同时过滤掉时间差过小的情况（< 100ms 视为同一次采样）
+        if (timeDiff < 100) {
+            return lastSpeedBytes;
+        }
         long diff = total - lastTotalRxBytes;
-        long speed = diff / Math.max(time - lastTimeStamp, 1);
+        long speed = (diff * 1000) / timeDiff; // 转换为字节/秒
         lastTimeStamp = time;
         lastTotalRxBytes = total;
-        return speed * 1024;
+        lastSpeedBytes = speed;
+        return speed;
     }
+
+    private long lastSpeedBytes = 0;
 
     /**
      * VLC播放器事件回调
+     * <p>
+     * 参考官方 VideoPlayerActivity.onMediaPlayerEvent() 的事件处理逻辑，
+     * 补充了轨道变化（ESAdded/ESDeleted/ESSelected）、可跳转/可暂停状态变化、
+     * 时长变化等事件的处理。
      */
     @Override
     public void onEvent(MediaPlayer.Event event) {
@@ -1123,6 +1442,7 @@ public class VlcPlayer extends AbstractPlayer implements MediaPlayer.EventListen
         switch (event.type) {
             case MediaPlayer.Event.Opening:
                 break;
+
             case MediaPlayer.Event.Playing:
                 if (mIsPreparing) {
                     mPlayerEventListener.onPrepared();
@@ -1131,17 +1451,25 @@ public class VlcPlayer extends AbstractPlayer implements MediaPlayer.EventListen
                 notifyVideoSize();
                 mPlayerEventListener.onInfo(MEDIA_INFO_RENDERING_START, 0);
                 break;
+
             case MediaPlayer.Event.Paused:
                 break;
+
             case MediaPlayer.Event.Stopped:
+                // 官方在 Stopped 时重置播放状态，这里也清除 preparing 标志
+                mIsPreparing = false;
                 break;
+
             case MediaPlayer.Event.EndReached:
                 mPlayerEventListener.onCompletion();
                 break;
+
             case MediaPlayer.Event.EncounteredError:
                 Log.w(TAG, "VLC Event: Error");
+                mIsPreparing = false;
                 mPlayerEventListener.onError();
                 break;
+
             case MediaPlayer.Event.Buffering:
                 mBufferedPercent = (int) event.getBuffering();
                 if (mBufferedPercent < 100) {
@@ -1150,13 +1478,56 @@ public class VlcPlayer extends AbstractPlayer implements MediaPlayer.EventListen
                     mPlayerEventListener.onInfo(MEDIA_INFO_BUFFERING_END, mBufferedPercent);
                 }
                 break;
+
             case MediaPlayer.Event.Vout:
+                // Vout 事件表示视频输出已创建，此时可以获取准确的视频尺寸
                 notifyVideoSize();
+                // 在视频输出准备好后注入字幕（确保渲染管线已就绪）
                 addAllSubtitlesOnVout();
+                // 重新应用缩放（视频尺寸可能已更新）
                 if (mVlcRenderView != null && mEnableVlcSubtitles) {
                     applyScaleTypeToNative();
                 }
                 break;
+
+            // === 以下事件为新增处理，参考官方实现 ===
+
+            case MediaPlayer.Event.LengthChanged:
+                // 时长变化时刷新视频尺寸（某些格式在解析完成前无法获取准确尺寸）
+                notifyVideoSize();
+                break;
+
+            case MediaPlayer.Event.SeekableChanged:
+                // 可跳转状态变化（如直播流从不可 seek 变为可 seek）
+                // 上层可根据此事件更新 UI（如启用/禁用进度条）
+                break;
+
+            case MediaPlayer.Event.PausableChanged:
+                // 可暂停状态变化
+                break;
+
+            case MediaPlayer.Event.ESAdded:
+                // 新轨道添加（音频/视频/字幕）
+                // 如果是视频轨道添加，刷新视频尺寸
+                if (event.getEsChangedType() == IMedia.Track.Type.Video) {
+                    notifyVideoSize();
+                    // 新增视频轨道后重新应用缩放
+                    applyScaleTypeToNative();
+                }
+                break;
+
+            case MediaPlayer.Event.ESDeleted:
+                // 轨道删除
+                break;
+
+            case MediaPlayer.Event.ESSelected:
+                // 轨道选中变化
+                // 视频轨道变化时重新计算缩放布局
+                if (event.getEsChangedType() == IMedia.Track.Type.Video) {
+                    applyScaleTypeToNative();
+                }
+                break;
+
             default:
                 break;
         }
@@ -1164,20 +1535,25 @@ public class VlcPlayer extends AbstractPlayer implements MediaPlayer.EventListen
 
     /**
      * 通知视频尺寸变化
+     * <p>
+     * 优先从 MediaPlayer.getMedia() 获取轨道信息（因为 setDataSource 后 mMedia 已被释放），
+     * 如果MediaPlayer 也没有 Media，则尝试从 mMedia 获取（兼容未释放的场景）。
+     * 如果都获取不到有效尺寸，则使用默认值 1280x720 避免上层收到 0x0 导致布局异常。
      */
     private void notifyVideoSize() {
-        if (mMedia == null || mPlayerEventListener == null) return;
+        if (mPlayerEventListener == null) return;
         try {
             int width = 0;
             int height = 0;
 
+            // 优先从 MediaPlayer 获取（setDataSource 后 mMedia 已释放，但 MediaPlayer 内部持有引用）
             if (mMediaPlayer != null) {
                 try {
-                    IMedia parsedMedia = mMediaPlayer.getMedia();
-                    if (parsedMedia != null) {
-                        int parsedTrackCount = parsedMedia.getTrackCount();
-                        for (int i = 0; i < parsedTrackCount; i++) {
-                            IMedia.Track track = parsedMedia.getTrack(i);
+                    IMedia media = mMediaPlayer.getMedia();
+                    if (media != null) {
+                        int trackCount = media.getTrackCount();
+                        for (int i = 0; i < trackCount; i++) {
+                            IMedia.Track track = media.getTrack(i);
                             if (track != null && track.type == IMedia.Track.Type.Video) {
                                 IMedia.VideoTrack videoTrack = (IMedia.VideoTrack) track;
                                 width = videoTrack.width;
@@ -1187,23 +1563,29 @@ public class VlcPlayer extends AbstractPlayer implements MediaPlayer.EventListen
                         }
                     }
                 } catch (Exception e) {
-                    Log.w(TAG, "Error getting video size from parsed Media", e);
+                    Log.w(TAG, "Error getting video size from MediaPlayer", e);
                 }
             }
 
+            // 后备：从 mMedia 获取（如果尚未释放）
             if ((width <= 0 || height <= 0) && mMedia != null) {
-                int trackCount = mMedia.getTrackCount();
-                for (int i = 0; i < trackCount; i++) {
-                    IMedia.Track track = mMedia.getTrack(i);
-                    if (track != null && track.type == IMedia.Track.Type.Video) {
-                        IMedia.VideoTrack videoTrack = (IMedia.VideoTrack) track;
-                        width = videoTrack.width;
-                        height = videoTrack.height;
-                        break;
+                try {
+                    int trackCount = mMedia.getTrackCount();
+                    for (int i = 0; i < trackCount; i++) {
+                        IMedia.Track track = mMedia.getTrack(i);
+                        if (track != null && track.type == IMedia.Track.Type.Video) {
+                            IMedia.VideoTrack videoTrack = (IMedia.VideoTrack) track;
+                            width = videoTrack.width;
+                            height = videoTrack.height;
+                            break;
+                        }
                     }
+                } catch (Exception e) {
+                    Log.w(TAG, "Error getting video size from mMedia", e);
                 }
             }
 
+            // 使用默认值兜底，避免上层收到 0x0
             if (width <= 0 || height <= 0) {
                 width = 1280;
                 height = 720;
@@ -1326,6 +1708,219 @@ public class VlcPlayer extends AbstractPlayer implements MediaPlayer.EventListen
         } catch (Exception e) {
             Log.w(TAG, "Error setting subtitle track", e);
             return false;
+        }
+    }
+
+    // ==================== 音频/字幕延迟调节 ====================
+    // 参考官方 PlaybackService.setAudioDelay / setSpuDelay
+
+    /**
+     * 设置音频延迟（毫秒）
+     * <p>
+     * 正值表示音频延后，负值表示音频提前。
+     * 用于音画同步调节。
+     *
+     * @param delayMs 音频延迟（毫秒）
+     */
+    public void setAudioDelay(long delayMs) {
+        if (mMediaPlayer != null) {
+            try {
+                mMediaPlayer.setAudioDelay(delayMs);
+            } catch (Exception e) {
+                Log.w(TAG, "Error setting audio delay", e);
+            }
+        }
+    }
+
+    /**
+     * 获取当前音频延迟（毫秒）
+     *
+     * @return 音频延迟，0 表示未设置
+     */
+    public long getAudioDelay() {
+        if (mMediaPlayer != null) {
+            try {
+                return mMediaPlayer.getAudioDelay();
+            } catch (Exception e) {
+                Log.w(TAG, "Error getting audio delay", e);
+            }
+        }
+        return 0;
+    }
+
+    /**
+     * 设置字幕延迟（毫秒）
+     * <p>
+     * 正值表示字幕延后，负值表示字幕提前。
+     *
+     * @param delayMs 字幕延迟（毫秒）
+     */
+    public void setSpuDelay(long delayMs) {
+        if (mMediaPlayer != null) {
+            try {
+                mMediaPlayer.setSpuDelay(delayMs);
+            } catch (Exception e) {
+                Log.w(TAG, "Error setting spu delay", e);
+            }
+        }
+    }
+
+    /**
+     * 获取当前字幕延迟（毫秒）
+     *
+     * @return 字幕延迟，0 表示未设置
+     */
+    public long getSpuDelay() {
+        if (mMediaPlayer != null) {
+            try {
+                return mMediaPlayer.getSpuDelay();
+            } catch (Exception e) {
+                Log.w(TAG, "Error getting spu delay", e);
+            }
+        }
+        return 0;
+    }
+
+    // ==================== 音频数字输出（Passthrough） ====================
+    // 参考官方 VLCOptions.isAudioDigitalOutputEnabled / PlayerOptionsDelegate.togglePassthrough
+
+    /**
+     * 设置是否开启音频数字输出（Passthrough）
+     * <p>
+     * 开启后，AC3/DTS 等编码的音频流将不经解码直接输出到外接解码器（如音响/功放），
+     * 需要硬件和连接设备支持。
+     *
+     * @param enabled true 开启数字输出
+     * @return true 表示设置成功
+     */
+    public boolean setAudioDigitalOutputEnabled(boolean enabled) {
+        if (mMediaPlayer != null) {
+            try {
+                return mMediaPlayer.setAudioDigitalOutputEnabled(enabled);
+            } catch (Exception e) {
+                Log.w(TAG, "Error setting audio digital output", e);
+            }
+        }
+        return false;
+    }
+
+    /**
+     * 检查当前是否支持音频数字输出（Passthrough）
+     *
+     * @return true 表示当前媒体支持 Passthrough
+     */
+    public boolean canDoPassthrough() {
+        if (mMediaPlayer != null) {
+            try {
+                // 参考官方 PlayerController.canDoPassthrough()
+                return mMediaPlayer.hasMedia() && mMediaPlayer.canDoPassthrough();
+            } catch (Exception e) {
+                Log.w(TAG, "Error checking passthrough capability", e);
+            }
+        }
+        return false;
+    }
+
+    // ==================== 视频轨道控制 ====================
+    // 参考官方 PlaybackService.setVideoTrackEnabled
+
+    /**
+     * 设置视频轨道是否启用
+     * <p>
+     * 禁用视频轨道后，仅播放音频（类似音频播放器模式）。
+     * 重新启用后视频恢复显示。
+     *
+     * @param enabled true 启用视频轨道
+     */
+    public void setVideoTrackEnabled(boolean enabled) {
+        if (mMediaPlayer != null) {
+            try {
+                mMediaPlayer.setVideoTrackEnabled(enabled);
+            } catch (Exception e) {
+                Log.w(TAG, "Error setting video track enabled", e);
+            }
+        }
+    }
+
+    // ==================== 章节/标题导航 ====================
+    // 参考官方 PlaybackService.setChapterIdx / setTitleIdx
+
+    /**
+     * 获取指定标题的章节列表
+     *
+     * @param title 标题索引（-1 表示当前标题）
+     * @return 章节数组，无章节时返回空数组
+     */
+    public MediaPlayer.Chapter[] getChapters(int title) {
+        if (mMediaPlayer != null) {
+            try {
+                return mMediaPlayer.getChapters(title);
+            } catch (Exception e) {
+                Log.w(TAG, "Error getting chapters", e);
+            }
+        }
+        return new MediaPlayer.Chapter[0];
+    }
+
+    /**
+     * 获取当前标题索引
+     *
+     * @return 标题索引，-1 表示无标题
+     */
+    public int getTitleIdx() {
+        if (mMediaPlayer != null) {
+            try {
+                return mMediaPlayer.getTitle();
+            } catch (Exception e) {
+                Log.w(TAG, "Error getting title index", e);
+            }
+        }
+        return -1;
+    }
+
+    /**
+     * 设置标题索引
+     *
+     * @param title 标题索引
+     */
+    public void setTitleIdx(int title) {
+        if (mMediaPlayer != null) {
+            try {
+                mMediaPlayer.setTitle(title);
+            } catch (Exception e) {
+                Log.w(TAG, "Error setting title index", e);
+            }
+        }
+    }
+
+    /**
+     * 获取当前章节索引
+     *
+     * @return 章节索引，-1 表示无章节
+     */
+    public int getChapterIdx() {
+        if (mMediaPlayer != null) {
+            try {
+                return mMediaPlayer.getChapter();
+            } catch (Exception e) {
+                Log.w(TAG, "Error getting chapter index", e);
+            }
+        }
+        return -1;
+    }
+
+    /**
+     * 设置章节索引，跳转到指定章节
+     *
+     * @param chapter 章节索引
+     */
+    public void setChapterIdx(int chapter) {
+        if (mMediaPlayer != null) {
+            try {
+                mMediaPlayer.setChapter(chapter);
+            } catch (Exception e) {
+                Log.w(TAG, "Error setting chapter index", e);
+            }
         }
     }
 

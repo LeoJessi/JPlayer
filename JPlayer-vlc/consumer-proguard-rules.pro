@@ -8,7 +8,7 @@
 -keep interface top.jessi.videoplayer.vlc.** { *; }
 
 # 保留VLC模块的枚举
--keep enum top.jessi.videoplayer.vlc.VlcPlayer$DecodeMode { *; }
+-keep enum top.jessi.videoplayer.vlc.VlcPlayer$HWAccel { *; }
 
 # 保留VLC模块的内部类
 -keep class top.jessi.videoplayer.vlc.VlcPlayer$* { *; }
