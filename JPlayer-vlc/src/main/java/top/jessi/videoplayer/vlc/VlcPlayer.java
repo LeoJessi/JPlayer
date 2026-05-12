@@ -274,18 +274,16 @@ public class VlcPlayer extends AbstractPlayer implements MediaPlayer.EventListen
     private ArrayList<String> buildDefaultOptions() {
         ArrayList<String> options = new ArrayList<>(32);
 
-        // === 硬件加速 ===
-        applyHWAccelOptions(options);
-
         // === 解码优化 ===
         // 根据 CPU 架构自动选择 deblocking 级别（参考官方 VLCOptions.getDeblocking）
+        int deblocking = getAutoDeblockingLevel();
         options.add("--avcodec-skiploopfilter");
-        options.add("" + getAutoDeblockingLevel());
-        // 默认不跳帧，保持画面完整性
+        options.add("" + deblocking);
+        // 开启可加速解码，但有可能牺牲画质 -- 高性能设备默认不跳帧，保持画面完整性
         options.add("--avcodec-skip-frame");
-        options.add("0");
+        options.add(deblocking >= 3 ? "2" : "0");
         options.add("--avcodec-skip-idct");
-        options.add("0");
+        options.add(deblocking >= 3 ? "2" : "0");
 
         // === 音频输出 ===
         // 参考官方 VLCOptions.getAout()：蓝牙场景自动切换，否则默认 audiotrack
@@ -324,40 +322,6 @@ public class VlcPlayer extends AbstractPlayer implements MediaPlayer.EventListen
     }
 
     /**
-     * 根据硬件加速模式添加对应的 VLC 参数（LibVLC 选项级别）
-     * <p>
-     * 参考官方 VLCOptions.setMediaOptions() 的分级策略。
-     * 注意：这里设置的是 LibVLC 全局选项，具体行为还受 Media 级别的
-     * {@link #applyMediaHWAccel()} 控制。
-     */
-    private void applyHWAccelOptions(ArrayList<String> options) {
-        switch (mHWAccel) {
-            case DISABLED:
-                options.add("--avcodec-hw=none");
-                break;
-            case DECODING:
-                // 仅硬件解码，不走 direct rendering
-                options.add("--codec=mediacodec,all");
-                options.add("--avcodec-hw=mediacodec");
-                options.add("--drop-late-frames");
-                options.add("--skip-frames");
-                break;
-            case FULL:
-                // 全链路硬件加速（解码 + direct rendering）
-                options.add("--codec=mediacodec,all");
-                options.add("--avcodec-hw=mediacodec");
-                options.add("--drop-late-frames");
-                options.add("--skip-frames");
-                break;
-            case AUTOMATIC:
-            default:
-                // 不添加硬件解码参数，由 VLC 根据设备能力自动选择
-                // 这是 VLC 官方默认行为
-                break;
-        }
-    }
-
-    /**
      * 根据 CPU 能力自动选择 deblocking 级别
      * <p>
      * 直接复用 VLC 官方的 {@link VLCUtil#getMachineSpecs()} 进行精确 CPU 检测，
@@ -387,7 +351,6 @@ public class VlcPlayer extends AbstractPlayer implements MediaPlayer.EventListen
 
         // 频率信息缺失时用 bogoMIPS 替代判断
         if (m.bogoMIPS >= 1200 && m.processors > 2) {
-            Log.d(TAG, "Used bogoMIPS due to lack of frequency info");
             return 1;
         }
 
@@ -471,7 +434,7 @@ public class VlcPlayer extends AbstractPlayer implements MediaPlayer.EventListen
             case DECODING:
                 // 仅硬件解码，关闭 Direct Rendering
                 // 解码由 MediaCodec 完成，但渲染走 GPU 纹理（支持截图/滤镜后处理）
-                mMedia.setHWDecoderEnabled(true, false);
+                mMedia.setHWDecoderEnabled(true, true);
                 // DECODING 模式额外禁用 direct rendering，确保渲染不走硬件直连
                 mMedia.addOption(":no-mediacodec-dr");
                 mMedia.addOption(":no-omxil-dr");
