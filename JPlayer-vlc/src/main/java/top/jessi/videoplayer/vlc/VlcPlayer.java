@@ -104,7 +104,9 @@ public class VlcPlayer extends AbstractPlayer implements MediaPlayer.EventListen
 
     private static final String TAG = "JPlayer—VlcPlayer";
 
-    /** HLS 代理开关，默认启用。可通过 {@link #setHlsProxyEnabled(boolean)} 手动控制 */
+    /**
+     * HLS 代理开关，默认启用。可通过 {@link #setHlsProxyEnabled(boolean)} 手动控制
+     */
     private static boolean sHlsProxyEnabled = true;
 
     /**
@@ -196,12 +198,16 @@ public class VlcPlayer extends AbstractPlayer implements MediaPlayer.EventListen
 
     // ==================== HLS 代理控制 ====================
 
-    /** 启用/禁用 HLS 本地代理（全局，默认启用） */
+    /**
+     * 启用/禁用 HLS 本地代理（全局，默认启用）
+     */
     public static void setHlsProxyEnabled(boolean enabled) {
         sHlsProxyEnabled = enabled;
     }
 
-    /** 获取 HLS 代理启用状态 */
+    /**
+     * 获取 HLS 代理启用状态
+     */
     public static boolean isHlsProxyEnabled() {
         return sHlsProxyEnabled;
     }
@@ -293,22 +299,50 @@ public class VlcPlayer extends AbstractPlayer implements MediaPlayer.EventListen
      * 针对 Android 移动端做了适配和精简。
      */
     private ArrayList<String> buildDefaultOptions() {
-        ArrayList<String> options = new ArrayList<>(8);
+        ArrayList<String> options = new ArrayList<>(32);
 
-        // 音频时间拉伸：倍速播放时保持音调不变
+        // === 解码优化 ===
+        // 根据 CPU 架构自动选择 deblocking 级别（参考官方 VLCOptions.getDeblocking）
+        int deblocking = getAutoDeblockingLevel();
+        options.add("--avcodec-skiploopfilter");
+        options.add("" + deblocking);
+        // 开启可加速解码，但有可能牺牲画质 -- 高性能设备默认不跳帧，保持画面完整性
+        options.add("--avcodec-skip-frame");
+        options.add(deblocking >= 3 ? "2" : "0");
+        options.add("--avcodec-skip-idct");
+        options.add(deblocking >= 3 ? "2" : "0");
+
+        // === 音频输出 ===
+        // 参考官方 VLCOptions.getAout()：蓝牙场景自动切换，否则默认 audiotrack
+        String aout = getAutoAudioOutput();
+        if (aout != null) {
+            options.add(aout);
+        }
+
+        // === 音频时间拉伸 ===
+        // 参考官方 VLCOptions.getLibOptions()：倍速播放时保持音频音调不变
+        // 开启后变速不变调，但会增加少量 CPU 开销
         options.add("--audio-time-stretch");
 
-        // 统计信息：用于获取缓冲状态
+        // === 音频重采样 ===
+        // 参考官方 VLCOptions.getResampler()：多核用 soxr（高质量），少核用 ugly（低开销）
+        options.add("--audio-resampler");
+        options.add(getAutoResampler());
+
+        // === 网络 ===
+        options.add("--rtsp-tcp");
+        options.add("--http-reconnect");
+
+        // === 音视频同步 ===
+        options.add("--clock-jitter=50");
+        options.add("--clock-synchro=0");
+
+        // === TS流优化 ===
+        options.add("--ts-seek-percent");
+
+        // === 统计信息 ===
+        // 官方默认开启 --stats，用于获取缓冲等状态
         options.add("--stats");
-
-        // 跳过环路滤波，降低解码器对损坏帧的敏感度
-        options.add("--avcodec-skiploopfilter=4");
-
-        // 强制使用软件解码
-        options.add("--avcodec-hw=none");
-
-        // 使用 FFmpeg 解码器
-        options.add("--codec=avcodec");
 
         return options;
     }

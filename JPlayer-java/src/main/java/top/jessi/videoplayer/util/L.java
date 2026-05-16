@@ -14,7 +14,7 @@ public final class L {
     private L() {
     }
 
-    private static final String TAG = "DKPlayer";
+    private static final String TAG = "JPlayer";
 
     private static boolean isDebug = VideoViewManager.getConfig().mIsEnableLog;
 

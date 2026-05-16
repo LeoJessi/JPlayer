@@ -10,6 +10,7 @@ import java.net.InetSocketAddress;
 import java.net.ServerSocket;
 import java.net.Socket;
 import java.net.URL;
+import java.nio.charset.StandardCharsets;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Locale;
@@ -18,6 +19,8 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
 import javax.net.ssl.HttpsURLConnection;
+
+import top.jessi.videoplayer.util.L;
 
 /**
  * HLS 本地代理
@@ -61,7 +64,7 @@ public class HlsProxy {
             Thread t = new Thread(this::acceptLoop, "HlsProxy-Acc");
             t.setDaemon(true);
             t.start();
-            Log.d(TAG, "HLS proxy started on 127.0.0.1:" + mPort);
+            L.d( "HLS proxy started on 127.0.0.1:" + mPort);
             return mPort;
         } catch (IOException e) {
             Log.w(TAG, "Failed to start HLS proxy", e);
@@ -81,7 +84,7 @@ public class HlsProxy {
             mExecutor = null;
         }
         mPort = -1;
-        Log.d(TAG, "HLS proxy stopped");
+        L.d("HLS proxy stopped");
     }
 
     public String getProxyUrl(String originalUrl) {
@@ -204,7 +207,7 @@ public class HlsProxy {
                 // m3u8：读取 → 改写片段 URL → 发送
                 String body = readAllText(bodyStream);
                 body = rewriteM3u8(body, targetUrl);
-                byte[] bodyBytes = body.getBytes("UTF-8");
+                byte[] bodyBytes = body.getBytes(StandardCharsets.UTF_8);
                 sendHeaders(clientOs, code, conn, bodyBytes.length, false);
                 clientOs.write(bodyBytes);
                 clientOs.flush();
@@ -218,7 +221,6 @@ public class HlsProxy {
                     clientOs.write(buf, 0, len);
                     clientOs.flush();
                 }
-
             } else {
                 // 其他：直接透传
                 sendHeaders(clientOs, code, conn, -1, false);
@@ -232,8 +234,11 @@ public class HlsProxy {
                 }
             }
 
+        } catch (java.net.SocketException e) {
+            // 客户端（VLC）主动断开连接，正常现象（如退出播放），无需打印堆栈
+            L.d( "Proxy client disconnected");
         } catch (Exception e) {
-            Log.w(TAG, "Proxy failed: " + targetUrl, e);
+            Log.w(TAG, "Proxy failed", e);
             try { sendError(clientOs, 502, "Bad Gateway"); } catch (IOException ignored) {}
         } finally {
             if (conn != null) conn.disconnect();
@@ -284,7 +289,7 @@ public class HlsProxy {
         }
 
         if (changed) {
-            Log.d(TAG, "M3U8 rewritten: segment URLs → proxy URLs");
+            L.d( "M3U8 rewritten: segment URLs → proxy URLs");
         }
         return out.toString();
     }
