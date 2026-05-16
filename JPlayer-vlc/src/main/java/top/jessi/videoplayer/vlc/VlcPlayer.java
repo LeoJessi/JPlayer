@@ -33,6 +33,7 @@ import top.jessi.videoplayer.player.BaseVideoView;
 import top.jessi.videoplayer.player.TrackInfo;
 import top.jessi.videoplayer.player.TrackInfoBean;
 import top.jessi.videoplayer.render.RenderViewFactory;
+import top.jessi.videoplayer.util.HlsProxy;
 
 /**
  * VLC播放器实现

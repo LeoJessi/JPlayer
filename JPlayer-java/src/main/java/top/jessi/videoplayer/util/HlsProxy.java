@@ -1,4 +1,4 @@
-package top.jessi.videoplayer.vlc;
+package top.jessi.videoplayer.util;
 
 import android.util.Log;
 
@@ -20,21 +20,19 @@ import java.util.concurrent.Executors;
 
 import javax.net.ssl.HttpsURLConnection;
 
-import top.jessi.videoplayer.util.L;
-
 /**
- * HLS 本地代理
+ * HLS 本地 HTTP 代理
  * <p>
- * 解决 VLC 3.7.0 播放某些特殊 HLS 流时的兼容性问题：
+ * 解决特殊 HLS 流的兼容性问题：
  * <ul>
  *   <li>服务器对 TS 片段使用 .html 后缀，返回 Content-Type: text/html</li>
  * </ul>
  * <p>
- * 配合 VLC 的 avformat 解复用器（:demux=avformat）使用，绕过 VLC 3.7.0 原生
- * adaptive 解复用器的 FakeESOut PCR bug。
+ * 作为公共工具类，可复用于任意播放内核（VLC、IjkPlayer 等）。
+ * 使用时在播放器的 setDataSource() 中启动代理，将原始 URL 替换为代理 URL 即可。
  * <p>
  * 策略：
- * 1. m3u8 请求：将片段 URL 改写为经过代理的绝对 URL（保持 .html 后缀），
+ * 1. m3u8 请求：将片段 URL 改写为经过代理的绝对 URL（保持原始后缀），
  *    确保后续片段请求也经过代理
  * 2. 片段请求（.html/.htm）：修正 Content-Type 为 video/MP2T，流式转发
  * 3. 其他请求：直接透传
