@@ -13,7 +13,7 @@ android {
 
     defaultConfig {
         applicationId "top.jessi.player"
-        minSdkVersion project.ext.minSdkVersion
+        minSdkVersion 23
         targetSdkVersion project.ext.targetSdkVersion
         versionCode project.ext.releaseVersionCode
         versionName project.ext.releaseVersion

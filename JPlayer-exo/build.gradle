@@ -8,7 +8,7 @@ android {
     buildToolsVersion project.ext.buildToolsVersion
 
     defaultConfig {
-        minSdkVersion project.ext.minSdkVersion
+        minSdkVersion 23
         targetSdkVersion project.ext.targetSdkVersion
         consumerProguardFiles 'consumer-proguard-rules.pro'
     }
