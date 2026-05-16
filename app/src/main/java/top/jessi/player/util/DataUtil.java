@@ -14,7 +14,7 @@ import java.util.List;
 public class DataUtil {
 
 //    public static final String SAMPLE_URL = "http://vfx.mtime.cn/Video/2019/03/14/mp4/190314223540373995.mp4";
-    public static final String SAMPLE_URL = "http://technolhub.xyz:8880/series/test260327abc/a11223344/64263.mp4";
+    public static final String SAMPLE_URL = "https://tmstr4.cloudnestra.com/pl/H4sIAAAAAAAAAw3K3ZKCIBgA0FcCRCf30hUtS9wwP5U7BR3Cn23KSden367PcXxCGkJdl1CqNe6pg_qetkT36IA9T31x5FcqDJzcXvdrZZ4axnNWjSufI.iGbQUURRrRJ8TUbefHVsaIyCExcpaOmh4mtcmxvPtzNwqvYONvayOmp8jWw0I1BD85Eccm5GOO8JsXMssr_bqCycEKK8C8lZWOhOIt2IIvjphahy9p8flWbxAZJu4Lh8IdcvYiWRggXrqYW720OJByUmvDYNVHA1l82HgZ1WccPLubYUWpPZj0x9TWjMkuCvOd3mSWhgGpkQ.SmUpVgC84efCd_xXkRbvohFQ8xvUNThfMV7kj_x9Ay95QQQEAAA--/b3072563685a378a12deee488850ebaf/index.m3u8";
 
 //    public static final String SAMPLE_URL = "file:///mnt/sdcard/out.webm";
 
@@ -55,7 +55,7 @@ public class DataUtil {
         List<VideoBean> videoList = new ArrayList<>();
         videoList.add(new VideoBean("预告片1",
                 "https://cms-bucket.nosdn.127.net/eb411c2810f04ffa8aaafc42052b233820180418095416.jpeg",
-                "http://technolhub.xyz:8880/series/test260327abc/a11223344/64263.mp4"));
+                "https://tmstr4.cloudnestra.com/pl/H4sIAAAAAAAAAw3H0XaCIBgA4FeCH63YZQk6F.wICsadhc2Omp20VTz99t19gDDCHsM6OsctUBrThq5PK9gQeo4BbT5MInWTLi_Luk9ruNMQr3Q6owIiLEM.6NA9vH3eNeEPAyYpU2dln8Oh5KO.DpPOCtJePRzgBzc9nisk99_JVhyDqlzmhRt77EmXmb64y6zbu7SPKnwbPNxsW8uLZ0vimAkO5zvFt0yPMxF8yPYhr1XFXoK7lbuaUYISoueTZsujGPpga87KYGqJlq8Tl1YbOR9N8etKFzWVvzSDQiXIXfFeboJRopGZT2M.Vlm3FEi9dareiihiKx.1tUrLbEKOLU8HU1zWThv._4DoH.AT0DpBAQAA/b3072563685a378a12deee488850ebaf/index.m3u8"));
 
         videoList.add(new VideoBean("预告片2",
                 "https://cms-bucket.nosdn.127.net/cb37178af1584c1588f4a01e5ecf323120180418133127.jpeg",

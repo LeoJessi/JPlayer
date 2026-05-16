@@ -39,6 +39,12 @@ public abstract class AbstractPlayer {
     public static final int MEDIA_INFO_VIDEO_ROTATION_CHANGED = 10001;
 
     /**
+     * 视频时长变化（HLS VOD 流在解析过程中时长可能从 0 变为正确值）
+     * extra 字段携带当前时长（毫秒）
+     */
+    public static final int MEDIA_INFO_DURATION_CHANGED = 10002;
+
+    /**
      * 播放器事件回调
      */
     protected PlayerEventListener mPlayerEventListener;

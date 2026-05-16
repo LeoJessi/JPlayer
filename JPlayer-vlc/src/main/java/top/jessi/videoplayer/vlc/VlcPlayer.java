@@ -25,6 +25,7 @@ import org.videolan.libvlc.util.VLCVideoLayout;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 
 import top.jessi.videoplayer.player.AbstractPlayer;
@@ -102,6 +103,15 @@ public class VlcPlayer extends AbstractPlayer implements MediaPlayer.EventListen
     }
 
     private static final String TAG = "JPlayer—VlcPlayer";
+
+    /** HLS 代理开关，默认启用。可通过 {@link #setHlsProxyEnabled(boolean)} 手动控制 */
+    private static boolean sHlsProxyEnabled = true;
+
+    /**
+     * HLS 本地代理实例（每个 VlcPlayer 实例持有一个）
+     */
+    private HlsProxy mHlsProxy;
+
     protected Context mAppContext;
     protected LibVLC mLibVLC;
     protected MediaPlayer mMediaPlayer;
@@ -140,7 +150,7 @@ public class VlcPlayer extends AbstractPlayer implements MediaPlayer.EventListen
     private MediaPlayer.ScaleType mCurrentScaleType = MediaPlayer.ScaleType.SURFACE_BEST_FIT;
 
     /**
-     * 创建一个VLC播放器
+     * 创建 VLC 播放器
      *
      * @param context 上下文
      */
@@ -184,6 +194,17 @@ public class VlcPlayer extends AbstractPlayer implements MediaPlayer.EventListen
         return mHWAccel;
     }
 
+    // ==================== HLS 代理控制 ====================
+
+    /** 启用/禁用 HLS 本地代理（全局，默认启用） */
+    public static void setHlsProxyEnabled(boolean enabled) {
+        sHlsProxyEnabled = enabled;
+    }
+
+    /** 获取 HLS 代理启用状态 */
+    public static boolean isHlsProxyEnabled() {
+        return sHlsProxyEnabled;
+    }
 
     // ==================== 外部自定义参数 ====================
 
@@ -272,51 +293,22 @@ public class VlcPlayer extends AbstractPlayer implements MediaPlayer.EventListen
      * 针对 Android 移动端做了适配和精简。
      */
     private ArrayList<String> buildDefaultOptions() {
-        ArrayList<String> options = new ArrayList<>(32);
+        ArrayList<String> options = new ArrayList<>(8);
 
-        // === 解码优化 ===
-        // 根据 CPU 架构自动选择 deblocking 级别（参考官方 VLCOptions.getDeblocking）
-        int deblocking = getAutoDeblockingLevel();
-        options.add("--avcodec-skiploopfilter");
-        options.add("" + deblocking);
-        // 开启可加速解码，但有可能牺牲画质 -- 高性能设备默认不跳帧，保持画面完整性
-        options.add("--avcodec-skip-frame");
-        options.add(deblocking >= 3 ? "2" : "0");
-        options.add("--avcodec-skip-idct");
-        options.add(deblocking >= 3 ? "2" : "0");
-
-        // === 音频输出 ===
-        // 参考官方 VLCOptions.getAout()：蓝牙场景自动切换，否则默认 audiotrack
-        String aout = getAutoAudioOutput();
-        if (aout != null) {
-            options.add(aout);
-        }
-
-        // === 音频时间拉伸 ===
-        // 参考官方 VLCOptions.getLibOptions()：倍速播放时保持音频音调不变
-        // 开启后变速不变调，但会增加少量 CPU 开销
+        // 音频时间拉伸：倍速播放时保持音调不变
         options.add("--audio-time-stretch");
 
-        // === 音频重采样 ===
-        // 参考官方 VLCOptions.getResampler()：多核用 soxr（高质量），少核用 ugly（低开销）
-        options.add("--audio-resampler");
-        options.add(getAutoResampler());
-
-        // === 网络 ===
-        options.add("--network-caching=3000");
-        options.add("--rtsp-tcp");
-        options.add("--http-reconnect");
-
-        // === 音视频同步 ===
-        options.add("--clock-jitter=50");
-        options.add("--clock-synchro=0");
-
-        // === TS流优化 ===
-        options.add("--ts-seek-percent");
-
-        // === 统计信息 ===
-        // 官方默认开启 --stats，用于获取缓冲等状态
+        // 统计信息：用于获取缓冲状态
         options.add("--stats");
+
+        // 跳过环路滤波，降低解码器对损坏帧的敏感度
+        options.add("--avcodec-skiploopfilter=4");
+
+        // 强制使用软件解码
+        options.add("--avcodec-hw=none");
+
+        // 使用 FFmpeg 解码器
+        options.add("--codec=avcodec");
 
         return options;
     }
@@ -425,7 +417,6 @@ public class VlcPlayer extends AbstractPlayer implements MediaPlayer.EventListen
      */
     private void applyMediaHWAccel() {
         if (mMedia == null) return;
-
         switch (mHWAccel) {
             case DISABLED:
                 // 纯软解：不启用硬件解码
@@ -477,10 +468,23 @@ public class VlcPlayer extends AbstractPlayer implements MediaPlayer.EventListen
                 mMedia = null;
             }
 
-            mMedia = new Media(mLibVLC, Uri.parse(path));
+            // HLS 流：启动本地代理，修正 Content-Type 并强制 avformat 解复用器
+            String playUrl = applyHlsProxyIfNeeded(path);
+
+            mMedia = new Media(mLibVLC, Uri.parse(playUrl));
 
             // 在 Media 级别设置硬件解码控制（参考官方 VLCOptions.setMediaOptions）
             applyMediaHWAccel();
+
+            // Media 级别：增大网络缓存，确保有足够数据开始解码
+            mMedia.addOption(":network-caching=5000");
+            mMedia.addOption(":file-caching=3000");
+
+            // HLS 代理激活时，强制使用 avformat 解复用器，
+            // 绕过 VLC 3.7.0 原生 adaptive 解复用器的 FakeESOut PCR bug
+            if (mHlsProxy != null && sHlsProxyEnabled && playUrl.contains("127.0.0.1")) {
+                mMedia.addOption(":demux=avformat");
+            }
 
             if (headers != null && !headers.isEmpty()) {
                 for (Map.Entry<String, String> entry : headers.entrySet()) {
@@ -491,8 +495,6 @@ public class VlcPlayer extends AbstractPlayer implements MediaPlayer.EventListen
             if (mIsLooping) {
                 mMedia.addOption(":input-repeat=65535");
             }
-
-            mMedia.addOption(":network-caching=3000");
 
             mMediaPlayer.setMedia(mMedia);
 
@@ -507,6 +509,37 @@ public class VlcPlayer extends AbstractPlayer implements MediaPlayer.EventListen
                 mPlayerEventListener.onError();
             }
         }
+    }
+
+    /**
+     * 对 HLS 流（.m3u8）启动本地代理并返回代理 URL，非 HLS 流直接返回原始 URL
+     */
+    private String applyHlsProxyIfNeeded(String originalUrl) {
+        if (!sHlsProxyEnabled) {
+            return originalUrl;
+        }
+
+        // 仅对 .m3u8 地址启用代理
+        String lowerUrl = originalUrl.toLowerCase(Locale.US);
+        if (!lowerUrl.contains(".m3u8") && !lowerUrl.contains(".m3u")) {
+            return originalUrl;
+        }
+
+        // 启动代理并获取代理 URL
+        try {
+            if (mHlsProxy == null) {
+                mHlsProxy = new HlsProxy();
+            }
+            String proxyUrl = mHlsProxy.getProxyUrl(originalUrl);
+            if (proxyUrl != null && !proxyUrl.equals(originalUrl)) {
+                Log.d(TAG, "HLS proxy active, proxy URL: " + proxyUrl);
+                return proxyUrl;
+            }
+        } catch (Exception e) {
+            Log.w(TAG, "Failed to start HLS proxy, using original URL", e);
+        }
+
+        return originalUrl;
     }
 
     /**
@@ -871,6 +904,11 @@ public class VlcPlayer extends AbstractPlayer implements MediaPlayer.EventListen
         synchronized (mAddedSubtitles) {
             mAddedSubtitles.clear();
         }
+        // 停止 HLS 代理（reset 后代理不再需要，下次 setDataSource 会重新创建）
+        if (mHlsProxy != null) {
+            mHlsProxy.stop();
+            mHlsProxy = null;
+        }
     }
 
     /**
@@ -885,22 +923,39 @@ public class VlcPlayer extends AbstractPlayer implements MediaPlayer.EventListen
 
     /**
      * 跳转到指定位置
+     * <p>
+     * HLS 流 seek 策略：
+     * 1. 先检查播放器是否处于可 seek 状态（直播流可能不可 seek）
+     * 2. 使用 fast seek 减少延迟，适合用户拖动进度条
+     * 3. seek 前确保播放器正在播放，避免某些 HLS 流在暂停状态下 seek 异常
      *
      * @param time 目标位置（毫秒）
      */
     @Override
     public void seekTo(long time) {
-        if (mMediaPlayer != null) {
-            try {
-                // 参考官方 PlayerController.setTime()：
-                // 使用带 fast 参数的 seek，减少 seek 延迟
-                // fast=true 表示快速 seek（可能不精确但响应快），适合用户拖动进度条
-                mMediaPlayer.setTime(time, true);
-            } catch (Exception e) {
-                Log.w(TAG, "Error seeking", e);
-                if (mPlayerEventListener != null) {
-                    mPlayerEventListener.onError();
-                }
+        if (mMediaPlayer == null) return;
+        try {
+            // 检查是否可 seek（直播流可能不可 seek）
+            if (!mMediaPlayer.isSeekable()) {
+                Log.w(TAG, "Media is not seekable, ignoring seek to " + time);
+                return;
+            }
+            // 边界保护：seek 到负数位置或超过时长的位置可能导致异常
+            long duration = mMediaPlayer.getLength();
+            if (duration > 0 && time > duration) {
+                time = duration;
+            }
+            if (time < 0) {
+                time = 0;
+            }
+            // 参考官方 PlayerController.setTime()：
+            // 使用带 fast 参数的 seek，减少 seek 延迟
+            // fast=true 表示快速 seek（可能不精确但响应快），适合用户拖动进度条
+            mMediaPlayer.setTime(time, true);
+        } catch (Exception e) {
+            Log.w(TAG, "Error seeking to " + time, e);
+            if (mPlayerEventListener != null) {
+                mPlayerEventListener.onError();
             }
         }
     }
@@ -955,6 +1010,12 @@ public class VlcPlayer extends AbstractPlayer implements MediaPlayer.EventListen
             mLibVLC = null;
         }
 
+        // 停止 HLS 代理
+        if (mHlsProxy != null) {
+            mHlsProxy.stop();
+            mHlsProxy = null;
+        }
+
         // 清理所有引用和状态
         mVlcRenderView = null;
         mIsPreparing = false;
@@ -973,6 +1034,11 @@ public class VlcPlayer extends AbstractPlayer implements MediaPlayer.EventListen
         synchronized (mAddedSubtitles) {
             mAddedSubtitles.clear();
         }
+        // 停止 HLS 代理
+        if (mHlsProxy != null) {
+            mHlsProxy.stop();
+            mHlsProxy = null;
+        }
     }
 
     /**
@@ -989,24 +1055,45 @@ public class VlcPlayer extends AbstractPlayer implements MediaPlayer.EventListen
 
     /**
      * 获取当前播放位置
+     * <p>
+     * 注意：某些 HLS 流在 seek 后或分段切换时，getTime() 可能返回负值或异常值，
+     * 这里做了边界保护。
      *
-     * @return 当前播放位置（毫秒）
+     * @return 当前播放位置（毫秒），异常时返回 0
      */
     @Override
     public long getCurrentPosition() {
         if (mMediaPlayer == null) return 0;
-        return mMediaPlayer.getTime();
+        try {
+            long time = mMediaPlayer.getTime();
+            return Math.max(0, time);
+        } catch (Exception e) {
+            Log.w(TAG, "Error getting current position", e);
+            return 0;
+        }
     }
 
     /**
      * 获取视频总时长
+     * <p>
+     * 注意：HLS 直播流（没有 END 标记的 m3u8）的 duration 通常为 0，
+     * 这是 VLC 的正常行为——直播流没有固定的总时长。
+     * 上层应判断 duration==0 时按直播流 UI 处理（隐藏总时长、禁用进度条拖动）。
+     * <p>
+     * VOD 类型的 HLS 流在解析完成后会返回正确的 duration，
+     * 但某些分段间时间戳不连续的流可能返回不准确的值。
      *
-     * @return 视频总时长（毫秒）
+     * @return 视频总时长（毫秒），直播流返回 0
      */
     @Override
     public long getDuration() {
         if (mMediaPlayer == null) return 0;
-        return mMediaPlayer.getLength();
+        try {
+            return mMediaPlayer.getLength();
+        } catch (Exception e) {
+            Log.w(TAG, "Error getting duration", e);
+            return 0;
+        }
     }
 
     /**
@@ -1458,11 +1545,24 @@ public class VlcPlayer extends AbstractPlayer implements MediaPlayer.EventListen
             case MediaPlayer.Event.LengthChanged:
                 // 时长变化时刷新视频尺寸（某些格式在解析完成前无法获取准确尺寸）
                 notifyVideoSize();
+                // HLS VOD 流在解析过程中时长可能从 0 变为正确值，通知上层更新 UI
+                if (mMediaPlayer != null) {
+                    long duration = mMediaPlayer.getLength();
+                    mPlayerEventListener.onInfo(MEDIA_INFO_DURATION_CHANGED, (int) duration);
+                }
                 break;
 
             case MediaPlayer.Event.SeekableChanged:
                 // 可跳转状态变化（如直播流从不可 seek 变为可 seek）
                 // 上层可根据此事件更新 UI（如启用/禁用进度条）
+                if (mMediaPlayer != null) {
+                    boolean seekable = mMediaPlayer.isSeekable();
+                    Log.d(TAG, "SeekableChanged: " + seekable);
+                    // 当变为可 seek 时，刷新一次视频尺寸和时长
+                    if (seekable) {
+                        notifyVideoSize();
+                    }
+                }
                 break;
 
             case MediaPlayer.Event.PausableChanged:

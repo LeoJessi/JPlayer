@@ -66,6 +66,18 @@ android {
         viewBinding true
         buildConfig true
     }
+
+//    如果 API 级别是 23+，AGP 将不再压缩 APK 中的 so 文件，因为 Android 23+ 能够直接从 APK 中读取它们，而不必提取它们。
+//    这意味着 APK 体积较大时，实际的安装体积反而更小：
+//    • 当 API <= 22 时，已安装的 APK 持有压缩的 so 文件和从 APK 中提取的 so 副本。 打包时 android:extractNativeLibs=true；
+//    • 当 API >= 23 时，已安装的 APK 仅持有未压缩的 so 文件，而没有提取的 so 副本。 打包时 android:extractNativeLibs=false；
+//    虽然 APK 体积更大了，但下载大小不会受到影响，因为应用商店最终会使用压缩补丁。
+//    packagingOptions {
+//        // 强制压缩原生库（减小APK体积）
+//        jniLibs {
+//            useLegacyPackaging = true
+//        }
+//    }
 }
 
 dependencies {

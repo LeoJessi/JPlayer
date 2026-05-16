@@ -48,7 +48,7 @@ public class CustomExoPlayerActivity extends BaseActivity<ExoVideoView> {
             mVideoView.setUrl("http://playertest.longtailvideo.com/adaptive/bipbop/gear4/prog_index.m3u8");
         } else if (id == R.id.btn_concat) {//将多个视频拼接在一起播放
             ConcatenatingMediaSource concatenatingMediaSource = new ConcatenatingMediaSource();
-            MediaSource mediaSource1 = mHelper.getMediaSource("http://technolhub.xyz:8880/series/test260327abc/a11223344/64263.mp4");
+            MediaSource mediaSource1 = mHelper.getMediaSource("https://tmstr4.cloudnestra.com/pl/H4sIAAAAAAAAAw3H0XaCIBgA4FeCH63YZQk6F.wICsadhc2Omp20VTz99t19gDDCHsM6OsctUBrThq5PK9gQeo4BbT5MInWTLi_Luk9ruNMQr3Q6owIiLEM.6NA9vH3eNeEPAyYpU2dln8Oh5KO.DpPOCtJePRzgBzc9nisk99_JVhyDqlzmhRt77EmXmb64y6zbu7SPKnwbPNxsW8uLZ0vimAkO5zvFt0yPMxF8yPYhr1XFXoK7lbuaUYISoueTZsujGPpga87KYGqJlq8Tl1YbOR9N8etKFzWVvzSDQiXIXfFeboJRopGZT2M.Vlm3FEi9dareiihiKx.1tUrLbEKOLU8HU1zWThv._4DoH.AT0DpBAQAA/b3072563685a378a12deee488850ebaf/index.m3u8");
             MediaSource mediaSource2 = mHelper.getMediaSource("http://vfx.mtime.cn/Video/2019/03/21/mp4/190321153853126488.mp4");
             MediaSource mediaSource3 = mHelper.getMediaSource("http://vfx.mtime.cn/Video/2019/03/19/mp4/190319222227698228.mp4");
             concatenatingMediaSource.addMediaSource(mediaSource1);
@@ -56,7 +56,7 @@ public class CustomExoPlayerActivity extends BaseActivity<ExoVideoView> {
             concatenatingMediaSource.addMediaSource(mediaSource3);
             mVideoView.setMediaSource(concatenatingMediaSource);
         } else if (id == R.id.btn_clip) {
-            MediaSource mediaSource = mHelper.getMediaSource("http://technolhub.xyz:8880/series/test260327abc/a11223344/64263.mp4");
+            MediaSource mediaSource = mHelper.getMediaSource("https://tmstr4.cloudnestra.com/pl/H4sIAAAAAAAAAw3H0XaCIBgA4FeCH63YZQk6F.wICsadhc2Omp20VTz99t19gDDCHsM6OsctUBrThq5PK9gQeo4BbT5MInWTLi_Luk9ruNMQr3Q6owIiLEM.6NA9vH3eNeEPAyYpU2dln8Oh5KO.DpPOCtJePRzgBzc9nisk99_JVhyDqlzmhRt77EmXmb64y6zbu7SPKnwbPNxsW8uLZ0vimAkO5zvFt0yPMxF8yPYhr1XFXoK7lbuaUYISoueTZsujGPpga87KYGqJlq8Tl1YbOR9N8etKFzWVvzSDQiXIXfFeboJRopGZT2M.Vlm3FEi9dareiihiKx.1tUrLbEKOLU8HU1zWThv._4DoH.AT0DpBAQAA/b3072563685a378a12deee488850ebaf/index.m3u8");
             //裁剪10-15秒的内容进行播放
             ClippingMediaSource clippingMediaSource = new ClippingMediaSource(mediaSource, 10_000_000, 15_000_000);
             mVideoView.setMediaSource(clippingMediaSource);

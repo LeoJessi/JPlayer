@@ -112,7 +112,7 @@ public class CustomIjkPlayerActivity extends BaseActivity<IjkVideoView> implemen
 
     private List<ConcatMedia> getConcatData() {
         List<ConcatMedia> medias = new ArrayList<>();
-        medias.add(new ConcatMedia("http://technolhub.xyz:8880/series/test260327abc/a11223344/64263.mp4", 31));
+        medias.add(new ConcatMedia("https://tmstr4.cloudnestra.com/pl/H4sIAAAAAAAAAw3H0XaCIBgA4FeCH63YZQk6F.wICsadhc2Omp20VTz99t19gDDCHsM6OsctUBrThq5PK9gQeo4BbT5MInWTLi_Luk9ruNMQr3Q6owIiLEM.6NA9vH3eNeEPAyYpU2dln8Oh5KO.DpPOCtJePRzgBzc9nisk99_JVhyDqlzmhRt77EmXmb64y6zbu7SPKnwbPNxsW8uLZ0vimAkO5zvFt0yPMxF8yPYhr1XFXoK7lbuaUYISoueTZsujGPpga87KYGqJlq8Tl1YbOR9N8etKFzWVvzSDQiXIXfFeboJRopGZT2M.Vlm3FEi9dareiihiKx.1tUrLbEKOLU8HU1zWThv._4DoH.AT0DpBAQAA/b3072563685a378a12deee488850ebaf/index.m3u8", 31));
         medias.add(new ConcatMedia("http://vfx.mtime.cn/Video/2019/03/21/mp4/190321153853126488.mp4", 100));
         medias.add(new ConcatMedia("http://vfx.mtime.cn/Video/2019/03/19/mp4/190319222227698228.mp4", 60));
         return medias;
