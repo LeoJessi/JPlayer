@@ -55,6 +55,8 @@ public class IjkPlayer extends AbstractPlayer implements IMediaPlayer.OnErrorLis
      */
     private DecodeMode mDecodeMode = sDefaultDecodeMode;
 
+    private static final String TAG = "JPlayer-IjkPlayer";
+
     protected IjkMediaPlayer mMediaPlayer;
     private int mBufferedPercent;
     private final Context mAppContext;
@@ -201,6 +203,7 @@ public class IjkPlayer extends AbstractPlayer implements IMediaPlayer.OnErrorLis
 
     @Override
     public void setDataSource(String path, Map<String, String> headers) {
+        if (mMediaPlayer == null) return;
         try {
             Uri uri = Uri.parse(path);
             if (ContentResolver.SCHEME_ANDROID_RESOURCE.equals(uri.getScheme())) {
@@ -219,57 +222,69 @@ public class IjkPlayer extends AbstractPlayer implements IMediaPlayer.OnErrorLis
                 mMediaPlayer.setDataSource(mAppContext, uri, headers);
             }
         } catch (Exception e) {
+            Log.w(TAG, "onError: " + e.getMessage(), e);
             mPlayerEventListener.onError();
         }
     }
 
     @Override
     public void setDataSource(AssetFileDescriptor fd) {
+        if (mMediaPlayer == null) return;
         try {
             mMediaPlayer.setDataSource(new RawDataSourceProvider(fd));
         } catch (Exception e) {
+            Log.w(TAG, "onError: " + e.getMessage(), e);
             mPlayerEventListener.onError();
         }
     }
 
     @Override
     public void pause() {
+        if (mMediaPlayer == null) return;
         try {
             mMediaPlayer.pause();
         } catch (IllegalStateException e) {
+            Log.w(TAG, "onError: " + e.getMessage(), e);
             mPlayerEventListener.onError();
         }
     }
 
     @Override
     public void start() {
+        if (mMediaPlayer == null) return;
         try {
             mMediaPlayer.start();
         } catch (IllegalStateException e) {
+            Log.w(TAG, "onError: " + e.getMessage(), e);
             mPlayerEventListener.onError();
         }
     }
 
     @Override
     public void stop() {
+        if (mMediaPlayer == null) return;
         try {
             mMediaPlayer.stop();
         } catch (IllegalStateException e) {
+            Log.w(TAG, "onError: " + e.getMessage(), e);
             mPlayerEventListener.onError();
         }
     }
 
     @Override
     public void prepareAsync() {
+        if (mMediaPlayer == null) return;
         try {
             mMediaPlayer.prepareAsync();
         } catch (IllegalStateException e) {
+            Log.w(TAG, "onError: " + e.getMessage(), e);
             mPlayerEventListener.onError();
         }
     }
 
     @Override
     public void reset() {
+        if (mMediaPlayer == null) return;
         mMediaPlayer.reset();
         mMediaPlayer.setOnVideoSizeChangedListener(this);
         setOptions();
@@ -277,45 +292,42 @@ public class IjkPlayer extends AbstractPlayer implements IMediaPlayer.OnErrorLis
 
     @Override
     public boolean isPlaying() {
+        if (mMediaPlayer == null) return false;
         return mMediaPlayer.isPlaying();
     }
 
     @Override
     public void seekTo(long time) {
+        if (mMediaPlayer == null) return;
         try {
             mMediaPlayer.seekTo((int) time);
         } catch (IllegalStateException e) {
+            Log.w(TAG, "onError: " + e.getMessage(), e);
             mPlayerEventListener.onError();
         }
     }
 
     @Override
     public void release() {
+        if (mMediaPlayer == null) return;
         mMediaPlayer.setOnErrorListener(null);
         mMediaPlayer.setOnCompletionListener(null);
         mMediaPlayer.setOnInfoListener(null);
         mMediaPlayer.setOnBufferingUpdateListener(null);
         mMediaPlayer.setOnPreparedListener(null);
         mMediaPlayer.setOnVideoSizeChangedListener(null);
-        new Thread() {
-            @Override
-            public void run() {
-                try {
-                    mMediaPlayer.release();
-                } catch (Exception e) {
-                    e.printStackTrace();
-                }
-            }
-        }.start();
+        mMediaPlayer.release();
     }
 
     @Override
     public long getCurrentPosition() {
+        if (mMediaPlayer == null) return 0;
         return mMediaPlayer.getCurrentPosition();
     }
 
     @Override
     public long getDuration() {
+        if (mMediaPlayer == null) return 0;
         return mMediaPlayer.getDuration();
     }
 
@@ -326,41 +338,49 @@ public class IjkPlayer extends AbstractPlayer implements IMediaPlayer.OnErrorLis
 
     @Override
     public void setSurface(Surface surface) {
+        if (mMediaPlayer == null) return;
         mMediaPlayer.setSurface(surface);
     }
 
     @Override
     public void setDisplay(SurfaceHolder holder) {
+        if (mMediaPlayer == null) return;
         mMediaPlayer.setDisplay(holder);
     }
 
     @Override
     public void setVolume(float v1, float v2) {
+        if (mMediaPlayer == null) return;
         mMediaPlayer.setVolume(v1, v2);
     }
 
     @Override
     public void setLooping(boolean isLooping) {
+        if (mMediaPlayer == null) return;
         mMediaPlayer.setLooping(isLooping);
     }
 
     @Override
     public void setSpeed(float speed) {
+        if (mMediaPlayer == null) return;
         mMediaPlayer.setSpeed(speed);
     }
 
     @Override
     public float getSpeed() {
+        if (mMediaPlayer == null) return 1f;
         return mMediaPlayer.getSpeed();
     }
 
     @Override
     public long getTcpSpeed() {
+        if (mMediaPlayer == null) return 0;
         return mMediaPlayer.getTcpSpeed();
     }
 
     @Override
     public boolean onError(IMediaPlayer mp, int what, int extra) {
+        Log.w(TAG, "onError: what=" + what + ", extra=" + extra);
         mPlayerEventListener.onError();
         return true;
     }
@@ -396,6 +416,7 @@ public class IjkPlayer extends AbstractPlayer implements IMediaPlayer.OnErrorLis
     }
 
     private boolean isVideo() {
+        if (mMediaPlayer == null) return false;
         IjkTrackInfo[] trackInfo = mMediaPlayer.getTrackInfo();
         if (trackInfo == null) return false;
         for (IjkTrackInfo info : trackInfo) {

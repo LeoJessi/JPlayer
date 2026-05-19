@@ -50,6 +50,7 @@ public class SystemPlayer extends AbstractPlayer implements MediaPlayer.OnErrorL
 
     @Override
     public void setDataSource(String path, Map<String, String> headers) {
+        if (mMediaPlayer == null) return;
         try {
             mMediaPlayer.setDataSource(mAppContext, Uri.parse(path), headers);
         } catch (Exception e) {
@@ -60,6 +61,7 @@ public class SystemPlayer extends AbstractPlayer implements MediaPlayer.OnErrorL
 
     @Override
     public void setDataSource(AssetFileDescriptor fd) {
+        if (mMediaPlayer == null) return;
         try {
             mMediaPlayer.setDataSource(fd.getFileDescriptor(), fd.getStartOffset(), fd.getLength());
         } catch (Exception e) {
@@ -70,6 +72,7 @@ public class SystemPlayer extends AbstractPlayer implements MediaPlayer.OnErrorL
 
     @Override
     public void start() {
+        if (mMediaPlayer == null) return;
         try {
             mMediaPlayer.start();
         } catch (IllegalStateException e) {
@@ -80,6 +83,7 @@ public class SystemPlayer extends AbstractPlayer implements MediaPlayer.OnErrorL
 
     @Override
     public void pause() {
+        if (mMediaPlayer == null) return;
         try {
             mMediaPlayer.pause();
         } catch (IllegalStateException e) {
@@ -90,6 +94,7 @@ public class SystemPlayer extends AbstractPlayer implements MediaPlayer.OnErrorL
 
     @Override
     public void stop() {
+        if (mMediaPlayer == null) return;
         try {
             mMediaPlayer.stop();
         } catch (IllegalStateException e) {
@@ -100,6 +105,7 @@ public class SystemPlayer extends AbstractPlayer implements MediaPlayer.OnErrorL
 
     @Override
     public void prepareAsync() {
+        if (mMediaPlayer == null) return;
         try {
             mIsPreparing = true;
             mMediaPlayer.prepareAsync();
@@ -111,13 +117,14 @@ public class SystemPlayer extends AbstractPlayer implements MediaPlayer.OnErrorL
 
     @Override
     public void reset() {
+        lastTotalRxBytes = 0;
+        lastTimeStamp = 0;
+        if (mMediaPlayer == null) return;
         stop();
         mMediaPlayer.reset();
         mMediaPlayer.setSurface(null);
         mMediaPlayer.setDisplay(null);
         mMediaPlayer.setVolume(1, 1);
-        lastTotalRxBytes = 0;
-        lastTimeStamp = 0;
     }
 
     @Override
@@ -128,6 +135,7 @@ public class SystemPlayer extends AbstractPlayer implements MediaPlayer.OnErrorL
 
     @Override
     public void seekTo(long time) {
+        if (mMediaPlayer == null) return;
         try {
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
                 //使用这个api seekTo定位更加准确 支持android 8.0以上的设备 https://developer.android.com/reference/android/media/MediaPlayer#SEEK_CLOSEST
@@ -143,6 +151,7 @@ public class SystemPlayer extends AbstractPlayer implements MediaPlayer.OnErrorL
 
     @Override
     public void release() {
+        if (mMediaPlayer == null) return;
         mMediaPlayer.setOnErrorListener(null);
         mMediaPlayer.setOnCompletionListener(null);
         mMediaPlayer.setOnInfoListener(null);
@@ -185,6 +194,7 @@ public class SystemPlayer extends AbstractPlayer implements MediaPlayer.OnErrorL
 
     @Override
     public void setSurface(Surface surface) {
+        if (mMediaPlayer == null) return;
         try {
             mMediaPlayer.setSurface(surface);
         } catch (Exception e) {
@@ -195,6 +205,7 @@ public class SystemPlayer extends AbstractPlayer implements MediaPlayer.OnErrorL
 
     @Override
     public void setDisplay(SurfaceHolder holder) {
+        if (mMediaPlayer == null) return;
         try {
             mMediaPlayer.setDisplay(holder);
         } catch (Exception e) {
@@ -205,11 +216,13 @@ public class SystemPlayer extends AbstractPlayer implements MediaPlayer.OnErrorL
 
     @Override
     public void setVolume(float v1, float v2) {
+        if (mMediaPlayer == null) return;
         mMediaPlayer.setVolume(v1, v2);
     }
 
     @Override
     public void setLooping(boolean isLooping) {
+        if (mMediaPlayer == null) return;
         mMediaPlayer.setLooping(isLooping);
     }
 
@@ -220,18 +233,20 @@ public class SystemPlayer extends AbstractPlayer implements MediaPlayer.OnErrorL
     @Override
     public void setSpeed(float speed) {
         // only support above Android M
+        if (mMediaPlayer == null) return;
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
             try {
                 mMediaPlayer.setPlaybackParams(mMediaPlayer.getPlaybackParams().setSpeed(speed));
             } catch (Exception e) {
                 Log.w(TAG, "onError: " + e.getMessage(), e);
-            mPlayerEventListener.onError();
+                mPlayerEventListener.onError();
             }
         }
     }
 
     @Override
     public float getSpeed() {
+        if (mMediaPlayer == null) return 1f;
         // only support above Android M
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
             try {
@@ -348,6 +363,7 @@ public class SystemPlayer extends AbstractPlayer implements MediaPlayer.OnErrorL
     }
 
     private boolean isVideo() {
+        if (mMediaPlayer == null) return false;
         try {
             MediaPlayer.TrackInfo[] trackInfo = mMediaPlayer.getTrackInfo();
             for (MediaPlayer.TrackInfo info :
