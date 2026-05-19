@@ -25,6 +25,7 @@ public class SystemPlayer extends AbstractPlayer implements MediaPlayer.OnErrorL
         MediaPlayer.OnBufferingUpdateListener, MediaPlayer.OnPreparedListener,
         MediaPlayer.OnVideoSizeChangedListener {
 
+    private static final String TAG = "JPlayer—SystemPlayer";
     protected MediaPlayer mMediaPlayer;
     private int mBufferedPercent;
     private Context mAppContext;
@@ -52,6 +53,7 @@ public class SystemPlayer extends AbstractPlayer implements MediaPlayer.OnErrorL
         try {
             mMediaPlayer.setDataSource(mAppContext, Uri.parse(path), headers);
         } catch (Exception e) {
+            Log.w(TAG, "onError: " + e.getMessage(), e);
             mPlayerEventListener.onError();
         }
     }
@@ -61,6 +63,7 @@ public class SystemPlayer extends AbstractPlayer implements MediaPlayer.OnErrorL
         try {
             mMediaPlayer.setDataSource(fd.getFileDescriptor(), fd.getStartOffset(), fd.getLength());
         } catch (Exception e) {
+            Log.w(TAG, "onError: " + e.getMessage(), e);
             mPlayerEventListener.onError();
         }
     }
@@ -70,6 +73,7 @@ public class SystemPlayer extends AbstractPlayer implements MediaPlayer.OnErrorL
         try {
             mMediaPlayer.start();
         } catch (IllegalStateException e) {
+            Log.w(TAG, "onError: " + e.getMessage(), e);
             mPlayerEventListener.onError();
         }
     }
@@ -79,6 +83,7 @@ public class SystemPlayer extends AbstractPlayer implements MediaPlayer.OnErrorL
         try {
             mMediaPlayer.pause();
         } catch (IllegalStateException e) {
+            Log.w(TAG, "onError: " + e.getMessage(), e);
             mPlayerEventListener.onError();
         }
     }
@@ -88,6 +93,7 @@ public class SystemPlayer extends AbstractPlayer implements MediaPlayer.OnErrorL
         try {
             mMediaPlayer.stop();
         } catch (IllegalStateException e) {
+            Log.w(TAG, "onError: " + e.getMessage(), e);
             mPlayerEventListener.onError();
         }
     }
@@ -98,6 +104,7 @@ public class SystemPlayer extends AbstractPlayer implements MediaPlayer.OnErrorL
             mIsPreparing = true;
             mMediaPlayer.prepareAsync();
         } catch (IllegalStateException e) {
+            Log.w(TAG, "onError: " + e.getMessage(), e);
             mPlayerEventListener.onError();
         }
     }
@@ -129,6 +136,7 @@ public class SystemPlayer extends AbstractPlayer implements MediaPlayer.OnErrorL
                 mMediaPlayer.seekTo((int) time);
             }
         } catch (IllegalStateException e) {
+            Log.w(TAG, "onError: " + e.getMessage(), e);
             mPlayerEventListener.onError();
         }
     }
@@ -180,6 +188,7 @@ public class SystemPlayer extends AbstractPlayer implements MediaPlayer.OnErrorL
         try {
             mMediaPlayer.setSurface(surface);
         } catch (Exception e) {
+            Log.w(TAG, "onError: " + e.getMessage(), e);
             mPlayerEventListener.onError();
         }
     }
@@ -189,6 +198,7 @@ public class SystemPlayer extends AbstractPlayer implements MediaPlayer.OnErrorL
         try {
             mMediaPlayer.setDisplay(holder);
         } catch (Exception e) {
+            Log.w(TAG, "onError: " + e.getMessage(), e);
             mPlayerEventListener.onError();
         }
     }
@@ -214,7 +224,8 @@ public class SystemPlayer extends AbstractPlayer implements MediaPlayer.OnErrorL
             try {
                 mMediaPlayer.setPlaybackParams(mMediaPlayer.getPlaybackParams().setSpeed(speed));
             } catch (Exception e) {
-                mPlayerEventListener.onError();
+                Log.w(TAG, "onError: " + e.getMessage(), e);
+            mPlayerEventListener.onError();
             }
         }
     }
@@ -294,6 +305,7 @@ public class SystemPlayer extends AbstractPlayer implements MediaPlayer.OnErrorL
 
     @Override
     public boolean onError(MediaPlayer mp, int what, int extra) {
+        Log.w(TAG, "onError: what=" + what + ", extra=" + extra);
         mPlayerEventListener.onError();
         return true;
     }

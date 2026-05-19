@@ -34,6 +34,7 @@ import top.jessi.videoplayer.player.TrackInfo;
 import top.jessi.videoplayer.player.TrackInfoBean;
 import top.jessi.videoplayer.render.RenderViewFactory;
 import top.jessi.videoplayer.util.HlsProxy;
+import top.jessi.videoplayer.util.L;
 
 /**
  * VLC播放器实现
@@ -567,7 +568,7 @@ public class VlcPlayer extends AbstractPlayer implements MediaPlayer.EventListen
             }
             String proxyUrl = mHlsProxy.getProxyUrl(originalUrl);
             if (proxyUrl != null && !proxyUrl.equals(originalUrl)) {
-                Log.d(TAG, "HLS proxy active, proxy URL: " + proxyUrl);
+                L.d("HLS proxy active, proxy URL: " + proxyUrl);
                 return proxyUrl;
             }
         } catch (Exception e) {
@@ -1068,11 +1069,6 @@ public class VlcPlayer extends AbstractPlayer implements MediaPlayer.EventListen
         }
         synchronized (mAddedSubtitles) {
             mAddedSubtitles.clear();
-        }
-        // 停止 HLS 代理
-        if (mHlsProxy != null) {
-            mHlsProxy.stop();
-            mHlsProxy = null;
         }
     }
 
@@ -1592,7 +1588,6 @@ public class VlcPlayer extends AbstractPlayer implements MediaPlayer.EventListen
                 // 上层可根据此事件更新 UI（如启用/禁用进度条）
                 if (mMediaPlayer != null) {
                     boolean seekable = mMediaPlayer.isSeekable();
-                    Log.d(TAG, "SeekableChanged: " + seekable);
                     // 当变为可 seek 时，刷新一次视频尺寸和时长
                     if (seekable) {
                         notifyVideoSize();
