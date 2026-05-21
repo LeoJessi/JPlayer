@@ -548,18 +548,16 @@ public class VlcPlayer extends AbstractPlayer implements MediaPlayer.EventListen
     }
 
     /**
-     * 对 HLS 流启动本地代理并返回代理 URL，非 HLS 流直接返回原始 URL
-     * <p>
-     * 识别条件（满足任一即视为 HLS 流）：
-     * 1. URL 路径中包含 .m3u8 或 .m3u 扩展名（如 /stream/index.m3u8）
-     * 2. URL 参数中包含 m3u8 关键字（如 ?extension=m3u8）
+     * 对 HLS 流（.m3u8）启动本地代理并返回代理 URL，非 HLS 流直接返回原始 URL
      */
     private String applyHlsProxyIfNeeded(String originalUrl) {
         if (!sHlsProxyEnabled) {
             return originalUrl;
         }
 
-        if (!isHlsUrl(originalUrl)) {
+        // 仅对 .m3u8 地址启用代理
+        String lowerUrl = originalUrl.toLowerCase(Locale.US);
+        if (!lowerUrl.contains(".m3u8") && !lowerUrl.contains(".m3u")) {
             return originalUrl;
         }
 
@@ -578,27 +576,6 @@ public class VlcPlayer extends AbstractPlayer implements MediaPlayer.EventListen
         }
 
         return originalUrl;
-    }
-
-    /**
-     * 判断 URL 是否为 HLS 流
-     * <p>
-     * 匹配以下两种形式：
-     * 1. 路径中包含 .m3u8 / .m3u 扩展名（如 /live/stream.m3u8）
-     * 2. 查询参数中包含 m3u8 关键字（如 ?extension=m3u8）
-     */
-    private static boolean isHlsUrl(String url) {
-        String lower = url.toLowerCase(Locale.US);
-        // 标准扩展名匹配
-        if (lower.contains(".m3u8") || lower.contains(".m3u")) {
-            return true;
-        }
-        // 查询参数匹配：? 后面包含 m3u8（如 ?extension=m3u8）
-        int queryStart = lower.indexOf('?');
-        if (queryStart >= 0) {
-            return lower.substring(queryStart).contains("m3u8");
-        }
-        return false;
     }
 
     /**
