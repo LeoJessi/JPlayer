@@ -411,13 +411,14 @@ public class SystemPlayer extends AbstractPlayer implements MediaPlayer.OnErrorL
     @Override
     public void onPrepared(MediaPlayer mp) {
         cancelPrepareTimeout();
-        mIsPreparing = false;
         mPlayerEventListener.onPrepared();
         start();
-        // 修复播放纯音频时状态出错问题
+        // 修复播放纯音频时状态出错问题（纯音频不会回调 MEDIA_INFO_VIDEO_RENDERING_START）
         if (!isVideo()) {
             mPlayerEventListener.onInfo(AbstractPlayer.MEDIA_INFO_RENDERING_START, 0);
+            mIsPreparing = false;
         }
+        // 对于视频，mIsPreparing 保持 true，等待 MEDIA_INFO_VIDEO_RENDERING_START 回调时再置 false
     }
 
     private boolean isVideo() {
