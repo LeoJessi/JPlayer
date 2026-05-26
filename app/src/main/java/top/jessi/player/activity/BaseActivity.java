@@ -124,6 +124,14 @@ public class BaseActivity<T extends BaseVideoView> extends AppCompatActivity {
     }
 
     @Override
+    protected void onStop() {
+        super.onStop();
+        if (mVideoView != null) {
+            mVideoView.stop();
+        }
+    }
+
+    @Override
     protected void onDestroy() {
         super.onDestroy();
         if (mVideoView != null) {

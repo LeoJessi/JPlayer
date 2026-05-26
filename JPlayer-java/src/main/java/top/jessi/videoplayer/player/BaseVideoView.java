@@ -348,6 +348,27 @@ public class BaseVideoView<P extends AbstractPlayer> extends FrameLayout
     }
 
     /**
+     * 停止播放
+     * <p>
+     * 与 pause() 不同，stop() 会调用底层播放器的 stop()，
+     * 对于 VLC 播放器，这会 detachViews 解除视频输出与 Surface 的绑定，
+     * 避免页面切换时 native 层继续向已销毁的 Surface 渲染帧导致闪烁。
+     * <p>
+     * 调用 stop() 后可通过 start() + prepareAsync() 重新播放，
+     * 或直接调用 release() 释放资源。
+     */
+    public void stop() {
+        if (isInPlaybackState()) {
+            mMediaPlayer.stop();
+            setPlayState(STATE_PAUSED);
+            if (mAudioFocusHelper != null && !isMute()) {
+                mAudioFocusHelper.abandonFocus();
+            }
+            mPlayerContainer.setKeepScreenOn(false);
+        }
+    }
+
+    /**
      * 继续播放
      */
     public void resume() {

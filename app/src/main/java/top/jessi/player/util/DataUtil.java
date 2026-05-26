@@ -13,7 +13,7 @@ import java.util.List;
 
 public class DataUtil {
 
-    public static final String SAMPLE_URL = "http://technolhub.xyz:8880/streaming/timeshift.php?stream=559&username=MALAI78b5d212345648&password=Ei7HW6fYQxpEsjlv&extension=m3u8&duration=90&start=2026-05-21:04-00";
+    public static final String SAMPLE_URL = "http://technolhub.xyz:8880/series/test260327abc/a11223344/64263.mp4";
 
     public static List<VideoBean> getVideoList() {
         List<VideoBean> videoList = new ArrayList<>();

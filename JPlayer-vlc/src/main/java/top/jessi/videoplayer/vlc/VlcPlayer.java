@@ -616,11 +616,18 @@ public class VlcPlayer extends AbstractPlayer implements MediaPlayer.EventListen
 
     /**
      * 开始播放
+     * <p>
+     * 如果之前通过 stop() detach 了视图，恢复播放前需重新 attachViews
+     * 确保视频输出正确绑定到 Surface。
      */
     @Override
     public void start() {
         if (mMediaPlayer != null) {
             try {
+                if (!mViewsAttached) {
+                    attachVlcViews();
+                }
+                applyScaleTypeToNative();
                 mMediaPlayer.play();
             } catch (Exception e) {
                 Log.w(TAG, "Error starting player", e);
@@ -633,6 +640,12 @@ public class VlcPlayer extends AbstractPlayer implements MediaPlayer.EventListen
 
     /**
      * 暂停播放
+     * <p>
+     * 与 stop() 不同，pause() 仅暂停播放引擎，不 detachViews。
+     * 画面会冻结在最后一帧，音频焦点由上层 BaseVideoView 管理。
+     * <p>
+     * 注意：如果需要在页面切换前确保 Surface 不被 native 层继续操作，
+     * 应由调用方在适当时机（如 onStop/onDestroy）调用 stop() 或 release()。
      */
     @Override
     public void pause() {
