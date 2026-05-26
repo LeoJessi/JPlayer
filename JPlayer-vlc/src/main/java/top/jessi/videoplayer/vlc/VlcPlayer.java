@@ -583,10 +583,10 @@ public class VlcPlayer extends AbstractPlayer implements MediaPlayer.EventListen
     /**
      * 设置播放数据源（assets文件）
      *
-     * @param fd AssetFileDescriptor
+     * @param afd AssetFileDescriptor
      */
     @Override
-    public void setDataSource(AssetFileDescriptor fd) {
+    public void setDataSource(AssetFileDescriptor afd) {
         try {
             // 先断开 MediaPlayer 对旧 Media 的引用，再释放旧 Media
             if (mMediaPlayer != null) {
@@ -596,7 +596,7 @@ public class VlcPlayer extends AbstractPlayer implements MediaPlayer.EventListen
                 mMedia.release();
                 mMedia = null;
             }
-            mMedia = new Media(mLibVLC, fd.getFileDescriptor());
+            mMedia = new Media(mLibVLC, afd);
 
             // 在 Media 级别设置硬件解码控制
             applyMediaHWAccel();
