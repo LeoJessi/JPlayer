@@ -32,10 +32,10 @@ public class SystemPlayer extends AbstractPlayer implements MediaPlayer.OnErrorL
      * prepareAsync 超时时间（毫秒）
      * 系统 MediaPlayer 在网络异常（如 404、连接拒绝等）时可能长时间阻塞，
      * 此处设置超时主动触发 onError，避免 UI 一直停留在加载状态。
-     * 12 秒是一个平衡值：既要给正常链接足够的缓冲准备时间，
+     * 15 秒是一个平衡值：既要给正常链接足够的缓冲准备时间，
      * 也要避免异常链接让用户等待过久。
      */
-    private static final long PREPARE_TIMEOUT_MS = 12000L;
+    private static final long PREPARE_TIMEOUT_MS = 15000L;
 
     protected MediaPlayer mMediaPlayer;
     private int mBufferedPercent;

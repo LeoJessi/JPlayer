@@ -130,6 +130,8 @@ public class VlcPlayer extends AbstractPlayer implements MediaPlayer.EventListen
     private VlcRenderView mVlcRenderView;
     // 启用VLC内建字幕渲染（包括内置字幕轨道和外部字幕文件）
     protected boolean mEnableVlcSubtitles = true;
+    private final int TRACK_GROUD_AUDIO = 0;
+    private final int TRACK_GROUD_SUBTITLE = 1;
 
     /**
      * 已注入到 VLC 内核的字幕 Uri 集合，用于去重
@@ -1720,6 +1722,9 @@ public class VlcPlayer extends AbstractPlayer implements MediaPlayer.EventListen
                     bean.language = "";
                     bean.trackId = audio.id;
                     bean.selected = (audio.id == currentAudioTrack);
+                    // 为字幕和音轨添加一个分组ID作为区别，避免音轨和字幕的禁用轨道ID都为-1，造成设置时混乱
+                    // {"language":"","name":"Disable","renderId":0,"selected":false,"trackGroupId":0,"trackId":-1}
+                    bean.trackGroupId = TRACK_GROUD_AUDIO;
                     data.addAudio(bean);
                 }
             }
@@ -1735,6 +1740,7 @@ public class VlcPlayer extends AbstractPlayer implements MediaPlayer.EventListen
                     bean.language = "";
                     bean.trackId = subtitle.id;
                     bean.selected = (subtitle.id == currentSubtitleTrack);
+                    bean.trackGroupId = TRACK_GROUD_SUBTITLE;
                     data.addSubtitle(bean);
                 }
             }
@@ -1751,21 +1757,13 @@ public class VlcPlayer extends AbstractPlayer implements MediaPlayer.EventListen
      */
     @Override
     public boolean setTrack(TrackInfoBean trackBean) {
-        if (trackBean == null) {
-            return setSubtitleTrack(-1);
+        if (trackBean == null || mMediaPlayer == null) return false;
+        if (trackBean.trackGroupId == TRACK_GROUD_AUDIO) {
+            return setAudioTrack(trackBean.trackId);
+        } else if (trackBean.trackGroupId == TRACK_GROUD_SUBTITLE) {
+            return setSubtitleTrack(trackBean.trackId);
         }
-        if (mMediaPlayer == null) {
-            return false;
-        }
-        MediaPlayer.TrackDescription[] audioTracks = mMediaPlayer.getAudioTracks();
-        if (audioTracks != null) {
-            for (MediaPlayer.TrackDescription audio : audioTracks) {
-                if (audio.id == trackBean.trackId) {
-                    return setAudioTrack(trackBean.trackId);
-                }
-            }
-        }
-        return setSubtitleTrack(trackBean.trackId);
+        return false;
     }
 
     /**
