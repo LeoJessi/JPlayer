@@ -91,6 +91,18 @@ public class SystemPlayer extends AbstractPlayer implements MediaPlayer.OnErrorL
         } catch (IllegalStateException e) {
             Log.w(TAG, "onError: " + e.getMessage(), e);
             mPlayerEventListener.onError();
+        } catch (NullPointerException e) {
+            // 部分厂商 ROM（华为、小米等）在 MediaPlayer.start() 内部调用 getAppName() 时
+            // 因 mContext 未就绪导致 NPE，此时播放器实际已准备就绪，重试一次即可
+            Log.w(TAG, "start() NPE from vendor ROM, retrying: " + e.getMessage());
+            mHandler.post(() -> {
+                try {
+                    mMediaPlayer.start();
+                } catch (Exception retry) {
+                    Log.w(TAG, "start() retry failed: " + retry.getMessage(), retry);
+                    mPlayerEventListener.onError();
+                }
+            });
         }
     }
 
@@ -425,8 +437,7 @@ public class SystemPlayer extends AbstractPlayer implements MediaPlayer.OnErrorL
         if (mMediaPlayer == null) return false;
         try {
             MediaPlayer.TrackInfo[] trackInfo = mMediaPlayer.getTrackInfo();
-            for (MediaPlayer.TrackInfo info :
-                    trackInfo) {
+            for (MediaPlayer.TrackInfo info : trackInfo) {
                 if (info.getTrackType() == MediaPlayer.TrackInfo.MEDIA_TRACK_TYPE_VIDEO) {
                     return true;
                 }
