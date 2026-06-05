@@ -496,6 +496,7 @@ public class VlcPlayer extends AbstractPlayer implements MediaPlayer.EventListen
             return;
         }
 
+        Media newMedia = null;
         try {
             // 先断开 MediaPlayer 对旧 Media 的引用，再释放旧 Media
             if (mMediaPlayer != null) {
@@ -509,7 +510,8 @@ public class VlcPlayer extends AbstractPlayer implements MediaPlayer.EventListen
             // HLS 流：启动本地代理，修正 Content-Type 并强制 avformat 解复用器
             String playUrl = applyHlsProxyIfNeeded(path);
 
-            mMedia = new Media(mLibVLC, Uri.parse(playUrl));
+            newMedia = new Media(mLibVLC, Uri.parse(playUrl));
+            mMedia = newMedia;
 
             // 在 Media 级别设置硬件解码控制（参考官方 VLCOptions.setMediaOptions）
             applyMediaHWAccel();
@@ -543,6 +545,15 @@ public class VlcPlayer extends AbstractPlayer implements MediaPlayer.EventListen
 
         } catch (Exception e) {
             Log.w(TAG, "Error setting data source", e);
+            // 确保 Media 对象在异常时也能被正确释放
+            if (newMedia != null && mMedia == newMedia) {
+                try {
+                    newMedia.release();
+                } catch (Exception releaseException) {
+                    Log.w(TAG, "Error releasing media after exception", releaseException);
+                }
+                mMedia = null;
+            }
             if (mPlayerEventListener != null) {
                 mPlayerEventListener.onError();
             }
@@ -587,6 +598,7 @@ public class VlcPlayer extends AbstractPlayer implements MediaPlayer.EventListen
      */
     @Override
     public void setDataSource(AssetFileDescriptor afd) {
+        Media newMedia = null;
         try {
             // 先断开 MediaPlayer 对旧 Media 的引用，再释放旧 Media
             if (mMediaPlayer != null) {
@@ -596,7 +608,8 @@ public class VlcPlayer extends AbstractPlayer implements MediaPlayer.EventListen
                 mMedia.release();
                 mMedia = null;
             }
-            mMedia = new Media(mLibVLC, afd);
+            newMedia = new Media(mLibVLC, afd);
+            mMedia = newMedia;
 
             // 在 Media 级别设置硬件解码控制
             applyMediaHWAccel();
@@ -608,6 +621,15 @@ public class VlcPlayer extends AbstractPlayer implements MediaPlayer.EventListen
             mMedia = null;
         } catch (Exception e) {
             Log.w(TAG, "Error setting asset data source", e);
+            // 确保 Media 对象在异常时也能被正确释放
+            if (newMedia != null && mMedia == newMedia) {
+                try {
+                    newMedia.release();
+                } catch (Exception releaseException) {
+                    Log.w(TAG, "Error releasing media after exception", releaseException);
+                }
+                mMedia = null;
+            }
             if (mPlayerEventListener != null) {
                 mPlayerEventListener.onError();
             }
@@ -702,12 +724,26 @@ public class VlcPlayer extends AbstractPlayer implements MediaPlayer.EventListen
             return;
         }
 
-        if (mMediaPlayer.getMedia() == null) {
-            Log.w(TAG, "Cannot prepare: Media not set, call setDataSource() first");
-            if (mPlayerEventListener != null) {
-                mPlayerEventListener.onError();
+        // 检查 Media 是否已设置，注意 getMedia() 返回的引用需要释放
+        IMedia media = null;
+        try {
+            media = mMediaPlayer.getMedia();
+            if (media == null) {
+                Log.w(TAG, "Cannot prepare: Media not set, call setDataSource() first");
+                if (mPlayerEventListener != null) {
+                    mPlayerEventListener.onError();
+                }
+                return;
             }
-            return;
+        } finally {
+            // 释放 getMedia() 返回的引用
+            if (media != null) {
+                try {
+                    media.release();
+                } catch (Exception e) {
+                    Log.w(TAG, "Error releasing media reference in prepareAsync", e);
+                }
+            }
         }
 
         mIsPreparing = true;
@@ -1647,9 +1683,12 @@ public class VlcPlayer extends AbstractPlayer implements MediaPlayer.EventListen
      * 优先从 MediaPlayer.getMedia() 获取轨道信息（因为 setDataSource 后 mMedia 已被释放），
      * 如果MediaPlayer 也没有 Media，则尝试从 mMedia 获取（兼容未释放的场景）。
      * 如果都获取不到有效尺寸，则使用默认值 1280x720 避免上层收到 0x0 导致布局异常。
+     * <p>
+     * 重要：MediaPlayer.getMedia() 返回的引用会增加 native 引用计数，使用完必须 release()
      */
     private void notifyVideoSize() {
         if (mPlayerEventListener == null) return;
+        IMedia media = null;
         try {
             int width = 0;
             int height = 0;
@@ -1657,7 +1696,7 @@ public class VlcPlayer extends AbstractPlayer implements MediaPlayer.EventListen
             // 优先从 MediaPlayer 获取（setDataSource 后 mMedia 已释放，但 MediaPlayer 内部持有引用）
             if (mMediaPlayer != null) {
                 try {
-                    IMedia media = mMediaPlayer.getMedia();
+                    media = mMediaPlayer.getMedia();
                     if (media != null) {
                         int trackCount = media.getTrackCount();
                         for (int i = 0; i < trackCount; i++) {
@@ -1672,6 +1711,15 @@ public class VlcPlayer extends AbstractPlayer implements MediaPlayer.EventListen
                     }
                 } catch (Exception e) {
                     Log.w(TAG, "Error getting video size from MediaPlayer", e);
+                } finally {
+                    // 关键：getMedia() 返回的引用必须释放，否则会泄漏 native 资源
+                    if (media != null) {
+                        try {
+                            media.release();
+                        } catch (Exception e) {
+                            Log.w(TAG, "Error releasing media reference", e);
+                        }
+                    }
                 }
             }
 
