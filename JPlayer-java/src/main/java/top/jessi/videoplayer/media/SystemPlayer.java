@@ -43,6 +43,7 @@ public class SystemPlayer extends AbstractPlayer implements MediaPlayer.OnErrorL
     private boolean mIsPreparing;
     private final Handler mHandler = new Handler(Looper.getMainLooper());
     private Runnable mPrepareTimeoutRunnable;
+    private AssetFileDescriptor mAssetFd;
 
     public SystemPlayer(Context context) {
         mAppContext = context.getApplicationContext();
@@ -75,11 +76,31 @@ public class SystemPlayer extends AbstractPlayer implements MediaPlayer.OnErrorL
     @Override
     public void setDataSource(AssetFileDescriptor fd) {
         if (mMediaPlayer == null) return;
+        // 关闭之前传入的fd，避免资源泄漏
+        closeAssetFd();
+        mAssetFd = fd;
         try {
             mMediaPlayer.setDataSource(fd.getFileDescriptor(), fd.getStartOffset(), fd.getLength());
         } catch (Exception e) {
             Log.w(TAG, "onError: " + e.getMessage(), e);
             mPlayerEventListener.onError();
+            // 设置失败时关闭fd，避免无效持有
+            closeAssetFd();
+        }
+    }
+
+    /**
+     * 关闭AssetFileDescriptor，释放资源
+     */
+    private void closeAssetFd() {
+        if (mAssetFd != null) {
+            try {
+                mAssetFd.close();
+            } catch (Exception e) {
+                Log.w(TAG, "close AssetFileDescriptor failed: " + e.getMessage());
+            } finally {
+                mAssetFd = null;
+            }
         }
     }
 
@@ -158,6 +179,7 @@ public class SystemPlayer extends AbstractPlayer implements MediaPlayer.OnErrorL
                     Log.w(TAG, "prepareAsync 超时后 reset 失败: " + e.getMessage());
                 }
             }
+            closeAssetFd();
             mIsPreparing = false;
             mPlayerEventListener.onError();
         };
@@ -180,6 +202,7 @@ public class SystemPlayer extends AbstractPlayer implements MediaPlayer.OnErrorL
         lastTimeStamp = 0;
         cancelPrepareTimeout();
         mIsPreparing = false;
+        closeAssetFd();
         if (mMediaPlayer == null) return;
         try {
             mMediaPlayer.stop();
@@ -218,6 +241,7 @@ public class SystemPlayer extends AbstractPlayer implements MediaPlayer.OnErrorL
     public void release() {
         if (mMediaPlayer == null) return;
         cancelPrepareTimeout();
+        closeAssetFd();
         mMediaPlayer.setOnErrorListener(null);
         mMediaPlayer.setOnCompletionListener(null);
         mMediaPlayer.setOnInfoListener(null);
@@ -389,12 +413,14 @@ public class SystemPlayer extends AbstractPlayer implements MediaPlayer.OnErrorL
         Log.w(TAG, "onError: what=" + what + ", extra=" + extra);
         cancelPrepareTimeout();
         mIsPreparing = false;
+        closeAssetFd();
         mPlayerEventListener.onError();
         return true;
     }
 
     @Override
     public void onCompletion(MediaPlayer mp) {
+        closeAssetFd();
         mPlayerEventListener.onCompletion();
     }
 
