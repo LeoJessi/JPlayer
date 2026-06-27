@@ -4,10 +4,12 @@ import android.content.Context
 import android.content.Intent
 import android.graphics.BitmapFactory
 import android.text.TextUtils
+import android.util.Log
 import android.view.View
 import android.widget.EditText
 import android.widget.ImageView
 import com.bumptech.glide.Glide
+import com.google.gson.Gson
 import top.jessi.player.R
 import top.jessi.player.activity.BaseActivity
 import top.jessi.player.util.IntentKeys
@@ -181,6 +183,10 @@ class PlayerActivity : BaseActivity<VideoView>() {
                         val videoSize = mVideoView!!.videoSize
                         L.d("视频宽：" + videoSize[0])
                         L.d("视频高：" + videoSize[1])
+                        Log.e("TAG_Audio", "onPlayStateChanged: " +
+                                Gson().toJson(mVideoView.mediaPlayer.trackInfo.audio))
+                        Log.e("TAG_Subtitle", ": " +
+                                Gson().toJson(mVideoView.mediaPlayer.trackInfo.subtitle))
                     }
                     VideoView.STATE_PAUSED -> {
                     }

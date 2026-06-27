@@ -419,10 +419,12 @@ public class ExoMediaPlayer extends AbstractPlayer implements Player.Listener {
                         if (trackNameProvider == null) {
                             trackNameProvider = new ExoTrackNameProvider(mAppContext.getResources());
                         }
-                        String trackName = trackNameProvider.getTrackName(format)
-                                + "[" + (TextUtils.isEmpty(format.codecs) ? format.sampleMimeType : format.codecs) + "]";
+                        // 原本类似English, Stereo, 0.11 Mbps[mp4a.40.2]，现在打算只保留语言
+                        // String trackName = trackNameProvider.getTrackName(format)
+                        //   + "[" + (TextUtils.isEmpty(format.codecs) ? format.sampleMimeType : format.codecs)+ "]";
+                        String trackName = trackNameProvider.getTrackName(format);
                         TrackInfoBean t = new TrackInfoBean();
-                        t.name = trackName;
+                        t.name = trackName.contains("Track ") ? trackName + (groupIndex + 1) : trackName;
                         t.language = "";
                         t.trackId = formatIndex;
                         t.selected = !TextUtils.isEmpty(currentAudioId) && currentAudioId.equals(format.id);
@@ -470,7 +472,8 @@ public class ExoMediaPlayer extends AbstractPlayer implements Player.Listener {
                 // 禁用字幕渲染器
                 for (int renderIndex = 0; renderIndex < trackInfo.getRendererCount(); renderIndex++) {
                     if (trackInfo.getRendererType(renderIndex) == C.TRACK_TYPE_TEXT) {
-                        DefaultTrackSelector.Parameters.Builder parametersBuilder = mTrackSelector.getParameters().buildUpon();
+                        DefaultTrackSelector.Parameters.Builder parametersBuilder =
+                                mTrackSelector.getParameters().buildUpon();
                         parametersBuilder.setRendererDisabled(renderIndex, true);
                         mTrackSelector.setParameters(parametersBuilder);
                         return true;
