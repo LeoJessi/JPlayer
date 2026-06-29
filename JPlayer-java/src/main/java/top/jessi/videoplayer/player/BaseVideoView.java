@@ -181,11 +181,16 @@ public class BaseVideoView<P extends AbstractPlayer> extends FrameLayout
      */
     @Override
     public void start() {
-        if (isInIdleState() || isInStartAbortState()) {
+        if (mMediaPlayer == null) {
             startPlay();
-        } else if (isInPlaybackState()) {
+        } else {
             startInPlaybackState();
         }
+        // if (isInIdleState() || isInStartAbortState()) {
+        //     startPlay();
+        // } else if (isInPlaybackState()) {
+        //     startInPlaybackState();
+        // }
     }
 
     /**
@@ -282,7 +287,8 @@ public class BaseVideoView<P extends AbstractPlayer> extends FrameLayout
         if (tempRenderViewFactory != null) mRenderViewFactory = tempRenderViewFactory;
         mRenderView = mRenderViewFactory.createRenderView(getContext());
         mRenderView.attachToPlayer(mMediaPlayer);
-        LayoutParams params = new LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT, Gravity.CENTER);
+        LayoutParams params = new LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT,
+                ViewGroup.LayoutParams.MATCH_PARENT, Gravity.CENTER);
         mPlayerContainer.addView(mRenderView.getView(), 0, params);
     }
 
@@ -328,6 +334,8 @@ public class BaseVideoView<P extends AbstractPlayer> extends FrameLayout
     protected void startInPlaybackState() {
         saveProgress();
         mMediaPlayer.reset();
+        //重新设置option，media player reset之后，option会失效
+        setOptions();
         mCurrentPosition = 0;
         if (prepareDataSource()) {
             if (mProgressManager != null) {
