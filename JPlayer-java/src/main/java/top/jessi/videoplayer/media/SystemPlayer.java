@@ -210,8 +210,8 @@ public class SystemPlayer extends AbstractPlayer implements MediaPlayer.OnErrorL
             // ignore
         }
         mMediaPlayer.reset();
-        mMediaPlayer.setSurface(null);
-        mMediaPlayer.setDisplay(null);
+        // mMediaPlayer.setSurface(null);
+        // mMediaPlayer.setDisplay(null);
         mMediaPlayer.setVolume(1, 1);
     }
 
@@ -251,6 +251,8 @@ public class SystemPlayer extends AbstractPlayer implements MediaPlayer.OnErrorL
         stop();
         lastTotalRxBytes = 0;
         lastTimeStamp = 0;
+        mMediaPlayer.setSurface(null);
+        mMediaPlayer.setDisplay(null);
         final MediaPlayer mediaPlayer = mMediaPlayer;
         mMediaPlayer = null;
         new Thread() {

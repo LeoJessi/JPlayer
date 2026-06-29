@@ -952,15 +952,6 @@ public class VlcPlayer extends AbstractPlayer implements MediaPlayer.EventListen
         removeSurfaceListeners();
         if (mMediaPlayer != null) {
             try {
-                if (mViewsAttached) {
-                    mMediaPlayer.detachViews();
-                    mViewsAttached = false;
-                }
-            } catch (Exception e) {
-                Log.w(TAG, "Error detaching views during reset", e);
-            }
-
-            try {
                 mMediaPlayer.stop();
             } catch (Exception e) {
                 Log.w(TAG, "Error stopping player during reset", e);

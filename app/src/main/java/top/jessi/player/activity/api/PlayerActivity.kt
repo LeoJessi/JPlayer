@@ -152,8 +152,8 @@ class PlayerActivity : BaseActivity<VideoView>() {
 
         //播放其他视频
         val etOtherVideo = findViewById<EditText>(R.id.et_other_video)
+        etOtherVideo.setText("http://test.nbplayer.net:8880/movie/testmovie/12345678/944.mkv")
         findViewById<View>(R.id.btn_start_play).setOnClickListener {
-            mVideoView.release()
             mVideoView.setUrl(etOtherVideo.text.toString())
             mVideoView.start()
         }
