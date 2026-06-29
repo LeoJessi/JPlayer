@@ -70,7 +70,6 @@ public class BaseVideoView<P extends AbstractPlayer> extends FrameLayout
 
     //--------- data sources ---------//
     protected String mUrl;//当前播放视频的地址
-    protected String mPreparedUrl;//当前播放器已准备的地址（用于检测 URL 是否变化）
     protected String mProgressKey = null;
     protected Map<String, String> mHeaders;//当前视频地址的请求头
     protected AssetFileDescriptor mAssetFileDescriptor;//assets文件
@@ -182,16 +181,10 @@ public class BaseVideoView<P extends AbstractPlayer> extends FrameLayout
      */
     @Override
     public void start() {
-        if (isInIdleState()
-                || isInStartAbortState()) {
+        if (isInIdleState() || isInStartAbortState()) {
             startPlay();
         } else if (isInPlaybackState()) {
-            // 检测 URL 是否变化，如果变化则切换数据源
-            if (TextUtils.equals(mUrl, mPreparedUrl)) {
-                startInPlaybackState();
-            } else {
-                switchDataSourceInPlayback();
-            }
+            startInPlaybackState();
         }
     }
 
@@ -218,7 +211,6 @@ public class BaseVideoView<P extends AbstractPlayer> extends FrameLayout
         initPlayer();
         addDisplay();
         startPrepare(false);
-        mPreparedUrl = mUrl;
         return true;
     }
 
@@ -328,24 +320,12 @@ public class BaseVideoView<P extends AbstractPlayer> extends FrameLayout
 
     /**
      * 播放状态下开始播放
-     */
-    protected void startInPlaybackState() {
-        mMediaPlayer.start();
-        setPlayState(STATE_PLAYING);
-        if (mAudioFocusHelper != null && !isMute()) {
-            mAudioFocusHelper.requestFocus();
-        }
-        mPlayerContainer.setKeepScreenOn(true);
-    }
-
-    /**
-     * 播放状态下切换数据源
      * <p>
      * 当检测到 URL 变化时调用，暂停当前播放，设置新数据源并异步准备。
      * 保留 MediaPlayer、RenderView 和 Surface 实例，仅替换数据源。
      * 不需要 detachViews，因为 Surface 在切换过程中始终有效。
      */
-    private void switchDataSourceInPlayback() {
+    protected void startInPlaybackState() {
         saveProgress();
         mMediaPlayer.reset();
         mCurrentPosition = 0;
@@ -353,7 +333,6 @@ public class BaseVideoView<P extends AbstractPlayer> extends FrameLayout
             if (mProgressManager != null) {
                 mCurrentPosition = mProgressManager.getSavedProgress(mProgressKey == null ? mUrl : mProgressKey);
             }
-            mPreparedUrl = mUrl;
             mMediaPlayer.prepareAsync();
             setPlayState(STATE_PREPARING);
             setPlayerState(isFullScreen() ? PLAYER_FULL_SCREEN : isTinyScreen() ? PLAYER_TINY_SCREEN : PLAYER_NORMAL);
@@ -507,7 +486,6 @@ public class BaseVideoView<P extends AbstractPlayer> extends FrameLayout
         }
         addDisplay();
         startPrepare(true);
-        mPreparedUrl = mUrl;
     }
 
     /**
