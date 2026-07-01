@@ -19,6 +19,8 @@ import androidx.media3.common.Player;
 import androidx.media3.common.TrackGroup;
 import androidx.media3.common.Tracks;
 import androidx.media3.common.VideoSize;
+import androidx.media3.common.text.Cue;
+import androidx.media3.common.text.CueGroup;
 import androidx.media3.common.util.UnstableApi;
 import androidx.media3.exoplayer.DefaultLoadControl;
 import androidx.media3.exoplayer.DefaultRenderersFactory;
@@ -29,9 +31,11 @@ import androidx.media3.exoplayer.source.TrackGroupArray;
 import androidx.media3.exoplayer.trackselection.DefaultTrackSelector;
 import androidx.media3.exoplayer.trackselection.MappingTrackSelector;
 
+import java.util.List;
 import java.util.Map;
 
 import top.jessi.videoplayer.player.AbstractPlayer;
+import top.jessi.videoplayer.player.TimedText;
 import top.jessi.videoplayer.player.TrackInfo;
 import top.jessi.videoplayer.player.TrackInfoBean;
 
@@ -374,6 +378,23 @@ public class ExoMediaPlayer extends AbstractPlayer implements Player.Listener {
                 mPlayerEventListener.onInfo(MEDIA_INFO_VIDEO_ROTATION_CHANGED, videoSize.unappliedRotationDegrees);
             }
         }
+    }
+
+    @Override
+    public void onCues(@NonNull CueGroup cueGroup) {
+        Player.Listener.super.onCues(cueGroup);
+        if (mTimedTextListener == null) return;
+        List<Cue> cues = cueGroup.cues;
+        String subtitle = "";
+        if (!cues.isEmpty()) {
+            StringBuilder sb = new StringBuilder();
+            for (Cue cue : cues) {
+                if (cue.text != null) sb.append(cue.text).append("\n");
+            }
+            subtitle = sb.toString().trim();
+        }
+        TimedText timedText = new TimedText(subtitle);
+        mTimedTextListener.onTimedText(timedText);
     }
 
     // ==================== Track Info ====================

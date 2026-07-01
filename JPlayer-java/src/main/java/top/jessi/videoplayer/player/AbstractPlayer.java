@@ -252,6 +252,28 @@ public abstract class AbstractPlayer {
         this.mPlayerEventListener = playerEventListener;
     }
 
+    /**
+     * 字幕回调监听 -- 只回调字幕的文本数据 方便字幕的使用与显示
+     */
+    protected TimedTextListener mTimedTextListener;
+
+    /**
+     * 添加字幕变化监听
+     */
+    public void setTimedTextListener(TimedTextListener timedTextListener) {
+        this.mTimedTextListener = timedTextListener;
+    }
+
+    /**
+     * 字幕文本回调，回调线程与播放器回调线程一致（通常为主线程）
+     */
+    public interface TimedTextListener {
+        /**
+         * @param timedText 当前字幕  text-文本，为空字符串时表示字幕消失
+         */
+        void onTimedText(TimedText timedText);
+    }
+
     public interface PlayerEventListener {
 
         void onError();

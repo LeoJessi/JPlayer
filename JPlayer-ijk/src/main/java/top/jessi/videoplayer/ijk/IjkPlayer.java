@@ -12,8 +12,10 @@ import android.view.SurfaceHolder;
 
 import java.util.Map;
 
+import top.jessi.videoplayer.player.TimedText;
 import tv.danmaku.ijk.media.player.IMediaPlayer;
 import tv.danmaku.ijk.media.player.IjkMediaPlayer;
+import tv.danmaku.ijk.media.player.IjkTimedText;
 import tv.danmaku.ijk.media.player.misc.ITrackInfo;
 import tv.danmaku.ijk.media.player.misc.IjkTrackInfo;
 import top.jessi.videoplayer.player.AbstractPlayer;
@@ -24,7 +26,8 @@ import top.jessi.videoplayer.player.VideoViewManager;
 public class IjkPlayer extends AbstractPlayer implements IMediaPlayer.OnErrorListener,
         IMediaPlayer.OnCompletionListener, IMediaPlayer.OnInfoListener,
         IMediaPlayer.OnBufferingUpdateListener, IMediaPlayer.OnPreparedListener,
-        IMediaPlayer.OnVideoSizeChangedListener, IjkMediaPlayer.OnNativeInvokeListener {
+        IMediaPlayer.OnVideoSizeChangedListener, IjkMediaPlayer.OnNativeInvokeListener,
+        IMediaPlayer.OnTimedTextListener {
 
     /**
      * IJK 解码模式
@@ -433,6 +436,16 @@ public class IjkPlayer extends AbstractPlayer implements IMediaPlayer.OnErrorLis
         int videoHeight = mp.getVideoHeight();
         if (videoWidth != 0 && videoHeight != 0) {
             mPlayerEventListener.onVideoSizeChanged(videoWidth, videoHeight);
+        }
+    }
+
+    @Override
+    public void onTimedText(IMediaPlayer iMediaPlayer, IjkTimedText ijkTimedText) {
+        if (mTimedTextListener == null) return;
+        String subtitle = ijkTimedText.getText();
+        if (subtitle != null) {
+            TimedText timedText = new TimedText(subtitle);
+            mTimedTextListener.onTimedText(timedText);
         }
     }
 
