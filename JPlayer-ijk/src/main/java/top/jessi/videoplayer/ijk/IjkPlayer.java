@@ -5,6 +5,7 @@ import android.content.Context;
 import android.content.res.AssetFileDescriptor;
 import android.net.Uri;
 import android.os.Bundle;
+import android.os.Handler;
 import android.text.TextUtils;
 import android.util.Log;
 import android.view.Surface;
@@ -508,7 +509,14 @@ public class IjkPlayer extends AbstractPlayer implements IMediaPlayer.OnErrorLis
             return false;
         }
         try {
+            mMediaPlayer.pause();
+            // 保存当前进度，ijk 切换轨道 会有快进几秒
+            long progress = getCurrentPosition();
             mMediaPlayer.selectTrack(trackBean.trackId);
+            new Handler().postDelayed(() -> {
+                seekTo(progress);
+                start();
+            }, 800);
             return true;
         } catch (Exception e) {
             return false;
