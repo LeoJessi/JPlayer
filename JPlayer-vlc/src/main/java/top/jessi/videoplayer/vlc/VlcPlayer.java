@@ -496,7 +496,7 @@ public class VlcPlayer extends AbstractPlayer implements MediaPlayer.EventListen
             applyMediaHWAccel();
 
             // Media 级别：增大网络缓存，确保有足够数据开始解码
-            mMedia.addOption(":network-caching=5000");
+            mMedia.addOption(":network-caching=3000");
             mMedia.addOption(":file-caching=3000");
 
             // HLS 代理激活时，强制使用 avformat 解复用器，
