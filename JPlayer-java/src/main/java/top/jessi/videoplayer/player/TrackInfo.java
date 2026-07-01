@@ -33,7 +33,7 @@ public class TrackInfo {
             if (trackInfoBean.selected) return track ? trackInfoBean.trackId : i;
             i++;
         }
-        return i;
+        return 0;
     }
 
     public void addAudio(TrackInfoBean audio) {
