@@ -113,6 +113,7 @@ public class IjkPlayer extends AbstractPlayer implements IMediaPlayer.OnErrorLis
         mMediaPlayer.setOnPreparedListener(this);
         mMediaPlayer.setOnVideoSizeChangedListener(this);
         mMediaPlayer.setOnNativeInvokeListener(this);
+        mMediaPlayer.setOnTimedTextListener(this);
     }
 
 
@@ -185,6 +186,11 @@ public class IjkPlayer extends AbstractPlayer implements IMediaPlayer.OnErrorLis
 
         // 不使用视频后处理滤镜，减少 CPU 开销
         mMediaPlayer.setOption(IjkMediaPlayer.OPT_CATEGORY_PLAYER, "skip_loop_filter", 48L);
+
+        // // 确保字幕解码器启用
+        mMediaPlayer.setOption(IjkMediaPlayer.OPT_CATEGORY_PLAYER, "subtitle", 1L);
+        // // 在每个数据包之后启用 I/O 上下文的刷新
+        mMediaPlayer.setOption(IjkMediaPlayer.OPT_CATEGORY_FORMAT, "flush_packets", 1);
     }
 
     /**

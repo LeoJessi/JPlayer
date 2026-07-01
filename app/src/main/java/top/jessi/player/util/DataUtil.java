@@ -14,7 +14,8 @@ import java.util.List;
 public class DataUtil {
 
     // http://playertest.longtailvideo.com/adaptive/bipbop/gear4/prog_index.m3u8
-    public static final String SAMPLE_URL = "http://thetechno.xyz:8880/live/MALAI78b5d212345648/2KYv9tM6eljqdw2j/559.m3u8";
+    // http://technolhub.xyz:8880/series/test260327abc/a11223344/64263.mp4
+    public static final String SAMPLE_URL = "http://technolhub.xyz:8880/series/test260327abc/a11223344/64263.mp4";
     // http://thetechno.xyz:8880/live/MALAI78b5d212345648/2KYv9tM6eljqdw2j/559.m3u8
 
     public static List<VideoBean> getVideoList() {

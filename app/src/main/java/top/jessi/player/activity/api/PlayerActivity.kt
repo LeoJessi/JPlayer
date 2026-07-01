@@ -127,12 +127,14 @@ class PlayerActivity : BaseActivity<VideoView>() {
                     }
                 })
                 // 设置滤镜
-                renderView.setGlFilter(GlFilterGroup(
-                    // 水印
-                    GlWatermarkFilter(BitmapFactory.decodeResource(resources, R.mipmap.ic_launcher)),
-                    GlSepiaFilter(),
-                    GlSharpenFilter()
-                ))
+                renderView.setGlFilter(
+                    GlFilterGroup(
+                        // 水印
+                        GlWatermarkFilter(BitmapFactory.decodeResource(resources, R.mipmap.ic_launcher)),
+                        GlSepiaFilter(),
+                        GlSharpenFilter()
+                    )
+                )
             }
             //临时切换播放核心，如需全局请通过VideoConfig配置，详见MyApplication
             //使用IjkPlayer解码
@@ -165,6 +167,7 @@ class PlayerActivity : BaseActivity<VideoView>() {
                 when (playerState) {
                     VideoView.PLAYER_NORMAL -> {
                     }
+
                     VideoView.PLAYER_FULL_SCREEN -> {
                     }
                 }
@@ -174,28 +177,32 @@ class PlayerActivity : BaseActivity<VideoView>() {
                 when (playState) {
                     VideoView.STATE_IDLE -> {
                     }
+
                     VideoView.STATE_PREPARING -> {
                     }
+
                     VideoView.STATE_PREPARED -> {
                     }
+
                     VideoView.STATE_PLAYING -> {
                         //需在此时获取视频宽高
                         val videoSize = mVideoView!!.videoSize
                         L.d("视频宽：" + videoSize[0])
                         L.d("视频高：" + videoSize[1])
-                        Log.e("TAG_Audio", "onPlayStateChanged: " +
-                                Gson().toJson(mVideoView.mediaPlayer.trackInfo.audio))
-                        Log.e("TAG_Subtitle", ": " +
-                                Gson().toJson(mVideoView.mediaPlayer.trackInfo.subtitle))
                     }
+
                     VideoView.STATE_PAUSED -> {
                     }
+
                     VideoView.STATE_BUFFERING -> {
                     }
+
                     VideoView.STATE_BUFFERED -> {
                     }
+
                     VideoView.STATE_PLAYBACK_COMPLETED -> {
                     }
+
                     VideoView.STATE_ERROR -> {
                     }
                 }
@@ -220,10 +227,12 @@ class PlayerActivity : BaseActivity<VideoView>() {
                 val bitmap = mVideoView!!.doScreenShot()
                 imageView.setImageBitmap(bitmap)
             }
+
             R.id.mirror_rotate -> {
                 mVideoView!!.setMirrorRotation(i % 2 == 0)
                 i++
             }
+
             R.id.btn_mute -> mVideoView!!.isMute = !mVideoView!!.isMute
         }
     }
