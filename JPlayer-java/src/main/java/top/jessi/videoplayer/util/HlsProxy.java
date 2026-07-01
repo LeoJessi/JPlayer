@@ -41,6 +41,29 @@ public class HlsProxy {
 
     private static final String TAG = "JPlayer—HlsProxy";
 
+    /**
+     * HLS 代理开关，默认关闭。可通过 {@link #setHlsProxyEnabled(boolean)} 手动控制
+     */
+    private static boolean sHlsProxyEnabled = false;
+
+    /**
+     * 启用/禁用 HLS 本地代理（全局，默认启用）
+     *
+     * @param enabled true=启用，false=禁用
+     */
+    public static void setHlsProxyEnabled(boolean enabled) {
+        sHlsProxyEnabled = enabled;
+    }
+
+    /**
+     * 获取 HLS 代理启用状态
+     *
+     * @return true=已启用，false=已禁用
+     */
+    public static boolean isHlsProxyEnabled() {
+        return sHlsProxyEnabled;
+    }
+
     private ServerSocket mServerSocket;
     private ExecutorService mExecutor;
     private int mPort = -1;

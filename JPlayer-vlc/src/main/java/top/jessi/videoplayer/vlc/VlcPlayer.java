@@ -107,11 +107,6 @@ public class VlcPlayer extends AbstractPlayer implements MediaPlayer.EventListen
     private static final String TAG = "JPlayer—VlcPlayer";
 
     /**
-     * HLS 代理开关，默认启用。可通过 {@link #setHlsProxyEnabled(boolean)} 手动控制
-     */
-    private static boolean sHlsProxyEnabled = true;
-
-    /**
      * HLS 本地代理实例（每个 VlcPlayer 实例持有一个）
      */
     private HlsProxy mHlsProxy;
@@ -198,22 +193,6 @@ public class VlcPlayer extends AbstractPlayer implements MediaPlayer.EventListen
      */
     public HWAccel getHWAccel() {
         return mHWAccel;
-    }
-
-    // ==================== HLS 代理控制 ====================
-
-    /**
-     * 启用/禁用 HLS 本地代理（全局，默认启用）
-     */
-    public static void setHlsProxyEnabled(boolean enabled) {
-        sHlsProxyEnabled = enabled;
-    }
-
-    /**
-     * 获取 HLS 代理启用状态
-     */
-    public static boolean isHlsProxyEnabled() {
-        return sHlsProxyEnabled;
     }
 
     // ==================== 外部自定义参数 ====================
@@ -522,7 +501,7 @@ public class VlcPlayer extends AbstractPlayer implements MediaPlayer.EventListen
 
             // HLS 代理激活时，强制使用 avformat 解复用器，
             // 绕过 VLC 3.7.0 原生 adaptive 解复用器的 FakeESOut PCR bug
-            if (mHlsProxy != null && sHlsProxyEnabled && playUrl.contains("127.0.0.1")) {
+            if (mHlsProxy != null && HlsProxy.isHlsProxyEnabled() && playUrl.contains("127.0.0.1")) {
                 mMedia.addOption(":demux=avformat");
             }
 
@@ -564,7 +543,7 @@ public class VlcPlayer extends AbstractPlayer implements MediaPlayer.EventListen
      * 对 HLS 流（.m3u8）启动本地代理并返回代理 URL，非 HLS 流直接返回原始 URL
      */
     private String applyHlsProxyIfNeeded(String originalUrl) {
-        if (!sHlsProxyEnabled) {
+        if (!HlsProxy.isHlsProxyEnabled()) {
             return originalUrl;
         }
 

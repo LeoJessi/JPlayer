@@ -125,8 +125,8 @@ HLS 代理默认自动启用，无需额外配置。
 ### 手动控制
 
 ```java
-// 禁用 HLS 代理（全局设置）
-VlcPlayer.setHlsProxyEnabled(false);
+// 禁用 HLS 代理（全局设置，对所有播放内核生效）
+HlsProxy.setHlsProxyEnabled(false);
 
 // 设置硬件加速模式
 player.setHLCPlayer.setHWAccel(VlcPlayer.HWAccel.DISABLED);
