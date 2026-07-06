@@ -1332,30 +1332,30 @@ public class VlcPlayer extends AbstractPlayer implements MediaPlayer.EventListen
                     mMediaPlayer.setAspectRatio("4:3");
                     mMediaPlayer.setScale(0);
                     break;
-                case SURFACE_16_10:
-                    mMediaPlayer.setAspectRatio("16:10");
-                    mMediaPlayer.setScale(0);
-                    break;
-                case SURFACE_2_1:
-                    mMediaPlayer.setAspectRatio("2:1");
-                    mMediaPlayer.setScale(0);
-                    break;
-                case SURFACE_221_1:
-                    mMediaPlayer.setAspectRatio("2.21:1");
-                    mMediaPlayer.setScale(0);
-                    break;
-                case SURFACE_235_1:
-                    mMediaPlayer.setAspectRatio("2.35:1");
-                    mMediaPlayer.setScale(0);
-                    break;
-                case SURFACE_239_1:
-                    mMediaPlayer.setAspectRatio("2.39:1");
-                    mMediaPlayer.setScale(0);
-                    break;
-                case SURFACE_5_4:
-                    mMediaPlayer.setAspectRatio("5:4");
-                    mMediaPlayer.setScale(0);
-                    break;
+                // case SURFACE_16_10:
+                //     mMediaPlayer.setAspectRatio("16:10");
+                //     mMediaPlayer.setScale(0);
+                //     break;
+                // case SURFACE_2_1:
+                //     mMediaPlayer.setAspectRatio("2:1");
+                //     mMediaPlayer.setScale(0);
+                //     break;
+                // case SURFACE_221_1:
+                //     mMediaPlayer.setAspectRatio("2.21:1");
+                //     mMediaPlayer.setScale(0);
+                //     break;
+                // case SURFACE_235_1:
+                //     mMediaPlayer.setAspectRatio("2.35:1");
+                //     mMediaPlayer.setScale(0);
+                //     break;
+                // case SURFACE_239_1:
+                //     mMediaPlayer.setAspectRatio("2.39:1");
+                //     mMediaPlayer.setScale(0);
+                //     break;
+                // case SURFACE_5_4:
+                //     mMediaPlayer.setAspectRatio("5:4");
+                //     mMediaPlayer.setScale(0);
+                //     break;
             }
         } catch (Exception e) {
             Log.w(TAG, "Error applying native scale", e);
