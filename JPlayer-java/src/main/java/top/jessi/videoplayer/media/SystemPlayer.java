@@ -225,6 +225,15 @@ public class SystemPlayer extends AbstractPlayer implements MediaPlayer.OnErrorL
     public void seekTo(long time) {
         if (mMediaPlayer == null) return;
         try {
+            // 边界保护：负数置 0，超过时长则钳位到 duration，
+            // 避免底层 MediaPlayer 在部分 ROM 上对越界值抛出异常或行为未定义
+            long duration = mMediaPlayer.getDuration();
+            if (duration <= 0) return;
+            if (time >= duration) {
+                time = duration - 1000;
+            } else if (time < 0) {
+                time = 0;
+            }
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
                 //使用这个api seekTo定位更加准确 支持android 8.0以上的设备 https://developer.android.com/reference/android/media/MediaPlayer#SEEK_CLOSEST
                 mMediaPlayer.seekTo(time, MediaPlayer.SEEK_CLOSEST);

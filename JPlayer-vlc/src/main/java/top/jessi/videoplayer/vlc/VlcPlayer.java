@@ -998,17 +998,19 @@ public class VlcPlayer extends AbstractPlayer implements MediaPlayer.EventListen
                 return;
             }
             // 边界保护：seek 到负数位置或超过时长的位置可能导致异常
+            // 且seek的时长和duration相同有时候也会导致进度回退10s，故减少1s再seek
             long duration = mMediaPlayer.getLength();
-            if (duration > 0 && time > duration) {
-                time = duration;
-            }
-            if (time < 0) {
+            if (duration <= 0) return;
+            if (time >= duration) {
+                time = duration - 1000;
+            } else if (time < 0) {
                 time = 0;
             }
             // 参考官方 PlayerController.setTime()：
             // 使用带 fast 参数的 seek，减少 seek 延迟
             // fast=true 表示快速 seek（可能不精确但响应快），适合用户拖动进度条
-            mMediaPlayer.setTime(time, true);
+            // 但是当进度条拖动到视频最后时，容易有10s左右的误差，故觉得不合适使用
+            mMediaPlayer.setTime(time, false);
         } catch (Exception e) {
             Log.w(TAG, "Error seeking to " + time, e);
             if (mPlayerEventListener != null) {

@@ -310,6 +310,15 @@ public class IjkPlayer extends AbstractPlayer implements IMediaPlayer.OnErrorLis
     public void seekTo(long time) {
         if (mMediaPlayer == null) return;
         try {
+            // 边界保护：负数置 0，超过时长则钳位到 duration，
+            // 避免 FFmpeg 底层对越界值返回错误导致 onSeekComplete 异常
+            long duration = mMediaPlayer.getDuration();
+            if (duration <= 0) return;
+            if (time >= duration) {
+                time = duration - 1000;
+            } else if (time < 0) {
+                time = 0;
+            }
             mMediaPlayer.seekTo((int) time);
         } catch (IllegalStateException e) {
             Log.w(TAG, "onError: " + e.getMessage(), e);

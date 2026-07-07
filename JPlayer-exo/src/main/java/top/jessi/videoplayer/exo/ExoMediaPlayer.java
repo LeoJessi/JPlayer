@@ -170,8 +170,16 @@ public class ExoMediaPlayer extends AbstractPlayer implements Player.Listener {
 
     @Override
     public void seekTo(long time) {
-        if (mMediaPlayer == null)
-            return;
+        if (mMediaPlayer == null) return;
+        // 边界保护：负数置 0，超过时长则钳位到 duration
+        // ExoPlayer 内部已有 clamp，但显式钳位可在 duration 尚未加载完时提供一致行为，
+        long duration = mMediaPlayer.getDuration();
+        if (duration <= 0) return;
+        if (time >= duration) {
+            time = duration - 1000;
+        } else if (time < 0) {
+            time = 0;
+        }
         mMediaPlayer.seekTo(time);
     }
 
