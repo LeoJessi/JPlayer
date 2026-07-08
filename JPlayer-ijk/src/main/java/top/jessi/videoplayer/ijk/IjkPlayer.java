@@ -315,7 +315,7 @@ public class IjkPlayer extends AbstractPlayer implements IMediaPlayer.OnErrorLis
             long duration = mMediaPlayer.getDuration();
             if (duration <= 0) return;
             if (time >= duration) {
-                time = duration - 1000;
+                time = duration - 2000;
             } else if (time < 0) {
                 time = 0;
             }

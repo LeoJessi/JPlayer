@@ -226,11 +226,12 @@ public class SystemPlayer extends AbstractPlayer implements MediaPlayer.OnErrorL
         if (mMediaPlayer == null) return;
         try {
             // 边界保护：负数置 0，超过时长则钳位到 duration，
+            // SystemPlayer的seek的时长和duration相同有时候也会导致进度回退,seek无效，故减少2s再seek
             // 避免底层 MediaPlayer 在部分 ROM 上对越界值抛出异常或行为未定义
             long duration = mMediaPlayer.getDuration();
             if (duration <= 0) return;
             if (time >= duration) {
-                time = duration - 1000;
+                time = duration - 2000;
             } else if (time < 0) {
                 time = 0;
             }

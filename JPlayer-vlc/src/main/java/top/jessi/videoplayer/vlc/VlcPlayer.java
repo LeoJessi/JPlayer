@@ -998,11 +998,11 @@ public class VlcPlayer extends AbstractPlayer implements MediaPlayer.EventListen
                 return;
             }
             // 边界保护：seek 到负数位置或超过时长的位置可能导致异常
-            // 且seek的时长和duration相同有时候也会导致进度回退10s，故减少1s再seek
+            // 且seek的时长和duration相同有时候也会导致进度回退10s，故减少2s再seek
             long duration = mMediaPlayer.getLength();
             if (duration <= 0) return;
             if (time >= duration) {
-                time = duration - 1000;
+                time = duration - 2000;
             } else if (time < 0) {
                 time = 0;
             }

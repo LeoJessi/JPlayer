@@ -176,7 +176,7 @@ public class ExoMediaPlayer extends AbstractPlayer implements Player.Listener {
         long duration = mMediaPlayer.getDuration();
         if (duration <= 0) return;
         if (time >= duration) {
-            time = duration - 1000;
+            time = duration - 2000;
         } else if (time < 0) {
             time = 0;
         }
