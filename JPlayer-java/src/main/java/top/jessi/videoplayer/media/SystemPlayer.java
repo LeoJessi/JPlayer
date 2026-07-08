@@ -235,12 +235,10 @@ public class SystemPlayer extends AbstractPlayer implements MediaPlayer.OnErrorL
             } else if (time < 0) {
                 time = 0;
             }
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-                //使用这个api seekTo定位更加准确 支持android 8.0以上的设备 https://developer.android.com/reference/android/media/MediaPlayer#SEEK_CLOSEST
-                mMediaPlayer.seekTo(time, MediaPlayer.SEEK_CLOSEST);
-            } else {
-                mMediaPlayer.seekTo((int) time);
-            }
+            //使用这个api seekTo定位更加准确 支持android 8.0以上的设备 https://developer.android.com/reference/android/media/MediaPlayer#SEEK_CLOSEST
+            // 但是有时会因为关键帧的问题，导致回跳较多？
+            // mMediaPlayer.seekTo(time, MediaPlayer.SEEK_CLOSEST);
+            mMediaPlayer.seekTo((int) time);
         } catch (IllegalStateException e) {
             Log.w(TAG, "onError: " + e.getMessage(), e);
             mPlayerEventListener.onError();
