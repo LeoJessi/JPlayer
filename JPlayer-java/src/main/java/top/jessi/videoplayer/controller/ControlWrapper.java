@@ -26,6 +26,11 @@ public class ControlWrapper implements MediaPlayerControl, IVideoController {
     }
 
     @Override
+    public void resume() {
+        mPlayerControl.resume();
+    }
+
+    @Override
     public void pause() {
         mPlayerControl.pause();
     }
@@ -141,13 +146,13 @@ public class ControlWrapper implements MediaPlayerControl, IVideoController {
     }
 
     /**
-     * 播放和暂停
+     * 继续播放和暂停
      */
     public void togglePlay() {
         if (isPlaying()) {
             pause();
         } else {
-            start();
+            resume();
         }
     }
 

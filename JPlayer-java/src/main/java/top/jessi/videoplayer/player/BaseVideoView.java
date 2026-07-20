@@ -388,8 +388,7 @@ public class BaseVideoView<P extends AbstractPlayer> extends FrameLayout
      * 继续播放
      */
     public void resume() {
-        if (isInPlaybackState()
-                && !mMediaPlayer.isPlaying()) {
+        if (isInPlaybackState() && !mMediaPlayer.isPlaying()) {
             mMediaPlayer.start();
             setPlayState(STATE_PLAYING);
             if (mAudioFocusHelper != null && !isMute()) {

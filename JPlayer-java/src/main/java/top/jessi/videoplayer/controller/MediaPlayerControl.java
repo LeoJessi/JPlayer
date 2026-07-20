@@ -6,6 +6,8 @@ public interface MediaPlayerControl {
 
     void start();
 
+    void resume();
+
     void pause();
 
     long getDuration();
