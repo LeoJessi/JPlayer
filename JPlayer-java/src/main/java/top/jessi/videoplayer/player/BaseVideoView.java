@@ -482,6 +482,13 @@ public class BaseVideoView<P extends AbstractPlayer> extends FrameLayout
     }
 
     /**
+     * 播放工厂实例
+     */
+    public PlayerFactory<P> getPlayerFactory() {
+        return mPlayerFactory;
+    }
+
+    /**
      * 重新播放
      *
      * @param resetPosition 是否从头开始播放
