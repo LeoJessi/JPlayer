@@ -147,9 +147,9 @@ public final class ExoMediaSourceHelper {
 
     private int inferContentType(String fileName) {
         fileName = fileName.toLowerCase();
-        if (fileName.contains(".mpd")) {
+        if (fileName.contains(".mpd") || fileName.contains("extension=mpd")) {
             return C.CONTENT_TYPE_DASH;
-        } else if (fileName.contains(".m3u8")) {
+        } else if (fileName.contains(".m3u8") || fileName.contains("extension=m3u8")) {
             return C.CONTENT_TYPE_HLS;
         } else {
             return C.CONTENT_TYPE_OTHER;
