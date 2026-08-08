@@ -539,6 +539,8 @@ public class IjkPlayer extends AbstractPlayer implements IMediaPlayer.OnErrorLis
                 int subtitleSelected = mMediaPlayer.getSelectedTrack(ITrackInfo.MEDIA_TRACK_TYPE_TIMEDTEXT);
                 if (subtitleSelected >= 0) {
                     mMediaPlayer.deselectTrack(subtitleSelected);
+                    TimedText timedText = new TimedText("");
+                    mTimedTextListener.onTimedText(timedText);
                 }
             } else {
                 mMediaPlayer.selectTrack(trackBean.trackId);

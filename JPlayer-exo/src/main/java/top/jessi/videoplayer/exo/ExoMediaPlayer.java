@@ -517,6 +517,8 @@ public class ExoMediaPlayer extends AbstractPlayer implements Player.Listener {
                                 mTrackSelector.getParameters().buildUpon();
                         parametersBuilder.setRendererDisabled(renderIndex, true);
                         mTrackSelector.setParameters(parametersBuilder);
+                        TimedText timedText = new TimedText("");
+                        mTimedTextListener.onTimedText(timedText);
                         return true;
                     }
                 }
