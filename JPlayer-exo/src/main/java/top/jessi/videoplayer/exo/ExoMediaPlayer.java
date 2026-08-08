@@ -477,6 +477,18 @@ public class ExoMediaPlayer extends AbstractPlayer implements Player.Listener {
                 }
             }
         }
+        if (!data.getSubtitle().isEmpty()) {
+            // 禁用字幕
+            TrackInfoBean firstSubtitle = data.getSubtitle().get(0);
+            TrackInfoBean disableBean = new TrackInfoBean();
+            disableBean.name = "Disable";
+            disableBean.trackId = -1;
+            disableBean.trackGroupId = -1;
+            disableBean.renderId = firstSubtitle.renderId;
+            disableBean.selected = false;
+            disableBean.language = "";
+            data.addSubtitle(0, disableBean);
+        }
         return data;
     }
 
@@ -497,7 +509,7 @@ public class ExoMediaPlayer extends AbstractPlayer implements Player.Listener {
         }
 
         try {
-            if (trackBean == null) {
+            if (trackBean == null || (trackBean.trackId == -1 && trackBean.trackGroupId == -1)) {
                 // 禁用字幕渲染器
                 for (int renderIndex = 0; renderIndex < trackInfo.getRendererCount(); renderIndex++) {
                     if (trackInfo.getRendererType(renderIndex) == C.TRACK_TYPE_TEXT) {

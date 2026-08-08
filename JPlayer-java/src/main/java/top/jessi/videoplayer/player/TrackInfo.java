@@ -40,11 +40,19 @@ public class TrackInfo {
         this.audio.add(audio);
     }
 
+    public void addAudio(int index, TrackInfoBean audio) {
+        this.audio.add(index, audio);
+    }
+
     public List<TrackInfoBean> getSubtitle() {
         return subtitle;
     }
 
     public void addSubtitle(TrackInfoBean subtitle) {
         this.subtitle.add(subtitle);
+    }
+
+    public void addSubtitle(int index, TrackInfoBean subtitle) {
+        this.subtitle.add(index, subtitle);
     }
 }

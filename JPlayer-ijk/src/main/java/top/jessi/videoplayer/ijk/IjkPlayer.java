@@ -503,6 +503,18 @@ public class IjkPlayer extends AbstractPlayer implements IMediaPlayer.OnErrorLis
             }
             index++;
         }
+        if (!data.getSubtitle().isEmpty()) {
+            // 禁用字幕
+            TrackInfoBean firstSubtitle = data.getSubtitle().get(0);
+            TrackInfoBean disableBean = new TrackInfoBean();
+            disableBean.name = "Disable";
+            disableBean.trackId = -1;
+            disableBean.trackGroupId = -1;
+            disableBean.renderId = firstSubtitle.renderId;
+            disableBean.selected = false;
+            disableBean.language = "";
+            data.addSubtitle(0, disableBean);
+        }
         return data;
     }
 
@@ -521,7 +533,16 @@ public class IjkPlayer extends AbstractPlayer implements IMediaPlayer.OnErrorLis
             mMediaPlayer.pause();
             // 保存当前进度，ijk 切换轨道 会有快进几秒
             long progress = getCurrentPosition();
-            mMediaPlayer.selectTrack(trackBean.trackId);
+            // 切换轨道
+            if (trackBean.trackId == -1 && trackBean.trackGroupId == -1) {
+                // 禁用字幕：获取当前选中的字幕轨道并取消选择
+                int subtitleSelected = mMediaPlayer.getSelectedTrack(ITrackInfo.MEDIA_TRACK_TYPE_TIMEDTEXT);
+                if (subtitleSelected >= 0) {
+                    mMediaPlayer.deselectTrack(subtitleSelected);
+                }
+            } else {
+                mMediaPlayer.selectTrack(trackBean.trackId);
+            }
             new Handler().postDelayed(() -> {
                 seekTo(progress);
                 start();

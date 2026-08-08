@@ -1750,6 +1750,7 @@ public class VlcPlayer extends AbstractPlayer implements MediaPlayer.EventListen
             MediaPlayer.TrackDescription[] audioTracks = mMediaPlayer.getAudioTracks();
             if (audioTracks != null) {
                 for (MediaPlayer.TrackDescription audio : audioTracks) {
+                    if (audio.id == -1) continue; // 过滤掉音轨禁用
                     TrackInfoBean bean = new TrackInfoBean();
                     bean.name = audio.name;
                     bean.language = "";
