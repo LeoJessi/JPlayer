@@ -11,6 +11,7 @@ import android.util.Log;
 import android.view.Surface;
 import android.view.SurfaceHolder;
 
+import java.util.HashMap;
 import java.util.Map;
 
 import top.jessi.videoplayer.player.TimedText;
@@ -209,6 +210,11 @@ public class IjkPlayer extends AbstractPlayer implements IMediaPlayer.OnErrorLis
             mMediaPlayer.setOption(IjkMediaPlayer.OPT_CATEGORY_CODEC, "mediacodec-sync", 1L);
         }
         // SOFTWARE 模式下不添加硬解参数，由 FFmpeg 默认软解
+    }
+
+    @Override
+    public void setDataSource(String path) {
+        setDataSource(path, new HashMap<>());
     }
 
     @Override

@@ -130,6 +130,8 @@ public abstract class AbstractPlayer {
      */
     public abstract void setDataSource(String path, Map<String, String> headers);
 
+    public abstract void setDataSource(String path);
+
     /**
      * 用于播放raw和asset里面的视频文件
      */

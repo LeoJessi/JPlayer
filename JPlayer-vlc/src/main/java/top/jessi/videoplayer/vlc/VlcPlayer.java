@@ -24,6 +24,7 @@ import org.videolan.libvlc.util.VLCVideoLayout;
 
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
@@ -457,6 +458,11 @@ public class VlcPlayer extends AbstractPlayer implements MediaPlayer.EventListen
                 // 不设置，由 VLC 根据设备能力和格式自动决策
                 break;
         }
+    }
+
+    @Override
+    public void setDataSource(String path) {
+        setDataSource(path, new HashMap<>());
     }
 
     /**

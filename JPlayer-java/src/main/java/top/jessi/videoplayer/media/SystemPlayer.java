@@ -13,6 +13,7 @@ import android.util.Log;
 import android.view.Surface;
 import android.view.SurfaceHolder;
 
+import java.util.HashMap;
 import java.util.Map;
 
 import top.jessi.videoplayer.player.AbstractPlayer;
@@ -60,6 +61,11 @@ public class SystemPlayer extends AbstractPlayer implements MediaPlayer.OnErrorL
         mMediaPlayer.setOnBufferingUpdateListener(this);
         mMediaPlayer.setOnPreparedListener(this);
         mMediaPlayer.setOnVideoSizeChangedListener(this);
+    }
+
+    @Override
+    public void setDataSource(String path) {
+        setDataSource(path, new HashMap<>());
     }
 
     @Override

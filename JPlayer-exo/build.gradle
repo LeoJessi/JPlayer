@@ -33,4 +33,7 @@ dependencies {
     }
     implementation "androidx.media3:media3-datasource-rtmp:$media3Version"
     implementation 'com.squareup.okhttp3:okhttp:3.12.11'
+
+    // NextLib：为 ExoPlayer 提供 FFmpeg 软解能力（支持 H265 视频和 AAC 音频等）
+    implementation "io.github.anilbeesetti:nextlib-media3ext:1.10.1-0.13.0"
 }

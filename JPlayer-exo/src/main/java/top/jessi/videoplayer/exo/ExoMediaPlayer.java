@@ -31,6 +31,9 @@ import androidx.media3.exoplayer.source.TrackGroupArray;
 import androidx.media3.exoplayer.trackselection.DefaultTrackSelector;
 import androidx.media3.exoplayer.trackselection.MappingTrackSelector;
 
+import io.github.anilbeesetti.nextlib.media3ext.ffdecoder.NextRenderersFactory;
+
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
@@ -57,6 +60,11 @@ public class ExoMediaPlayer extends AbstractPlayer implements Player.Listener {
     private int errorCode = -100;
     private String path;
     private Map<String, String> headers;
+    // 标记是否已尝试过 FFmpeg 软解回退
+    private boolean mTriedFfmpegFallback = false;
+    // 保存当前 Surface，用于 Player 重建后重新绑定
+    private Surface mCurrentSurface = null;
+    private long lastSpeedBytes = 0;
 
     public ExoMediaPlayer(Context context) {
         mAppContext = context.getApplicationContext();
@@ -66,10 +74,13 @@ public class ExoMediaPlayer extends AbstractPlayer implements Player.Listener {
     @Override
     public void initPlayer() {
         if (mRenderersFactory == null) {
-            mRenderersFactory = new DefaultRenderersFactory(mAppContext);
+            // 使用 NextRenderersFactory，集成 FFmpeg 软解能力
+            // 支持 H265/HEVC 视频解码和 AAC 音频解码，解决设备兼容性问题
+            mRenderersFactory = new NextRenderersFactory(mAppContext);
             // 硬解失败时自动回退到列表中下一个解码器
             mRenderersFactory.setEnableDecoderFallback(true);
-            mRenderersFactory.setExtensionRendererMode(DefaultRenderersFactory.EXTENSION_RENDERER_MODE_PREFER);
+            // 默认使用 ON 模式：硬解优先，失败后通过 onPlayerError 自动切换到 FFmpeg
+            mRenderersFactory.setExtensionRendererMode(DefaultRenderersFactory.EXTENSION_RENDERER_MODE_ON);
         }
         if (mTrackSelector == null) {
             mTrackSelector = new DefaultTrackSelector(mAppContext);
@@ -93,6 +104,11 @@ public class ExoMediaPlayer extends AbstractPlayer implements Player.Listener {
 
     public DefaultTrackSelector getTrackSelector() {
         return mTrackSelector;
+    }
+
+    @Override
+    public void setDataSource(String path) {
+        setDataSource(path, new HashMap<>());
     }
 
     @Override
@@ -147,8 +163,16 @@ public class ExoMediaPlayer extends AbstractPlayer implements Player.Listener {
         if (mMediaPlayer != null) {
             mMediaPlayer.stop();
             mMediaPlayer.clearMediaItems();
-            mMediaPlayer.setVideoSurface(null);
             mIsPreparing = false;
+        }
+        lastTotalRxBytes = 0;
+        lastTimeStamp = 0;
+        lastSpeedBytes = 0;
+        // 切换播放源时重置 FFmpeg 回退标志，下次播放重新尝试硬解
+        mTriedFfmpegFallback = false;
+        // 恢复为 ON 模式（硬解优先）
+        if (mRenderersFactory != null) {
+            mRenderersFactory.setExtensionRendererMode(DefaultRenderersFactory.EXTENSION_RENDERER_MODE_ON);
         }
     }
 
@@ -187,11 +211,15 @@ public class ExoMediaPlayer extends AbstractPlayer implements Player.Listener {
     public void release() {
         if (mMediaPlayer != null) {
             mMediaPlayer.removeListener(this);
+            mMediaPlayer.setVideoSurface(null);
+            mMediaPlayer.clearMediaItems();
             mMediaPlayer.release();
             mMediaPlayer = null;
+            mIsPreparing = false;
         }
         lastTotalRxBytes = 0;
         lastTimeStamp = 0;
+        lastSpeedBytes = 0;
         mIsPreparing = false;
         mSpeedPlaybackParameters = null;
     }
@@ -217,6 +245,7 @@ public class ExoMediaPlayer extends AbstractPlayer implements Player.Listener {
 
     @Override
     public void setSurface(Surface surface) {
+        mCurrentSurface = surface;
         if (mMediaPlayer != null) {
             mMediaPlayer.setVideoSurface(surface);
         }
@@ -281,19 +310,19 @@ public class ExoMediaPlayer extends AbstractPlayer implements Player.Listener {
         if (mAppContext == null || unsupported()) {
             return 0;
         }
-        //使用getUidRxBytes方法获取该进程总接收量
         long total = TrafficStats.getTotalRxBytes();
-        //记录当前的时间
         long time = System.currentTimeMillis();
-        //数据接收量除以数据接收的时间，就计算网速了。
+        long timeDiff = time - lastTimeStamp;
+        // 避免除以零，同时过滤掉时间差过小的情况（< 100ms 视为同一次采样）
+        if (timeDiff < 100) {
+            return lastSpeedBytes;
+        }
         long diff = total - lastTotalRxBytes;
-        long speed = diff / Math.max(time - lastTimeStamp, 1);
-        //当前时间存到上次时间这个变量，供下次计算用
+        long speed = (diff * 1000) / timeDiff; // 转换为字节/秒
         lastTimeStamp = time;
-        //当前总接收量存到上次接收总量这个变量，供下次计算用
         lastTotalRxBytes = total;
-
-        return speed * 1024;
+        lastSpeedBytes = speed;
+        return speed;
     }
 
     @Override
@@ -332,14 +361,46 @@ public class ExoMediaPlayer extends AbstractPlayer implements Player.Listener {
     public void onPlayerError(@NonNull PlaybackException error) {
         errorCode = error.errorCode;
         Log.w(TAG, "onPlayerError: " + error.errorCode, error);
-        // 解码器错误（硬解不支持该格式）不应重试，直接上报
+
+        // 解码器错误处理：硬解失败后自动切换到 FFmpeg 软解
         if (isDecoderError(error)) {
-            Log.w(TAG, "Decoder exception");
+            // 如果还没尝试过 FFmpeg 回退，则切换到 PREFER 模式重新播放
+            if (!mTriedFfmpegFallback && path != null) {
+                Log.w(TAG, "Hardware decoder failed, fallback to FFmpeg software decoder");
+                mTriedFfmpegFallback = true;
+                // 切换到 PREFER 模式（FFmpeg 优先）
+                mRenderersFactory.setExtensionRendererMode(DefaultRenderersFactory.EXTENSION_RENDERER_MODE_PREFER);
+                // 重新创建 Player 以应用新的渲染器模式
+                if (mMediaPlayer != null) {
+                    mMediaPlayer.release();
+                }
+                mMediaPlayer = new ExoPlayer.Builder(mAppContext)
+                        .setLoadControl(mLoadControl)
+                        .setRenderersFactory(mRenderersFactory)
+                        .setTrackSelector(mTrackSelector).build();
+                mMediaPlayer.addListener(this);
+                setOptions();
+                // 重新绑定 Surface（关键！否则视频无画面）
+                if (mCurrentSurface != null) {
+                    mMediaPlayer.setVideoSurface(mCurrentSurface);
+                }
+                // 重新设置数据源并播放
+                String savedPath = path;
+                Map<String, String> savedHeaders = headers;
+                setDataSource(savedPath, savedHeaders);
+                path = null;
+                prepareAsync();
+                start();
+                return;
+            }
+            // 已经尝试过 FFmpeg 或者没有路径，上报错误
             if (mPlayerEventListener != null) {
                 mPlayerEventListener.onError();
             }
             return;
         }
+
+        // 非解码器错误，尝试重试
         if (path != null) {
             setDataSource(path, headers);
             path = null;

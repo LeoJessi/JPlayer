@@ -15,7 +15,9 @@ public class DataUtil {
 
     // http://playertest.longtailvideo.com/adaptive/bipbop/gear4/prog_index.m3u8
     // http://technolhub.xyz:8880/series/test260327abc/a11223344/64263.mp4
-    public static final String SAMPLE_URL = "http://private.root.thetechno.xyz:8880/streaming/timeshift.php?stream=559&username=MALAI78b5d2123456a1&password=9yzSXKDfc3i5I7kg&extension=m3u8&duration=55&start=2026-08-04:15-30";
+    // http://private.root.thetechno.xyz:8880/series/58eb81efb7481234/9LvQWyebG615sdkj/108702.mkv
+    // http://private.root.thetechno.xyz:8880/MALAItest592119malai/TsJ7SH76KSPINJ08/51089
+    public static final String SAMPLE_URL = "http://private.root.thetechno.xyz:8880/series/58eb81efb7481234/9LvQWyebG615sdkj/108702.mkv";
     // http://thetechno.xyz:8880/live/MALAI78b5d212345648/2KYv9tM6eljqdw2j/559.m3u8
 
     public static List<VideoBean> getVideoList() {
