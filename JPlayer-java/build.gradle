@@ -21,5 +21,9 @@ android {
     dependencies {
         implementation fileTree(include: ['*.jar'], dir: 'libs')
         compileOnly 'androidx.annotation:annotation:1.1.0'
+
+        // NextLib：通过 FFmpeg 获取媒体详细信息（音轨、字幕轨等元数据）
+        // 使用 api 而非 implementation，使依赖 JPlayer-java 的模块也能访问
+        api files('src/main/libs/nextlib-mediainfo-1.10.1-0.13.0.aar')
     }
 }

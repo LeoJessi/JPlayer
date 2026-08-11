@@ -32,12 +32,14 @@ import androidx.media3.exoplayer.trackselection.DefaultTrackSelector;
 import androidx.media3.exoplayer.trackselection.MappingTrackSelector;
 
 import io.github.anilbeesetti.nextlib.media3ext.ffdecoder.NextRenderersFactory;
+import io.github.anilbeesetti.nextlib.mediainfo.MediaInfo;
 
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
 import top.jessi.videoplayer.player.AbstractPlayer;
+import top.jessi.videoplayer.util.MediaInfoHelper;
 import top.jessi.videoplayer.player.TimedText;
 import top.jessi.videoplayer.player.TrackInfo;
 import top.jessi.videoplayer.player.TrackInfoBean;
@@ -60,6 +62,8 @@ public class ExoMediaPlayer extends AbstractPlayer implements Player.Listener {
     private int errorCode = -100;
     private String path;
     private Map<String, String> headers;
+    // 保存原始数据源路径，用于 getTrackInfo 中获取媒体信息（path 会在播放开始后被置空）
+    private String mSourcePath;
     // 标记是否已尝试过 FFmpeg 软解回退
     private boolean mTriedFfmpegFallback = false;
     // 保存当前 Surface，用于 Player 重建后重新绑定
@@ -115,6 +119,7 @@ public class ExoMediaPlayer extends AbstractPlayer implements Player.Listener {
     public void setDataSource(String path, Map<String, String> headers) {
         this.path = path;
         this.headers = headers;
+        this.mSourcePath = path; // 保存原始路径供 getTrackInfo 使用
         mMediaSource = mMediaSourceHelper.getMediaSource(path, headers, false, errorCode);
         errorCode = -1;
     }
@@ -156,6 +161,11 @@ public class ExoMediaPlayer extends AbstractPlayer implements Player.Listener {
         mIsPreparing = true;
         mMediaPlayer.setMediaSource(mMediaSource);
         mMediaPlayer.prepare();
+
+        // 在后台预加载媒体信息，避免首次获取轨道列表时卡顿
+        if (mSourcePath != null && !mSourcePath.isEmpty()) {
+            MediaInfoHelper.preloadMediaInfo(mAppContext, mSourcePath, null);
+        }
     }
 
     @Override
@@ -469,7 +479,8 @@ public class ExoMediaPlayer extends AbstractPlayer implements Player.Listener {
     // ==================== Track Info ====================
 
     /**
-     * 获取音轨和字幕轨道信息
+     * 获取音轨和字幕轨道信息。
+     * 使用 nextlib-mediainfo 通过 FFmpeg 获取详细的轨道名称。
      */
     @Override
     public TrackInfo getTrackInfo() {
@@ -499,6 +510,12 @@ public class ExoMediaPlayer extends AbstractPlayer implements Player.Listener {
             }
         }
 
+        // 通过 nextlib-mediainfo 获取详细轨道信息
+        // 使用 mSourcePath 而不是 path，因为 path 在播放开始后会变为 null
+        MediaInfo mediaInfo = null;
+        if (mSourcePath != null && !mSourcePath.isEmpty()) {
+            mediaInfo = MediaInfoHelper.getMediaInfo(mAppContext, mSourcePath);
+        }
         for (int groupArrayIndex = 0; groupArrayIndex < trackInfo.getRendererCount(); groupArrayIndex++) {
             TrackGroupArray groupArray = trackInfo.getTrackGroups(groupArrayIndex);
             for (int groupIndex = 0; groupIndex < groupArray.length; groupIndex++) {
@@ -506,33 +523,43 @@ public class ExoMediaPlayer extends AbstractPlayer implements Player.Listener {
                 for (int formatIndex = 0; formatIndex < group.length; formatIndex++) {
                     Format format = group.getFormat(formatIndex);
                     if (MimeTypes.isAudio(format.sampleMimeType)) {
-                        if (trackNameProvider == null) {
-                            trackNameProvider = new ExoTrackNameProvider(mAppContext.getResources());
-                        }
-                        // 原本类似English, Stereo, 0.11 Mbps[mp4a.40.2]，现在打算只保留语言
-                        // String trackName = trackNameProvider.getTrackName(format)
-                        //   + "[" + (TextUtils.isEmpty(format.codecs) ? format.sampleMimeType : format.codecs)+ "]";
-                        String trackName = trackNameProvider.getTrackName(format);
                         TrackInfoBean t = new TrackInfoBean();
-                        t.name = trackName.contains("Track ") ? trackName + (groupIndex + 1) : trackName;
                         t.language = "";
                         t.trackId = formatIndex;
                         t.selected = !TextUtils.isEmpty(currentAudioId) && currentAudioId.equals(format.id);
                         t.trackGroupId = groupIndex;
                         t.renderId = groupArrayIndex;
+                        // 使用 FFmpeg 获取的详细名称
+                        if (mediaInfo != null) {
+                            t.name = MediaInfoHelper.getAudioTrackName(mediaInfo, groupIndex);
+                        }
+                        // 如果 FFmpeg 没有获取到，回退到 ExoPlayer 的简单名称
+                        if (t.name == null || t.name.isEmpty()) {
+                            if (trackNameProvider == null) {
+                                trackNameProvider = new ExoTrackNameProvider(mAppContext.getResources());
+                            }
+                            String trackName = trackNameProvider.getTrackName(format);
+                            t.name = trackName.contains("Track ") ? trackName + (groupIndex + 1) : trackName;
+                        }
                         data.addAudio(t);
                     } else if (MimeTypes.isText(format.sampleMimeType)) {
-                        if (trackNameProvider == null) {
-                            trackNameProvider = new ExoTrackNameProvider(mAppContext.getResources());
-                        }
-                        String trackName = trackNameProvider.getTrackName(format);
                         TrackInfoBean t = new TrackInfoBean();
-                        t.name = trackName;
                         t.language = "";
                         t.trackId = formatIndex;
                         t.selected = !TextUtils.isEmpty(currentSubtitleId) && currentSubtitleId.equals(format.id);
                         t.trackGroupId = groupIndex;
                         t.renderId = groupArrayIndex;
+                        // 使用 FFmpeg 获取的详细名称
+                        if (mediaInfo != null) {
+                            t.name = MediaInfoHelper.getSubtitleTrackName(mediaInfo, groupIndex);
+                        }
+                        // 如果 FFmpeg 没有获取到，回退到 ExoPlayer 的简单名称
+                        if (t.name == null || t.name.isEmpty()) {
+                            if (trackNameProvider == null) {
+                                trackNameProvider = new ExoTrackNameProvider(mAppContext.getResources());
+                            }
+                            t.name = trackNameProvider.getTrackName(format);
+                        }
                         data.addSubtitle(t);
                     }
                 }

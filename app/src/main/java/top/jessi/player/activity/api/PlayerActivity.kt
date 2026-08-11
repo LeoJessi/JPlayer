@@ -156,8 +156,10 @@ class PlayerActivity : BaseActivity<VideoView>() {
         val etOtherVideo = findViewById<EditText>(R.id.et_other_video)
         etOtherVideo.setText("http://private.root.thetechno.xyz:8880/MALAItest592119malai/TsJ7SH76KSPINJ08/51089")
         findViewById<View>(R.id.btn_start_play).setOnClickListener {
-            mVideoView.setUrl(etOtherVideo.text.toString())
-            mVideoView.start()
+//            mVideoView.setUrl(etOtherVideo.text.toString())
+//            mVideoView.start()
+
+            mVideoView.mediaPlayer.trackInfo
         }
     }
 
