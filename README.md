@@ -4,7 +4,7 @@
 
 再次感谢Doikki开源的好项目！感谢
 
-#### 2026.08.11 - 1.3.1
+#### 2026.08.11 - 1.3.2
 1. exo引入FFmpeg软件播放
 2. 优化各内核字幕音轨详细信息获取方法
 3. 鸣谢[NextLib](https://github.com/anilbeesetti/nextlib)

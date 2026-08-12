@@ -24,6 +24,7 @@ android {
 
         // NextLib：通过 FFmpeg 获取媒体详细信息（音轨、字幕轨等元数据）
         // 使用 api 而非 implementation，使依赖 JPlayer-java 的模块也能访问
-        api files('src/main/libs/nextlib-mediainfo-1.10.1-0.13.0.aar')
+        // api files('src/main/libs/nextlib-mediainfo-1.10.1-0.13.0.aar')
+        api "io.github.anilbeesetti:nextlib-mediainfo:1.10.1-0.13.0"
     }
 }
