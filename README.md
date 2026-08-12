@@ -4,8 +4,10 @@
 
 再次感谢Doikki开源的好项目！感谢
 
-#### 2026.08.11 - 1.3.0
-1. exo引入FFmpeg播放
+#### 2026.08.11 - 1.3.1
+1. exo引入FFmpeg软件播放
+2. 优化各内核字幕音轨详细信息获取方法
+3. 鸣谢[NextLib](https://github.com/anilbeesetti/nextlib)
 
 #### 2026.08.08 - 1.2.32
 1. 增加exo与ijk禁用字幕轨道显示逻辑

@@ -36,6 +36,8 @@ import top.jessi.videoplayer.player.TrackInfoBean;
 import top.jessi.videoplayer.render.RenderViewFactory;
 import top.jessi.videoplayer.util.HlsProxy;
 import top.jessi.videoplayer.util.L;
+import top.jessi.videoplayer.util.MediaInfoHelper;
+import io.github.anilbeesetti.nextlib.mediainfo.MediaInfo;
 
 /**
  * VLC播放器实现
@@ -124,6 +126,8 @@ public class VlcPlayer extends AbstractPlayer implements MediaPlayer.EventListen
     private int mVideoWidth = 0;
     private int mVideoHeight = 0;
     private VlcRenderView mVlcRenderView;
+    // 保存原始数据源路径，用于 getTrackInfo 中获取媒体信息
+    private String mSourcePath;
     // 启用VLC内建字幕渲染（包括内置字幕轨道和外部字幕文件）
     protected boolean mEnableVlcSubtitles = true;
     private final int TRACK_GROUD_AUDIO = 0;
@@ -480,6 +484,7 @@ public class VlcPlayer extends AbstractPlayer implements MediaPlayer.EventListen
             }
             return;
         }
+        this.mSourcePath = path; // 保存原始路径供 getTrackInfo 使用
 
         Media newMedia = null;
         try {
@@ -742,6 +747,11 @@ public class VlcPlayer extends AbstractPlayer implements MediaPlayer.EventListen
             if (mPlayerEventListener != null) {
                 mPlayerEventListener.onError();
             }
+        }
+
+        // 在后台预加载媒体信息，避免首次获取轨道列表时卡顿
+        if (mSourcePath != null && !mSourcePath.isEmpty()) {
+            MediaInfoHelper.preloadMediaInfo(mAppContext, mSourcePath, null);
         }
     }
 
@@ -1738,7 +1748,9 @@ public class VlcPlayer extends AbstractPlayer implements MediaPlayer.EventListen
     // ==================== Track Info ====================
 
     /**
-     * 获取音轨和字幕轨道信息
+     * 获取音轨和字幕轨道信息。
+     * 优先使用 nextlib-mediainfo（FFmpeg）获取详细轨道名称，
+     * 如果获取失败则回退到 VLC 自带的 TrackDescription.name。
      *
      * @return TrackInfo 包含所有音轨和字幕轨道
      */
@@ -1751,21 +1763,34 @@ public class VlcPlayer extends AbstractPlayer implements MediaPlayer.EventListen
         int currentAudioTrack = mMediaPlayer.getAudioTrack();
         int currentSubtitleTrack = mMediaPlayer.getSpuTrack();
 
+        // 通过 nextlib-mediainfo 获取详细轨道信息
+        MediaInfo mediaInfo = null;
+        if (mSourcePath != null && !mSourcePath.isEmpty()) {
+            mediaInfo = MediaInfoHelper.getMediaInfo(mAppContext, mSourcePath);
+        }
+
         int audioTrackCount = mMediaPlayer.getAudioTracksCount();
         if (audioTrackCount > 0) {
             MediaPlayer.TrackDescription[] audioTracks = mMediaPlayer.getAudioTracks();
             if (audioTracks != null) {
+                int audioIndex = 0; // 音频流在 FFmpeg 中的索引
                 for (MediaPlayer.TrackDescription audio : audioTracks) {
                     if (audio.id == -1) continue; // 过滤掉音轨禁用
                     TrackInfoBean bean = new TrackInfoBean();
-                    bean.name = audio.name;
                     bean.language = "";
                     bean.trackId = audio.id;
                     bean.selected = (audio.id == currentAudioTrack);
-                    // 为字幕和音轨添加一个分组ID作为区别，避免音轨和字幕的禁用轨道ID都为-1，造成设置时混乱
-                    // {"language":"","name":"Disable","renderId":0,"selected":false,"trackGroupId":0,"trackId":-1}
                     bean.trackGroupId = TRACK_GROUD_AUDIO;
+                    // 优先使用 FFmpeg 获取的详细名称
+                    if (mediaInfo != null) {
+                        bean.name = MediaInfoHelper.getAudioTrackName(mediaInfo, audioIndex);
+                    }
+                    // 回退到 VLC 自带的名称
+                    if (bean.name == null || bean.name.isEmpty()) {
+                        bean.name = audio.name;
+                    }
                     data.addAudio(bean);
+                    audioIndex++;
                 }
             }
         }
@@ -1774,18 +1799,39 @@ public class VlcPlayer extends AbstractPlayer implements MediaPlayer.EventListen
         if (spuTrackCount > 0) {
             MediaPlayer.TrackDescription[] subtitleTracks = mMediaPlayer.getSpuTracks();
             if (subtitleTracks != null) {
+                int subtitleIndex = 0; // 字幕流在 FFmpeg 中的索引
                 for (MediaPlayer.TrackDescription subtitle : subtitleTracks) {
+                    if (subtitle.id == -1) continue; // 过滤掉字幕禁用
                     TrackInfoBean bean = new TrackInfoBean();
-                    bean.name = subtitle.name;
                     bean.language = "";
                     bean.trackId = subtitle.id;
                     bean.selected = (subtitle.id == currentSubtitleTrack);
                     bean.trackGroupId = TRACK_GROUD_SUBTITLE;
+                    // 优先使用 FFmpeg 获取的详细名称
+                    if (mediaInfo != null) {
+                        bean.name = MediaInfoHelper.getSubtitleTrackName(mediaInfo, subtitleIndex);
+                    }
+                    // 回退到 VLC 自带的名称
+                    if (bean.name == null || bean.name.isEmpty()) {
+                        bean.name = subtitle.name;
+                    }
                     data.addSubtitle(bean);
+                    subtitleIndex++;
                 }
             }
         }
-
+        if (!data.getSubtitle().isEmpty()) {
+            // 禁用字幕
+            TrackInfoBean firstSubtitle = data.getSubtitle().get(0);
+            TrackInfoBean disableBean = new TrackInfoBean();
+            disableBean.name = "Disable";
+            disableBean.trackId = -1;
+            disableBean.trackGroupId = TRACK_GROUD_SUBTITLE;
+            disableBean.renderId = firstSubtitle.renderId;
+            disableBean.selected = false;
+            disableBean.language = "";
+            data.addSubtitle(0, disableBean);
+        }
         return data;
     }
 

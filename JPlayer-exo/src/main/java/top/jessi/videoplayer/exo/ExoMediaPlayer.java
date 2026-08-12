@@ -577,6 +577,13 @@ public class ExoMediaPlayer extends AbstractPlayer implements Player.Listener {
             disableBean.language = "";
             data.addSubtitle(0, disableBean);
         }
+
+        for (int i = 0, len = data.getSubtitle().size(); i < len; i++) {
+            Log.e(TAG, "getSubtitle: ~~~~~~~~~~ " + data.getSubtitle().get(i).name);
+        }
+        for (int i = 0, len = data.getAudio().size(); i < len; i++) {
+            Log.w(TAG, "getAudio: ~~~~~~~~~~ " + data.getAudio().get(i).name);
+        }
         return data;
     }
 

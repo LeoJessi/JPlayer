@@ -15,15 +15,17 @@ import java.util.HashMap;
 import java.util.Map;
 
 import top.jessi.videoplayer.player.TimedText;
+import top.jessi.videoplayer.player.TrackInfo;
+import top.jessi.videoplayer.player.TrackInfoBean;
+import top.jessi.videoplayer.player.VideoViewManager;
+import top.jessi.videoplayer.util.MediaInfoHelper;
 import tv.danmaku.ijk.media.player.IMediaPlayer;
 import tv.danmaku.ijk.media.player.IjkMediaPlayer;
 import tv.danmaku.ijk.media.player.IjkTimedText;
 import tv.danmaku.ijk.media.player.misc.ITrackInfo;
 import tv.danmaku.ijk.media.player.misc.IjkTrackInfo;
 import top.jessi.videoplayer.player.AbstractPlayer;
-import top.jessi.videoplayer.player.TrackInfo;
-import top.jessi.videoplayer.player.TrackInfoBean;
-import top.jessi.videoplayer.player.VideoViewManager;
+import io.github.anilbeesetti.nextlib.mediainfo.MediaInfo;
 
 public class IjkPlayer extends AbstractPlayer implements IMediaPlayer.OnErrorListener,
         IMediaPlayer.OnCompletionListener, IMediaPlayer.OnInfoListener,
@@ -65,6 +67,8 @@ public class IjkPlayer extends AbstractPlayer implements IMediaPlayer.OnErrorLis
     protected IjkMediaPlayer mMediaPlayer;
     private int mBufferedPercent;
     private final Context mAppContext;
+    // 保存原始数据源路径，用于 getTrackInfo 中获取媒体信息
+    private String mSourcePath;
 
     public IjkPlayer(Context context) {
         mAppContext = context;
@@ -220,6 +224,7 @@ public class IjkPlayer extends AbstractPlayer implements IMediaPlayer.OnErrorLis
     @Override
     public void setDataSource(String path, Map<String, String> headers) {
         if (mMediaPlayer == null) return;
+        this.mSourcePath = path; // 保存原始路径供 getTrackInfo 使用
         try {
             Uri uri = Uri.parse(path);
             if (ContentResolver.SCHEME_ANDROID_RESOURCE.equals(uri.getScheme())) {
@@ -295,6 +300,11 @@ public class IjkPlayer extends AbstractPlayer implements IMediaPlayer.OnErrorLis
         } catch (IllegalStateException e) {
             Log.w(TAG, "onError: " + e.getMessage(), e);
             mPlayerEventListener.onError();
+        }
+
+        // 在后台预加载媒体信息，避免首次获取轨道列表时卡顿
+        if (mSourcePath != null && !mSourcePath.isEmpty()) {
+            MediaInfoHelper.preloadMediaInfo(mAppContext, mSourcePath, null);
         }
     }
 
@@ -479,7 +489,9 @@ public class IjkPlayer extends AbstractPlayer implements IMediaPlayer.OnErrorLis
     // ==================== Track Info ====================
 
     /**
-     * 获取音轨和字幕轨道信息
+     * 获取音轨和字幕轨道信息。
+     * 优先使用 nextlib-mediainfo（FFmpeg）获取详细轨道名称，
+     * 如果获取失败则回退到 IJK 自带的 getInfoInline()。
      */
     @Override
     public TrackInfo getTrackInfo() {
@@ -489,23 +501,48 @@ public class IjkPlayer extends AbstractPlayer implements IMediaPlayer.OnErrorLis
         TrackInfo data = new TrackInfo();
         int subtitleSelected = mMediaPlayer.getSelectedTrack(ITrackInfo.MEDIA_TRACK_TYPE_TIMEDTEXT);
         int audioSelected = mMediaPlayer.getSelectedTrack(ITrackInfo.MEDIA_TRACK_TYPE_AUDIO);
+
+        // 通过 nextlib-mediainfo 获取详细轨道信息
+        MediaInfo mediaInfo = null;
+        if (mSourcePath != null && !mSourcePath.isEmpty()) {
+            mediaInfo = MediaInfoHelper.getMediaInfo(mAppContext, mSourcePath);
+        }
+
+        int audioIndex = 0;      // 音频流在 FFmpeg 中的索引
+        int subtitleIndex = 0;   // 字幕流在 FFmpeg 中的索引
         int index = 0;
         for (IjkTrackInfo info : trackInfo) {
             if (info.getTrackType() == ITrackInfo.MEDIA_TRACK_TYPE_AUDIO) {
                 TrackInfoBean t = new TrackInfoBean();
-                t.name = info.getInfoInline();
                 t.language = info.getLanguage();
                 t.trackId = index;
                 t.selected = index == audioSelected;
+                // 优先使用 FFmpeg 获取的详细名称
+                if (mediaInfo != null) {
+                    t.name = MediaInfoHelper.getAudioTrackName(mediaInfo, audioIndex);
+                }
+                // 回退到 IJK 自带的名称
+                if (t.name == null || t.name.isEmpty()) {
+                    t.name = info.getInfoInline();
+                }
                 data.addAudio(t);
+                audioIndex++;
             }
             if (info.getTrackType() == ITrackInfo.MEDIA_TRACK_TYPE_TIMEDTEXT) {
                 TrackInfoBean t = new TrackInfoBean();
-                t.name = info.getInfoInline();
                 t.language = info.getLanguage();
                 t.trackId = index;
                 t.selected = index == subtitleSelected;
+                // 优先使用 FFmpeg 获取的详细名称
+                if (mediaInfo != null) {
+                    t.name = MediaInfoHelper.getSubtitleTrackName(mediaInfo, subtitleIndex);
+                }
+                // 回退到 IJK 自带的名称
+                if (t.name == null || t.name.isEmpty()) {
+                    t.name = info.getInfoInline();
+                }
                 data.addSubtitle(t);
+                subtitleIndex++;
             }
             index++;
         }
@@ -520,13 +557,6 @@ public class IjkPlayer extends AbstractPlayer implements IMediaPlayer.OnErrorLis
             disableBean.selected = false;
             disableBean.language = "";
             data.addSubtitle(0, disableBean);
-        }
-
-        for (int i = 0, len = data.getSubtitle().size(); i < len; i++) {
-            Log.e(TAG, "getSubtitle: ~~~~~~~~~~ " + data.getSubtitle().get(i).name);
-        }
-        for (int i = 0, len = data.getAudio().size(); i < len; i++) {
-            Log.w(TAG, "getAudio: ~~~~~~~~~~ " + data.getAudio().get(i).name);
         }
         return data;
     }

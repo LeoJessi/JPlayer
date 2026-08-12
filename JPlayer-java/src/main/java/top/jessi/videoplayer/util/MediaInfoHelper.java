@@ -4,6 +4,7 @@ import android.content.Context;
 import android.net.Uri;
 import android.os.Handler;
 import android.os.Looper;
+import android.text.TextUtils;
 import android.util.Log;
 
 import androidx.annotation.NonNull;
@@ -147,7 +148,7 @@ public class MediaInfoHelper {
     @Nullable
     public static AudioStream getAudioStream(@NonNull MediaInfo mediaInfo, int index) {
         List<AudioStream> streams = mediaInfo.getAudioStreams();
-        if (streams != null && index >= 0 && index < streams.size()) {
+        if (index >= 0 && index < streams.size()) {
             return streams.get(index);
         }
         return null;
@@ -159,7 +160,7 @@ public class MediaInfoHelper {
     @Nullable
     public static SubtitleStream getSubtitleStream(@NonNull MediaInfo mediaInfo, int index) {
         List<SubtitleStream> streams = mediaInfo.getSubtitleStreams();
-        if (streams != null && index >= 0 && index < streams.size()) {
+        if (index >= 0 && index < streams.size()) {
             return streams.get(index);
         }
         return null;
@@ -175,54 +176,49 @@ public class MediaInfoHelper {
         if (stream == null) {
             return null;
         }
-
         StringBuilder sb = new StringBuilder();
-
-        // 语言
-        String language = stream.getLanguage();
-        if (language != null && !language.isEmpty()) {
-            sb.append(language);
-        }
-
         // 优先使用 title（如 "Director's Commentary"、"Stereo Mix" 等）
         String title = stream.getTitle();
         if (title != null && !title.isEmpty()) {
-            sb.append(" [").append(title).append("]");
-            return sb.toString();
-        }
-
-        // 没有 title 时，使用编码信息拼接
-        String codec = stream.getCodecName();
-        if (codec != null && !codec.isEmpty()) {
-            sb.append(" [").append(codec);
-        }
-
-        // 声道布局（比简单的声道数更详细，如 "5.1"、"7.1"）
-        String channelLayout = stream.getChannelLayout();
-        if (channelLayout != null && !channelLayout.isEmpty()) {
-            sb.append(" ").append(channelLayout);
+            sb.append(title);
         } else {
-            // 没有 channelLayout 时使用声道数
-            int channels = stream.getChannels();
-            if (channels > 0) {
-                sb.append(" ").append(channels).append("ch");
+            // 没有 title 时，使用编码信息拼接
+            String codec = stream.getCodecName();
+            if (!codec.isEmpty()) {
+                sb.append(codec);
+            }
+            // 声道布局（比简单的声道数更详细，如 "5.1"、"7.1"）
+            String channelLayout = stream.getChannelLayout();
+            if (channelLayout != null && !channelLayout.isEmpty()) {
+                sb.append(" ").append(channelLayout);
+            } else {
+                // 没有 channelLayout 时使用声道数
+                int channels = stream.getChannels();
+                if (channels > 0) {
+                    sb.append(" ").append(channels).append("ch");
+                }
+            }
+            // 采样率
+            int sampleRate = stream.getSampleRate();
+            if (sampleRate > 0) {
+                sb.append(" ").append(sampleRate / 1000).append("kHz");
+            }
+            // 比特率
+            long bitRate = stream.getBitRate();
+            if (bitRate > 0) {
+                sb.append(" ").append(bitRate / 1000).append("kbps");
             }
         }
-
-        // 采样率
-        int sampleRate = stream.getSampleRate();
-        if (sampleRate > 0) {
-            sb.append(" ").append(sampleRate / 1000).append("kHz");
+        // 语言
+        String language = stream.getLanguage();
+        if (language != null && !language.isEmpty()) {
+            String titleName = sb.toString();
+            if (TextUtils.isEmpty(titleName)) {
+                sb.append(language);
+            } else {
+                sb.append(" - ").append("[").append(language).append("]");
+            }
         }
-
-        // 比特率
-        long bitRate = stream.getBitRate();
-        if (bitRate > 0) {
-            sb.append(" ").append(bitRate / 1000).append("kbps");
-        }
-
-        sb.append("]");
-
         return sb.toString();
     }
 
@@ -235,21 +231,22 @@ public class MediaInfoHelper {
         if (stream == null) {
             return null;
         }
-
         StringBuilder sb = new StringBuilder();
-
-        // 语言
-        String language = stream.getLanguage();
-        if (language != null && !language.isEmpty()) {
-            sb.append(language);
-        }
-
         // 标题
         String title = stream.getTitle();
         if (title != null && !title.isEmpty()) {
-            sb.append(" [").append(title).append("]");
+            sb.append(title);
         }
-
+        // 语言
+        String language = stream.getLanguage();
+        if (language != null && !language.isEmpty()) {
+            String titleName = sb.toString();
+            if (TextUtils.isEmpty(titleName)) {
+                sb.append(language);
+            } else {
+                sb.append(" - ").append("[").append(language).append("]");
+            }
+        }
         return sb.toString();
     }
 
