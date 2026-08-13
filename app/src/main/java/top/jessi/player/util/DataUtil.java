@@ -18,7 +18,8 @@ public class DataUtil {
     // http://private.root.thetechno.xyz:8880/series/58eb81efb7481234/9LvQWyebG615sdkj/108702.mkv
     // http://private.root.thetechno.xyz:8880/MALAItest592119malai/TsJ7SH76KSPINJ08/51089
     // http://private.root.thetechno.xyz:8880/series/MALAItest592119malai/RXdTMHA7wGOf4qHI/64263.mp4
-    public static final String SAMPLE_URL = "http://private.root.thetechno.xyz:8880/series/MALAItest592119malai/RXdTMHA7wGOf4qHI/64263.mp4";
+    // http://private.root.thetechno.xyz:8880/series/MALAItest592119malai/dXmhfThzeENDSdqO/108702.mkv 127830
+    public static final String SAMPLE_URL = "http://private.root.thetechno.xyz:8880/series/MALAItest592119malai/dXmhfThzeENDSdqO/108702.mkv";
     // http://thetechno.xyz:8880/live/MALAI78b5d212345648/2KYv9tM6eljqdw2j/559.m3u8
 
     public static List<VideoBean> getVideoList() {

@@ -67,6 +67,255 @@ public class MediaInfoHelper {
     }
 
     /**
+     * ISO 639-2/3 三字母语言代码 → 可读语言名称映射表
+     */
+    private static final Map<String, String> LANGUAGE_MAP = new HashMap<>();
+
+    static {
+        // A
+        LANGUAGE_MAP.put("aar", "Afar");
+        LANGUAGE_MAP.put("abk", "Abkhazian");
+        LANGUAGE_MAP.put("afr", "Afrikaans");
+        LANGUAGE_MAP.put("aka", "Akan");
+        LANGUAGE_MAP.put("amh", "Amharic");
+        LANGUAGE_MAP.put("ara", "Arabic");
+        LANGUAGE_MAP.put("arg", "Aragonese");
+        LANGUAGE_MAP.put("asm", "Assamese");
+        LANGUAGE_MAP.put("ava", "Avaric");
+        LANGUAGE_MAP.put("ave", "Avestan");
+        LANGUAGE_MAP.put("aym", "Aymara");
+        LANGUAGE_MAP.put("aze", "Azerbaijani");
+        // B
+        LANGUAGE_MAP.put("bak", "Bashkir");
+        LANGUAGE_MAP.put("bam", "Bambara");
+        LANGUAGE_MAP.put("bel", "Belarusian");
+        LANGUAGE_MAP.put("ben", "Bengali");
+        LANGUAGE_MAP.put("bih", "Bihari");
+        LANGUAGE_MAP.put("bis", "Bislama");
+        LANGUAGE_MAP.put("bos", "Bosnian");
+        LANGUAGE_MAP.put("bre", "Breton");
+        LANGUAGE_MAP.put("bul", "Bulgarian");
+        // C
+        LANGUAGE_MAP.put("cat", "Catalan");
+        LANGUAGE_MAP.put("cha", "Chamorro");
+        LANGUAGE_MAP.put("che", "Chechen");
+        LANGUAGE_MAP.put("chu", "Church Slavic");
+        LANGUAGE_MAP.put("chv", "Chuvash");
+        LANGUAGE_MAP.put("cor", "Cornish");
+        LANGUAGE_MAP.put("cos", "Corsican");
+        LANGUAGE_MAP.put("cre", "Cree");
+        LANGUAGE_MAP.put("cze", "Czech");
+        // D
+        LANGUAGE_MAP.put("dan", "Danish");
+        LANGUAGE_MAP.put("deu", "German");
+        LANGUAGE_MAP.put("div", "Divehi");
+        LANGUAGE_MAP.put("dzo", "Dzongkha");
+        // E
+        LANGUAGE_MAP.put("eng", "English");
+        LANGUAGE_MAP.put("epo", "Esperanto");
+        LANGUAGE_MAP.put("est", "Estonian");
+        LANGUAGE_MAP.put("ell", "Greek");
+        LANGUAGE_MAP.put("eus", "Basque");
+        LANGUAGE_MAP.put("ewe", "Ewe");
+        // F
+        LANGUAGE_MAP.put("fao", "Faroese");
+        LANGUAGE_MAP.put("fas", "Persian");
+        LANGUAGE_MAP.put("fil", "Filipino");
+        LANGUAGE_MAP.put("fij", "Fijian");
+        LANGUAGE_MAP.put("fin", "Finnish");
+        LANGUAGE_MAP.put("fra", "French");
+        LANGUAGE_MAP.put("fry", "Western Frisian");
+        LANGUAGE_MAP.put("ful", "Fulah");
+        // G
+        LANGUAGE_MAP.put("gla", "Gaelic");
+        LANGUAGE_MAP.put("gle", "Irish");
+        LANGUAGE_MAP.put("glg", "Galician");
+        LANGUAGE_MAP.put("glv", "Manx");
+        LANGUAGE_MAP.put("grn", "Guarani");
+        LANGUAGE_MAP.put("guj", "Gujarati");
+        // H
+        LANGUAGE_MAP.put("hat", "Haitian");
+        LANGUAGE_MAP.put("hau", "Hausa");
+        LANGUAGE_MAP.put("heb", "Hebrew");
+        LANGUAGE_MAP.put("her", "Herero");
+        LANGUAGE_MAP.put("hin", "Hindi");
+        LANGUAGE_MAP.put("hmo", "Hiri Motu");
+        LANGUAGE_MAP.put("hrv", "Croatian");
+        LANGUAGE_MAP.put("hun", "Hungarian");
+        LANGUAGE_MAP.put("hye", "Armenian");
+        // I
+        LANGUAGE_MAP.put("ibo", "Igbo");
+        LANGUAGE_MAP.put("ido", "Ido");
+        LANGUAGE_MAP.put("iii", "Sichuan Yi");
+        LANGUAGE_MAP.put("iku", "Inuktitut");
+        LANGUAGE_MAP.put("ile", "Interlingue");
+        LANGUAGE_MAP.put("ina", "Interlingua");
+        LANGUAGE_MAP.put("ind", "Indonesian");
+        LANGUAGE_MAP.put("ipk", "Inupiaq");
+        LANGUAGE_MAP.put("isl", "Icelandic");
+        LANGUAGE_MAP.put("ita", "Italian");
+        // J
+        LANGUAGE_MAP.put("jav", "Javanese");
+        LANGUAGE_MAP.put("jpn", "Japanese");
+        // K
+        LANGUAGE_MAP.put("kal", "Kalaallisut");
+        LANGUAGE_MAP.put("kan", "Kannada");
+        LANGUAGE_MAP.put("kas", "Kashmiri");
+        LANGUAGE_MAP.put("kau", "Kanuri");
+        LANGUAGE_MAP.put("kaz", "Kazakh");
+        LANGUAGE_MAP.put("khm", "Central Khmer");
+        LANGUAGE_MAP.put("kik", "Kikuyu");
+        LANGUAGE_MAP.put("kin", "Kinyarwanda");
+        LANGUAGE_MAP.put("kir", "Kirghiz");
+        LANGUAGE_MAP.put("kom", "Komi");
+        LANGUAGE_MAP.put("kon", "Kongo");
+        LANGUAGE_MAP.put("kor", "Korean");
+        LANGUAGE_MAP.put("kua", "Kuanyama");
+        LANGUAGE_MAP.put("kur", "Kurdish");
+        // L
+        LANGUAGE_MAP.put("lao", "Lao");
+        LANGUAGE_MAP.put("lat", "Latin");
+        LANGUAGE_MAP.put("lav", "Latvian");
+        LANGUAGE_MAP.put("lim", "Limburgan");
+        LANGUAGE_MAP.put("lin", "Lingala");
+        LANGUAGE_MAP.put("lit", "Lithuanian");
+        LANGUAGE_MAP.put("ltz", "Luxembourgish");
+        LANGUAGE_MAP.put("lub", "Luba-Katanga");
+        LANGUAGE_MAP.put("lug", "Ganda");
+        // M
+        LANGUAGE_MAP.put("mah", "Marshallese");
+        LANGUAGE_MAP.put("mal", "Malayalam");
+        LANGUAGE_MAP.put("mao", "Maori");
+        LANGUAGE_MAP.put("mar", "Marathi");
+        LANGUAGE_MAP.put("may", "Malay");
+        LANGUAGE_MAP.put("mkd", "Macedonian");
+        LANGUAGE_MAP.put("mlg", "Malagasy");
+        LANGUAGE_MAP.put("mlt", "Maltese");
+        LANGUAGE_MAP.put("mon", "Mongolian");
+        LANGUAGE_MAP.put("mya", "Burmese");
+        // N
+        LANGUAGE_MAP.put("nau", "Nauru");
+        LANGUAGE_MAP.put("nav", "Navajo");
+        LANGUAGE_MAP.put("nbl", "Ndebele, South");
+        LANGUAGE_MAP.put("nde", "Ndebele, North");
+        LANGUAGE_MAP.put("ndo", "Ndonga");
+        LANGUAGE_MAP.put("nep", "Nepali");
+        LANGUAGE_MAP.put("nld", "Dutch");
+        LANGUAGE_MAP.put("nno", "Norwegian Nynorsk");
+        LANGUAGE_MAP.put("nob", "Bokmål, Norwegian");
+        LANGUAGE_MAP.put("nor", "Norwegian");
+        LANGUAGE_MAP.put("nya", "Chichewa");
+        // O
+        LANGUAGE_MAP.put("oci", "Occitan");
+        LANGUAGE_MAP.put("oji", "Ojibwa");
+        LANGUAGE_MAP.put("ori", "Oriya");
+        LANGUAGE_MAP.put("orm", "Oromo");
+        // P
+        LANGUAGE_MAP.put("pan", "Panjabi");
+        LANGUAGE_MAP.put("pli", "Pali");
+        LANGUAGE_MAP.put("pol", "Polish");
+        LANGUAGE_MAP.put("por", "Portuguese");
+        LANGUAGE_MAP.put("pus", "Pushto");
+        // Q
+        LANGUAGE_MAP.put("que", "Quechua");
+        // R
+        LANGUAGE_MAP.put("roh", "Romansh");
+        LANGUAGE_MAP.put("ron", "Romanian");
+        LANGUAGE_MAP.put("run", "Rundi");
+        LANGUAGE_MAP.put("rus", "Russian");
+        // S
+        LANGUAGE_MAP.put("sag", "Sango");
+        LANGUAGE_MAP.put("san", "Sanskrit");
+        LANGUAGE_MAP.put("sin", "Sinhala");
+        LANGUAGE_MAP.put("slk", "Slovak");
+        LANGUAGE_MAP.put("slv", "Slovenian");
+        LANGUAGE_MAP.put("sme", "Northern Sami");
+        LANGUAGE_MAP.put("smo", "Samoan");
+        LANGUAGE_MAP.put("sna", "Shona");
+        LANGUAGE_MAP.put("snd", "Sindhi");
+        LANGUAGE_MAP.put("som", "Somali");
+        LANGUAGE_MAP.put("sot", "Sotho, Southern");
+        LANGUAGE_MAP.put("spa", "Spanish");
+        LANGUAGE_MAP.put("sqi", "Albanian");
+        LANGUAGE_MAP.put("srd", "Sardinian");
+        LANGUAGE_MAP.put("srp", "Serbian");
+        LANGUAGE_MAP.put("ssw", "Swati");
+        LANGUAGE_MAP.put("sun", "Sundanese");
+        LANGUAGE_MAP.put("swa", "Swahili");
+        LANGUAGE_MAP.put("swe", "Swedish");
+        // T
+        LANGUAGE_MAP.put("tah", "Tahitian");
+        LANGUAGE_MAP.put("tam", "Tamil");
+        LANGUAGE_MAP.put("tat", "Tatar");
+        LANGUAGE_MAP.put("tel", "Telugu");
+        LANGUAGE_MAP.put("tgk", "Tajik");
+        LANGUAGE_MAP.put("tag", "Tagalog");
+        LANGUAGE_MAP.put("tha", "Thai");
+        LANGUAGE_MAP.put("bod", "Tibetan");
+        LANGUAGE_MAP.put("tir", "Tigrinya");
+        LANGUAGE_MAP.put("ton", "Tonga");
+        LANGUAGE_MAP.put("tsn", "Tswana");
+        LANGUAGE_MAP.put("tso", "Tsonga");
+        LANGUAGE_MAP.put("tuk", "Turkmen");
+        LANGUAGE_MAP.put("tur", "Turkish");
+        LANGUAGE_MAP.put("twi", "Twi");
+        // U
+        LANGUAGE_MAP.put("uig", "Uighur");
+        LANGUAGE_MAP.put("ukr", "Ukrainian");
+        LANGUAGE_MAP.put("urd", "Urdu");
+        LANGUAGE_MAP.put("uzb", "Uzbek");
+        // V
+        LANGUAGE_MAP.put("ven", "Venda");
+        LANGUAGE_MAP.put("vie", "Vietnamese");
+        // W
+        LANGUAGE_MAP.put("cym", "Welsh");
+        LANGUAGE_MAP.put("wln", "Walloon");
+        LANGUAGE_MAP.put("wol", "Wolof");
+        // X
+        LANGUAGE_MAP.put("xho", "Xhosa");
+        // Y
+        LANGUAGE_MAP.put("yid", "Yiddish");
+        LANGUAGE_MAP.put("yor", "Yoruba");
+        // Z
+        LANGUAGE_MAP.put("zha", "Zhuang");
+        LANGUAGE_MAP.put("zho", "Chinese");
+        LANGUAGE_MAP.put("zul", "Zulu");
+
+        // ========== 书目代码别名（ISO 639-2/B） ==========
+        // 部分媒体文件使用旧的书目代码而非术语代码，此处添加别名确保兼容
+        LANGUAGE_MAP.put("alb", "Albanian");      // sqi 的别名
+        LANGUAGE_MAP.put("arm", "Armenian");      // hye 的别名
+        LANGUAGE_MAP.put("baq", "Basque");        // eus 的别名
+        LANGUAGE_MAP.put("bur", "Burmese");       // mya 的别名
+        LANGUAGE_MAP.put("chi", "Chinese");       // zho 的别名
+        LANGUAGE_MAP.put("dut", "Dutch");         // nld 的别名
+        LANGUAGE_MAP.put("fre", "French");        // fra 的别名
+        LANGUAGE_MAP.put("ger", "German");        // deu 的别名
+        LANGUAGE_MAP.put("gre", "Greek");         // ell 的别名
+        LANGUAGE_MAP.put("ice", "Icelandic");     // isl 的别名
+        LANGUAGE_MAP.put("mac", "Macedonian");    // mkd 的别名
+        LANGUAGE_MAP.put("per", "Persian");       // fas 的别名
+        LANGUAGE_MAP.put("rum", "Romanian");      // ron 的别名
+        LANGUAGE_MAP.put("slo", "Slovak");        // slk 的别名
+        LANGUAGE_MAP.put("tib", "Tibetan");       // bod 的别名
+        LANGUAGE_MAP.put("wel", "Welsh");         // cym 的别名
+    }
+
+    /**
+     * 将 ISO 639-2/3 三字母语言代码转换为可读的语言名称
+     *
+     * @param code 三字母语言代码，如 "eng"、"zho"
+     * @return 可读的语言名称，如 "English"、"Chinese"；未知代码返回原值
+     */
+    public static String getLanguageName(String code) {
+        if (code == null || code.isEmpty()) {
+            return code;
+        }
+        String name = LANGUAGE_MAP.get(code.toLowerCase());
+        return name != null ? name : code;
+    }
+
+    /**
      * 在后台线程预加载媒体信息。
      * 建议在播放开始时调用，提前解析媒体信息，避免在获取轨道列表时阻塞主线程。
      *
@@ -168,7 +417,7 @@ public class MediaInfoHelper {
 
     /**
      * 获取音频流的详细描述名称
-     * 格式：语言 [标题] 或 语言 [编码 声道 采样率 比特率]
+     * 格式：语言名称 [标题] 或 语言名称 [编码 声道 采样率 比特率]
      */
     @Nullable
     public static String getAudioTrackName(@NonNull MediaInfo mediaInfo, int index) {
@@ -209,14 +458,15 @@ public class MediaInfoHelper {
                 sb.append(" ").append(bitRate / 1000).append("kbps");
             }
         }
-        // 语言
+        // 语言名称（将 ISO 639-2/3 代码转换为可读名称）
         String language = stream.getLanguage();
         if (language != null && !language.isEmpty()) {
+            String languageName = getLanguageName(language);
             String titleName = sb.toString();
             if (TextUtils.isEmpty(titleName)) {
-                sb.append(language);
+                sb.append(languageName);
             } else {
-                sb.append(" - ").append("[").append(language).append("]");
+                sb.append(" - ").append("[").append(languageName).append("]");
             }
         }
         return sb.toString();
@@ -237,14 +487,15 @@ public class MediaInfoHelper {
         if (title != null && !title.isEmpty()) {
             sb.append(title);
         }
-        // 语言
+        // 语言名称（将 ISO 639-2/3 代码转换为可读名称）
         String language = stream.getLanguage();
         if (language != null && !language.isEmpty()) {
+            String languageName = getLanguageName(language);
             String titleName = sb.toString();
             if (TextUtils.isEmpty(titleName)) {
-                sb.append(language);
+                sb.append(languageName);
             } else {
-                sb.append(" - ").append("[").append(language).append("]");
+                sb.append(" - ").append("[").append(languageName).append("]");
             }
         }
         return sb.toString();
