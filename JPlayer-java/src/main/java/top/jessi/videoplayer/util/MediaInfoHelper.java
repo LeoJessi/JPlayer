@@ -187,11 +187,11 @@ public class MediaInfoHelper {
         LANGUAGE_MAP.put("mal", "Malayalam");
         LANGUAGE_MAP.put("mao", "Maori");
         LANGUAGE_MAP.put("mar", "Marathi");
-        LANGUAGE_MAP.put("may", "Malay");
         LANGUAGE_MAP.put("mkd", "Macedonian");
         LANGUAGE_MAP.put("mlg", "Malagasy");
         LANGUAGE_MAP.put("mlt", "Maltese");
         LANGUAGE_MAP.put("mon", "Mongolian");
+        LANGUAGE_MAP.put("msa", "Malay");
         LANGUAGE_MAP.put("mya", "Burmese");
         // N
         LANGUAGE_MAP.put("nau", "Nauru");
