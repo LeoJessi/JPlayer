@@ -15,6 +15,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
 
 import io.github.anilbeesetti.nextlib.mediainfo.AudioStream;
 import io.github.anilbeesetti.nextlib.mediainfo.MediaInfo;
@@ -29,7 +30,7 @@ import io.github.anilbeesetti.nextlib.mediainfo.SubtitleStream;
  * • 音频流信息（编码格式、语言、声道数、采样率、比特率）
  * • 字幕流信息（编码格式、语言）
  * <p>
- * 用于补充 ExoPlayer 自带的简单轨道名称，提供更详细的轨道信息。
+ * 用于补充播放器自带的简单轨道名称，提供更详细的轨道信息。
  * <p>
  * 使用方式：
  * 1. 在播放开始时调用 preloadMediaInfo() 在后台预加载数据
@@ -55,9 +56,11 @@ public class MediaInfoHelper {
     private static final Map<String, MediaInfo> sCache = new HashMap<>();
 
     /**
-     * 正在加载中的 URI 集合，防止重复加载
+     * 正在加载中的 URI 及其 Future，用于防止重复加载和等待已有加载完成
+     * key: URI 字符串
+     * value: 正在执行的加载任务 Future
      */
-    private static final Map<String, Boolean> sLoading = new HashMap<>();
+    private static final Map<String, Future<MediaInfo>> sLoading = new HashMap<>();
 
     /**
      * 媒体信息加载回调接口
@@ -283,22 +286,22 @@ public class MediaInfoHelper {
 
         // ========== 书目代码别名（ISO 639-2/B） ==========
         // 部分媒体文件使用旧的书目代码而非术语代码，此处添加别名确保兼容
-        LANGUAGE_MAP.put("alb", "Albanian");      // sqi 的别名
-        LANGUAGE_MAP.put("arm", "Armenian");      // hye 的别名
-        LANGUAGE_MAP.put("baq", "Basque");        // eus 的别名
-        LANGUAGE_MAP.put("bur", "Burmese");       // mya 的别名
-        LANGUAGE_MAP.put("chi", "Chinese");       // zho 的别名
-        LANGUAGE_MAP.put("dut", "Dutch");         // nld 的别名
-        LANGUAGE_MAP.put("fre", "French");        // fra 的别名
-        LANGUAGE_MAP.put("ger", "German");        // deu 的别名
-        LANGUAGE_MAP.put("gre", "Greek");         // ell 的别名
-        LANGUAGE_MAP.put("ice", "Icelandic");     // isl 的别名
-        LANGUAGE_MAP.put("mac", "Macedonian");    // mkd 的别名
-        LANGUAGE_MAP.put("per", "Persian");       // fas 的别名
-        LANGUAGE_MAP.put("rum", "Romanian");      // ron 的别名
-        LANGUAGE_MAP.put("slo", "Slovak");        // slk 的别名
-        LANGUAGE_MAP.put("tib", "Tibetan");       // bod 的别名
-        LANGUAGE_MAP.put("wel", "Welsh");         // cym 的别名
+        LANGUAGE_MAP.put("alb", "Albanian");
+        LANGUAGE_MAP.put("arm", "Armenian");
+        LANGUAGE_MAP.put("baq", "Basque");
+        LANGUAGE_MAP.put("bur", "Burmese");
+        LANGUAGE_MAP.put("chi", "Chinese");
+        LANGUAGE_MAP.put("dut", "Dutch");
+        LANGUAGE_MAP.put("fre", "French");
+        LANGUAGE_MAP.put("ger", "German");
+        LANGUAGE_MAP.put("gre", "Greek");
+        LANGUAGE_MAP.put("ice", "Icelandic");
+        LANGUAGE_MAP.put("mac", "Macedonian");
+        LANGUAGE_MAP.put("per", "Persian");
+        LANGUAGE_MAP.put("rum", "Romanian");
+        LANGUAGE_MAP.put("slo", "Slovak");
+        LANGUAGE_MAP.put("tib", "Tibetan");
+        LANGUAGE_MAP.put("wel", "Welsh");
     }
 
     /**
@@ -307,7 +310,7 @@ public class MediaInfoHelper {
      * @param code 三字母语言代码，如 "eng"、"zho"
      * @return 可读的语言名称，如 "English"、"Chinese"；未知代码返回原值
      */
-    public static String getLanguageName(String code) {
+    public static String getLanguageName(@Nullable String code) {
         if (code == null || code.isEmpty()) {
             return code;
         }
@@ -334,169 +337,265 @@ public class MediaInfoHelper {
             return;
         }
 
-        // 如果正在加载，不再重复发起
+        // 如果正在加载，不再重复发起（避免竞态条件）
         if (sLoading.containsKey(uri)) {
             return;
         }
 
-        sLoading.put(uri, true);
-
-        sExecutor.execute(() -> {
-            MediaInfo mediaInfo = getMediaInfoSync(context, uri);
+        // 提交单个任务：解析 + 回调（避免浪费线程池资源）
+        Future<MediaInfo> future = sExecutor.submit(() -> {
+            MediaInfo mediaInfo = getMediaInfoInternal(context, uri);
             sLoading.remove(uri);
             if (listener != null) {
                 sMainHandler.post(() -> listener.onMediaInfoLoaded(mediaInfo));
             }
+            return mediaInfo;
         });
+        sLoading.put(uri, future);
     }
 
     /**
      * 同步获取媒体信息（带缓存）。
-     * 注意：此方法可能耗时较长，建议在后台线程调用。
+     * 非阻塞设计：如果已有正在加载的任务，立即返回 null（避免阻塞主线程）。
+     * 调用方应处理 null 情况，使用播放器自带的轨道名称作为后备。
      *
      * @param context 上下文
      * @param uri     媒体 URI
-     * @return MediaInfo 对象，解析失败返回 null
+     * @return MediaInfo 对象，未完成或失败返回 null
      */
     @Nullable
     public static MediaInfo getMediaInfo(@NonNull Context context, @NonNull String uri) {
+        // 先检查缓存
         MediaInfo cached = sCache.get(uri);
         if (cached != null) {
             return cached;
         }
-        return getMediaInfoSync(context, uri);
+
+        // 如果已有正在加载的任务，立即返回 null（不阻塞主线程）
+        // 调用方应使用播放器自带的轨道名称作为后备
+        if (sLoading.containsKey(uri)) {
+            return null;
+        }
+
+        // 没有正在加载的任务，直接解析
+        return getMediaInfoInternal(context, uri);
     }
 
     /**
-     * 内部同步获取方法
+     * 网络流最大重试次数
+     */
+    private static final int MAX_NETWORK_RETRY = 2;
+
+    /**
+     * 重试间隔（毫秒）
+     */
+    private static final long RETRY_DELAY_MS = 1000;
+
+    /**
+     * 判断 URI 是否为网络流
+     */
+    private static boolean isNetworkUri(@NonNull String uri) {
+        String lower = uri.toLowerCase();
+        return lower.startsWith("http://") || lower.startsWith("https://")
+                || lower.startsWith("rtsp://") || lower.startsWith("rtmp://")
+                || lower.startsWith("mms://") || lower.startsWith("ftp://");
+    }
+
+    /**
+     * 内部同步获取方法（带重试机制）
+     * 网络流支持重试，本地文件不重试
      */
     @Nullable
-    private static MediaInfo getMediaInfoSync(@NonNull Context context, @NonNull String uri) {
-        try {
-            MediaInfoBuilder builder = new MediaInfoBuilder();
-            builder.from(context, Uri.parse(uri));
-            MediaInfo mediaInfo = builder.build();
-            if (mediaInfo != null) {
-                Log.d(TAG, "getMediaInfo success: "
-                        + " audioStreams=" + mediaInfo.getAudioStreams().size()
-                        + " subtitleStreams=" + mediaInfo.getSubtitleStreams().size());
-                sCache.put(uri, mediaInfo);
-            } else {
-                Log.w(TAG, "getMediaInfo: builder.build() returned null for " + uri);
+    private static MediaInfo getMediaInfoInternal(@NonNull Context context, @NonNull String uri) {
+        boolean isNetwork = isNetworkUri(uri);
+        int maxRetry = isNetwork ? MAX_NETWORK_RETRY : 0;
+        for (int attempt = 0; attempt <= maxRetry; attempt++) {
+            // 非首次尝试时，等待一段时间后重试
+            if (attempt > 0) {
+                Log.d(TAG, "getMediaInfo retry " + attempt + "/" + maxRetry + " after " + RETRY_DELAY_MS + "ms");
+                try {
+                    Thread.sleep(RETRY_DELAY_MS);
+                } catch (InterruptedException e) {
+                    Thread.currentThread().interrupt();
+                    return null;
+                }
             }
-            return mediaInfo;
-        } catch (Exception e) {
-            Log.e(TAG, "getMediaInfo failed for " + uri, e);
-            return null;
+
+            try {
+                MediaInfoBuilder builder = new MediaInfoBuilder();
+                builder.from(context, Uri.parse(uri));
+                MediaInfo mediaInfo = builder.build();
+                if (mediaInfo != null) {
+                    Log.d(TAG, "getMediaInfo success (attempt " + (attempt + 1) + "): audioStreams=" + mediaInfo.getAudioStreams().size()
+                            + " subtitleStreams=" + mediaInfo.getSubtitleStreams().size());
+                    sCache.put(uri, mediaInfo);
+                    return mediaInfo;
+                } else {
+                    Log.w(TAG, "getMediaInfo: builder.build() returned null (attempt " + (attempt + 1) + ")");
+                }
+            } catch (Throwable t) {
+                Log.e(TAG, "getMediaInfo failed (attempt " + (attempt + 1) + ")", t);
+                // 如果是最后一次尝试，直接返回 null
+                if (attempt >= maxRetry) {
+                    return null;
+                }
+            }
         }
+
+        return null;
     }
 
     /**
      * 获取指定索引的音频流信息
+     *
+     * @param mediaInfo 媒体信息对象，可为 null
+     * @param index     音频流索引
+     * @return AudioStream 对象，失败返回 null
      */
     @Nullable
-    public static AudioStream getAudioStream(@NonNull MediaInfo mediaInfo, int index) {
-        List<AudioStream> streams = mediaInfo.getAudioStreams();
-        if (index >= 0 && index < streams.size()) {
-            return streams.get(index);
+    public static AudioStream getAudioStream(@Nullable MediaInfo mediaInfo, int index) {
+        if (mediaInfo == null) {
+            return null;
+        }
+        try {
+            List<AudioStream> streams = mediaInfo.getAudioStreams();
+            if (index >= 0 && index < streams.size()) {
+                return streams.get(index);
+            }
+        } catch (Exception e) {
+            Log.e(TAG, "getAudioStream failed", e);
         }
         return null;
     }
 
     /**
      * 获取指定索引的字幕流信息
+     *
+     * @param mediaInfo 媒体信息对象，可为 null
+     * @param index     字幕流索引
+     * @return SubtitleStream 对象，失败返回 null
      */
     @Nullable
-    public static SubtitleStream getSubtitleStream(@NonNull MediaInfo mediaInfo, int index) {
-        List<SubtitleStream> streams = mediaInfo.getSubtitleStreams();
-        if (index >= 0 && index < streams.size()) {
-            return streams.get(index);
+    public static SubtitleStream getSubtitleStream(@Nullable MediaInfo mediaInfo, int index) {
+        if (mediaInfo == null) {
+            return null;
+        }
+        try {
+            List<SubtitleStream> streams = mediaInfo.getSubtitleStreams();
+            if (index >= 0 && index < streams.size()) {
+                return streams.get(index);
+            }
+        } catch (Exception e) {
+            Log.e(TAG, "getSubtitleStream failed", e);
         }
         return null;
     }
 
     /**
      * 获取音频流的详细描述名称
-     * 格式：语言名称 [标题] 或 语言名称 [编码 声道 采样率 比特率]
+     *
+     * @param mediaInfo 媒体信息对象，可为 null
+     * @param index     音频流索引
+     * @return 详细名称，失败返回 null
      */
     @Nullable
-    public static String getAudioTrackName(@NonNull MediaInfo mediaInfo, int index) {
+    public static String getAudioTrackName(@Nullable MediaInfo mediaInfo, int index) {
+        if (mediaInfo == null) {
+            return null;
+        }
         AudioStream stream = getAudioStream(mediaInfo, index);
         if (stream == null) {
             return null;
         }
         StringBuilder sb = new StringBuilder();
-        // 优先使用 title（如 "Director's Commentary"、"Stereo Mix" 等）
-        String title = stream.getTitle();
-        if (title != null && !title.isEmpty()) {
-            sb.append(title);
-        } else {
-            // 没有 title 时，使用编码信息拼接
-            String codec = stream.getCodecName();
-            if (!codec.isEmpty()) {
-                sb.append(codec);
-            }
-            // 声道布局（比简单的声道数更详细，如 "5.1"、"7.1"）
-            String channelLayout = stream.getChannelLayout();
-            if (channelLayout != null && !channelLayout.isEmpty()) {
-                sb.append(" ").append(channelLayout);
+        try {
+            // 优先使用 title（如 "Director's Commentary"、"Stereo Mix" 等）
+            String title = stream.getTitle();
+            if (title != null && !title.isEmpty()) {
+                sb.append(title);
             } else {
-                // 没有 channelLayout 时使用声道数
-                int channels = stream.getChannels();
-                if (channels > 0) {
-                    sb.append(" ").append(channels).append("ch");
+                // 没有 title 时，使用编码信息拼接
+                String codec = stream.getCodecName();
+                if (codec != null && !codec.isEmpty()) {
+                    sb.append(codec);
+                }
+                // 声道布局（比简单的声道数更详细，如 "5.1"、"7.1"）
+                String channelLayout = stream.getChannelLayout();
+                if (channelLayout != null && !channelLayout.isEmpty()) {
+                    sb.append(" ").append(channelLayout);
+                } else {
+                    // 没有 channelLayout 时使用声道数
+                    int channels = stream.getChannels();
+                    if (channels > 0) {
+                        sb.append(" ").append(channels).append("ch");
+                    }
+                }
+                // 采样率
+                int sampleRate = stream.getSampleRate();
+                if (sampleRate > 0) {
+                    sb.append(" ").append(sampleRate / 1000).append("kHz");
+                }
+                // 比特率
+                long bitRate = stream.getBitRate();
+                if (bitRate > 0) {
+                    sb.append(" ").append(bitRate / 1000).append("kbps");
                 }
             }
-            // 采样率
-            int sampleRate = stream.getSampleRate();
-            if (sampleRate > 0) {
-                sb.append(" ").append(sampleRate / 1000).append("kHz");
+            // 语言名称（将 ISO 639-2/3 代码转换为可读名称）
+            String language = stream.getLanguage();
+            if (language != null && !language.isEmpty()) {
+                String languageName = getLanguageName(language);
+                String titleName = sb.toString();
+                if (TextUtils.isEmpty(titleName)) {
+                    sb.append(languageName);
+                } else {
+                    sb.append(" - ").append("[").append(languageName).append("]");
+                }
             }
-            // 比特率
-            long bitRate = stream.getBitRate();
-            if (bitRate > 0) {
-                sb.append(" ").append(bitRate / 1000).append("kbps");
-            }
-        }
-        // 语言名称（将 ISO 639-2/3 代码转换为可读名称）
-        String language = stream.getLanguage();
-        if (language != null && !language.isEmpty()) {
-            String languageName = getLanguageName(language);
-            String titleName = sb.toString();
-            if (TextUtils.isEmpty(titleName)) {
-                sb.append(languageName);
-            } else {
-                sb.append(" - ").append("[").append(languageName).append("]");
-            }
+        } catch (Exception e) {
+            Log.e(TAG, "getAudioTrackName failed", e);
+            return null;
         }
         return sb.toString();
     }
 
     /**
      * 获取字幕流的详细描述名称
+     *
+     * @param mediaInfo 媒体信息对象，可为 null
+     * @param index     字幕流索引
+     * @return 详细名称，失败返回 null
      */
     @Nullable
-    public static String getSubtitleTrackName(@NonNull MediaInfo mediaInfo, int index) {
+    public static String getSubtitleTrackName(@Nullable MediaInfo mediaInfo, int index) {
+        if (mediaInfo == null) {
+            return null;
+        }
         SubtitleStream stream = getSubtitleStream(mediaInfo, index);
         if (stream == null) {
             return null;
         }
         StringBuilder sb = new StringBuilder();
-        // 标题
-        String title = stream.getTitle();
-        if (title != null && !title.isEmpty()) {
-            sb.append(title);
-        }
-        // 语言名称（将 ISO 639-2/3 代码转换为可读名称）
-        String language = stream.getLanguage();
-        if (language != null && !language.isEmpty()) {
-            String languageName = getLanguageName(language);
-            String titleName = sb.toString();
-            if (TextUtils.isEmpty(titleName)) {
-                sb.append(languageName);
-            } else {
-                sb.append(" - ").append("[").append(languageName).append("]");
+        try {
+            // 标题
+            String title = stream.getTitle();
+            if (title != null && !title.isEmpty()) {
+                sb.append(title);
             }
+            // 语言名称（将 ISO 639-2/3 代码转换为可读名称）
+            String language = stream.getLanguage();
+            if (language != null && !language.isEmpty()) {
+                String languageName = getLanguageName(language);
+                String titleName = sb.toString();
+                if (TextUtils.isEmpty(titleName)) {
+                    sb.append(languageName);
+                } else {
+                    sb.append(" - ").append("[").append(languageName).append("]");
+                }
+            }
+        } catch (Exception e) {
+            Log.e(TAG, "getSubtitleTrackName failed", e);
+            return null;
         }
         return sb.toString();
     }

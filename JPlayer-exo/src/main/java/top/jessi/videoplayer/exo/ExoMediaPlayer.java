@@ -35,6 +35,7 @@ import io.github.anilbeesetti.nextlib.media3ext.ffdecoder.NextRenderersFactory;
 import io.github.anilbeesetti.nextlib.mediainfo.MediaInfo;
 
 import java.util.HashMap;
+import java.util.IllformedLocaleException;
 import java.util.List;
 import java.util.Map;
 
@@ -577,6 +578,16 @@ public class ExoMediaPlayer extends AbstractPlayer implements Player.Listener {
             disableBean.language = "";
             data.addSubtitle(0, disableBean);
         }
+
+
+        for (int i = 0, len = data.getSubtitle().size(); i < len; i++) {
+            Log.e(TAG, "getSubtitle: ~~~~~~~~~  " + data.getSubtitle().get(i).name);
+        }
+
+        for (int i = 0, len = data.getAudio().size(); i < len; i++) {
+            Log.e(TAG, "getAudio: ~~~~~~~~~  " + data.getAudio().get(i).name);
+        }
+
         return data;
     }
 

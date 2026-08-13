@@ -29,6 +29,7 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 
+import io.github.anilbeesetti.nextlib.mediainfo.MediaInfo;
 import top.jessi.videoplayer.player.AbstractPlayer;
 import top.jessi.videoplayer.player.BaseVideoView;
 import top.jessi.videoplayer.player.TrackInfo;
@@ -37,7 +38,6 @@ import top.jessi.videoplayer.render.RenderViewFactory;
 import top.jessi.videoplayer.util.HlsProxy;
 import top.jessi.videoplayer.util.L;
 import top.jessi.videoplayer.util.MediaInfoHelper;
-import io.github.anilbeesetti.nextlib.mediainfo.MediaInfo;
 
 /**
  * VLC播放器实现
@@ -1789,6 +1789,11 @@ public class VlcPlayer extends AbstractPlayer implements MediaPlayer.EventListen
                     if (bean.name == null || bean.name.isEmpty()) {
                         bean.name = audio.name;
                     }
+
+
+                    Log.e(TAG, "getTrackInfo: ~~~~~~~~ "
+                            + MediaInfoHelper.getAudioTrackName(mediaInfo, audioIndex)
+                            + " ~~~~~~~~~~ " + audio.name);
                     data.addAudio(bean);
                     audioIndex++;
                 }
