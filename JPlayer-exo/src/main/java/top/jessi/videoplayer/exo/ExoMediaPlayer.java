@@ -525,7 +525,6 @@ public class ExoMediaPlayer extends AbstractPlayer implements Player.Listener {
                     Format format = group.getFormat(formatIndex);
                     if (MimeTypes.isAudio(format.sampleMimeType)) {
                         TrackInfoBean t = new TrackInfoBean();
-                        t.language = "";
                         t.trackId = formatIndex;
                         t.selected = !TextUtils.isEmpty(currentAudioId) && currentAudioId.equals(format.id);
                         t.trackGroupId = groupIndex;
@@ -545,7 +544,6 @@ public class ExoMediaPlayer extends AbstractPlayer implements Player.Listener {
                         data.addAudio(t);
                     } else if (MimeTypes.isText(format.sampleMimeType)) {
                         TrackInfoBean t = new TrackInfoBean();
-                        t.language = "";
                         t.trackId = formatIndex;
                         t.selected = !TextUtils.isEmpty(currentSubtitleId) && currentSubtitleId.equals(format.id);
                         t.trackGroupId = groupIndex;
@@ -575,7 +573,6 @@ public class ExoMediaPlayer extends AbstractPlayer implements Player.Listener {
             disableBean.trackGroupId = -1;
             disableBean.renderId = firstSubtitle.renderId;
             disableBean.selected = false;
-            disableBean.language = "";
             data.addSubtitle(0, disableBean);
         }
         return data;

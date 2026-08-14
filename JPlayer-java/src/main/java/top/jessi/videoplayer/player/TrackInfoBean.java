@@ -9,10 +9,6 @@ public class TrackInfoBean {
      */
     public String name;
     /**
-     * 轨道语言
-     */
-    public String language;
-    /**
      * 轨道ID（各播放器内部使用的ID）
      */
     public int trackId;

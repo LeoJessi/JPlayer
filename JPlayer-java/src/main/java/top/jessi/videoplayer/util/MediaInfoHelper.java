@@ -1,6 +1,7 @@
 package top.jessi.videoplayer.util;
 
 import android.content.Context;
+import android.graphics.Bitmap;
 import android.net.Uri;
 import android.os.Handler;
 import android.os.Looper;
@@ -20,6 +21,7 @@ import java.util.concurrent.Future;
 import io.github.anilbeesetti.nextlib.mediainfo.AudioStream;
 import io.github.anilbeesetti.nextlib.mediainfo.MediaInfo;
 import io.github.anilbeesetti.nextlib.mediainfo.MediaInfoBuilder;
+import io.github.anilbeesetti.nextlib.mediainfo.MediaThumbnailRetriever;
 import io.github.anilbeesetti.nextlib.mediainfo.SubtitleStream;
 
 /**
@@ -29,12 +31,14 @@ import io.github.anilbeesetti.nextlib.mediainfo.SubtitleStream;
  * • 视频流信息（编码格式、分辨率、帧率、比特率）
  * • 音频流信息（编码格式、语言、声道数、采样率、比特率）
  * • 字幕流信息（编码格式、语言）
+ * • 视频缩略图（指定时间点的视频帧、内嵌封面图片）
  * <p>
  * 用于补充播放器自带的简单轨道名称，提供更详细的轨道信息。
  * <p>
  * 使用方式：
  * 1. 在播放开始时调用 preloadMediaInfo() 在后台预加载数据
  * 2. 在需要显示轨道信息时调用 getMediaInfo() 获取缓存的数据
+ * 3. 需要缩略图时调用 getVideoFrame() 或 getEmbeddedPicture()
  */
 public class MediaInfoHelper {
 
@@ -626,6 +630,116 @@ public class MediaInfoHelper {
             return null;
         }
         return sb.toString();
+    }
+
+    // ==================== 视觉相关功能（视频帧/封面） ====================
+
+    /**
+     * 视频帧提取回调接口
+     */
+    public interface OnFrameExtractedListener {
+        void onFrameExtracted(@Nullable Bitmap bitmap);
+    }
+
+    /**
+     * 内嵌封面提取回调接口
+     */
+    public interface OnPictureExtractedListener {
+        void onPictureExtracted(@Nullable byte[] pictureData);
+    }
+
+    /**
+     * 判断媒体信息是否包含视频流。
+     * 仅当媒体包含视频流时才可能提取视频帧。
+     * <p>
+     * 注意：即使返回 true，帧提取仍可能因文件格式等因素失败，
+     * 调用 getVideoFrame() 时仍应处理回调返回 null 的情况。
+     *
+     * @param mediaInfo 媒体信息对象，可为 null
+     * @return 是否包含视频流
+     */
+    public static boolean hasVideoStream(@Nullable MediaInfo mediaInfo) {
+        return mediaInfo != null && mediaInfo.getVideoStream() != null;
+    }
+
+    /**
+     * 异步获取指定时间点的视频帧缩略图。
+     * <p>
+     * 从已缓存的 MediaInfo 中提取视频帧，适用于本地文件。
+     * 如果媒体不支持帧提取（如纯音频文件），回调将收到 null。
+     * <p>
+     * 注意：此方法使用 MediaInfo 内置的帧加载器，需要 MediaInfo 对象仍然有效（未被 release）。
+     *
+     * @param mediaInfo 媒体信息对象，可为 null
+     * @param durationMillis 时间点（毫秒），传入 -1 则默认使用视频时长的 1/3 处
+     * @param listener  提取完成回调（在主线程执行），可为 null
+     */
+    public static void getVideoFrame(@Nullable MediaInfo mediaInfo, long durationMillis,
+                                     @Nullable OnFrameExtractedListener listener) {
+        if (mediaInfo == null) {
+            if (listener != null) {
+                sMainHandler.post(() -> listener.onFrameExtracted(null));
+            }
+            return;
+        }
+        sExecutor.execute(() -> {
+            final Bitmap[] result = new Bitmap[1];
+            try {
+                result[0] = mediaInfo.getFrameAt(durationMillis);
+            } catch (Exception e) {
+                Log.e(TAG, "getVideoFrame failed", e);
+            }
+            if (listener != null) {
+                sMainHandler.post(() -> listener.onFrameExtracted(result[0]));
+            }
+        });
+    }
+
+    /**
+     * 异步获取视频中间位置的帧缩略图（快捷方法）。
+     * 等价于 getVideoFrame(mediaInfo, -1, listener)。
+     *
+     * @param mediaInfo 媒体信息对象，可为 null
+     * @param listener  提取完成回调（在主线程执行），可为 null
+     */
+    public static void getVideoFrame(@Nullable MediaInfo mediaInfo,
+                                     @Nullable OnFrameExtractedListener listener) {
+        getVideoFrame(mediaInfo, -1, listener);
+    }
+
+    /**
+     * 异步获取媒体文件中内嵌的封面图片。
+     * <p>
+     * 使用独立的 MediaThumbnailRetriever 提取内嵌封面（如视频海报、专辑封面等）。
+     * 返回的是原始图片字节数据（JPEG/PNG），可转换为 Bitmap 显示。
+     * <p>
+     * 注意：此方法会独立解析媒体文件，不使用缓存的 MediaInfo。
+     *
+     * @param context  上下文
+     * @param uri      媒体 URI
+     * @param listener 提取完成回调（在主线程执行），可为 null
+     */
+    public static void getEmbeddedPicture(@NonNull Context context, @NonNull String uri,
+                                          @Nullable OnPictureExtractedListener listener) {
+        sExecutor.execute(() -> {
+            final byte[][] result = new byte[1][];
+            MediaThumbnailRetriever retriever = new MediaThumbnailRetriever();
+            try {
+                retriever.setDataSource(context, Uri.parse(uri));
+                result[0] = retriever.getEmbeddedPicture();
+            } catch (Exception e) {
+                Log.e(TAG, "getEmbeddedPicture failed", e);
+            } finally {
+                try {
+                    retriever.release();
+                } catch (Exception e) {
+                    Log.e(TAG, "MediaThumbnailRetriever release failed", e);
+                }
+            }
+            if (listener != null) {
+                sMainHandler.post(() -> listener.onPictureExtracted(result[0]));
+            }
+        });
     }
 
     /**

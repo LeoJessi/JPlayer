@@ -514,7 +514,6 @@ public class IjkPlayer extends AbstractPlayer implements IMediaPlayer.OnErrorLis
         for (IjkTrackInfo info : trackInfo) {
             if (info.getTrackType() == ITrackInfo.MEDIA_TRACK_TYPE_AUDIO) {
                 TrackInfoBean t = new TrackInfoBean();
-                t.language = info.getLanguage();
                 t.trackId = index;
                 t.selected = index == audioSelected;
                 // 优先使用 FFmpeg 获取的详细名称
@@ -530,7 +529,6 @@ public class IjkPlayer extends AbstractPlayer implements IMediaPlayer.OnErrorLis
             }
             if (info.getTrackType() == ITrackInfo.MEDIA_TRACK_TYPE_TIMEDTEXT) {
                 TrackInfoBean t = new TrackInfoBean();
-                t.language = info.getLanguage();
                 t.trackId = index;
                 t.selected = index == subtitleSelected;
                 // 优先使用 FFmpeg 获取的详细名称
@@ -548,14 +546,11 @@ public class IjkPlayer extends AbstractPlayer implements IMediaPlayer.OnErrorLis
         }
         if (!data.getSubtitle().isEmpty()) {
             // 禁用字幕
-            TrackInfoBean firstSubtitle = data.getSubtitle().get(0);
             TrackInfoBean disableBean = new TrackInfoBean();
             disableBean.name = "Disable";
             disableBean.trackId = -1;
             disableBean.trackGroupId = -1;
-            disableBean.renderId = firstSubtitle.renderId;
             disableBean.selected = false;
-            disableBean.language = "";
             data.addSubtitle(0, disableBean);
         }
         return data;
