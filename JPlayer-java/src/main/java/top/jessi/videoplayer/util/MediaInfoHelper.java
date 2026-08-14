@@ -92,6 +92,7 @@ public class MediaInfoHelper {
         LANGUAGE_MAP.put("bak", "Bashkir");
         LANGUAGE_MAP.put("bam", "Bambara");
         LANGUAGE_MAP.put("bel", "Belarusian");
+        LANGUAGE_MAP.put("byn", "Bilin");
         LANGUAGE_MAP.put("ben", "Bengali");
         LANGUAGE_MAP.put("bih", "Bihari");
         LANGUAGE_MAP.put("bis", "Bislama");
@@ -102,6 +103,7 @@ public class MediaInfoHelper {
         LANGUAGE_MAP.put("cat", "Catalan");
         LANGUAGE_MAP.put("cha", "Chamorro");
         LANGUAGE_MAP.put("che", "Chechen");
+        LANGUAGE_MAP.put("chr", "Cherokee");
         LANGUAGE_MAP.put("chu", "Church Slavic");
         LANGUAGE_MAP.put("chv", "Chuvash");
         LANGUAGE_MAP.put("cor", "Cornish");
@@ -139,6 +141,7 @@ public class MediaInfoHelper {
         // H
         LANGUAGE_MAP.put("hat", "Haitian");
         LANGUAGE_MAP.put("hau", "Hausa");
+        LANGUAGE_MAP.put("haw", "Hawaiian");
         LANGUAGE_MAP.put("heb", "Hebrew");
         LANGUAGE_MAP.put("her", "Herero");
         LANGUAGE_MAP.put("hin", "Hindi");
@@ -188,13 +191,15 @@ public class MediaInfoHelper {
         // M
         LANGUAGE_MAP.put("mah", "Marshallese");
         LANGUAGE_MAP.put("mal", "Malayalam");
-        LANGUAGE_MAP.put("mao", "Maori");
+        LANGUAGE_MAP.put("mao", "Maori");  // 别名
+        LANGUAGE_MAP.put("mri", "Maori");  // ISO 639-2/T 标准代码
         LANGUAGE_MAP.put("mar", "Marathi");
         LANGUAGE_MAP.put("mkd", "Macedonian");
         LANGUAGE_MAP.put("mlg", "Malagasy");
         LANGUAGE_MAP.put("mlt", "Maltese");
         LANGUAGE_MAP.put("mon", "Mongolian");
         LANGUAGE_MAP.put("msa", "Malay");
+        LANGUAGE_MAP.put("may", "Malay");  // 非标准代码，部分媒体文件使用
         LANGUAGE_MAP.put("mya", "Burmese");
         // N
         LANGUAGE_MAP.put("nau", "Nauru");
@@ -252,7 +257,8 @@ public class MediaInfoHelper {
         LANGUAGE_MAP.put("tat", "Tatar");
         LANGUAGE_MAP.put("tel", "Telugu");
         LANGUAGE_MAP.put("tgk", "Tajik");
-        LANGUAGE_MAP.put("tag", "Tagalog");
+        LANGUAGE_MAP.put("tag", "Tagalog");  // ISO 639-2/T 标准代码
+        LANGUAGE_MAP.put("tgl", "Tagalog");  // 别名
         LANGUAGE_MAP.put("tha", "Thai");
         LANGUAGE_MAP.put("bod", "Tibetan");
         LANGUAGE_MAP.put("tir", "Tigrinya");
@@ -302,6 +308,28 @@ public class MediaInfoHelper {
         LANGUAGE_MAP.put("slo", "Slovak");
         LANGUAGE_MAP.put("tib", "Tibetan");
         LANGUAGE_MAP.put("wel", "Welsh");
+
+        // ========== 其他常见代码 ==========
+        // 中文方言（ISO 639-3）
+        LANGUAGE_MAP.put("cmn", "Mandarin");      // 普通话
+        LANGUAGE_MAP.put("yue", "Cantonese");     // 粤语
+        LANGUAGE_MAP.put("nan", "Min Nan");       // 闽南语
+        LANGUAGE_MAP.put("hak", "Hakka");         // 客家话
+        LANGUAGE_MAP.put("wuu", "Wu");            // 吴语
+        // 菲律宾语言
+        LANGUAGE_MAP.put("ceb", "Cebuano");       // 宿务语
+        LANGUAGE_MAP.put("hil", "Hiligaynon");    // 希利盖农语
+        LANGUAGE_MAP.put("ilo", "Ilocano");       // 伊洛卡诺语
+        LANGUAGE_MAP.put("pam", "Pampanga");      // 邦板牙语
+        LANGUAGE_MAP.put("pag", "Pangasinan");    // 邦阿西楠语
+        LANGUAGE_MAP.put("war", "Waray");         // 瓦瑞语
+        // 其他
+        LANGUAGE_MAP.put("und", "Undetermined");  // 未确定
+        LANGUAGE_MAP.put("mul", "Multiple");      // 多语言
+        LANGUAGE_MAP.put("zxx", "No linguistic content"); // 无语言内容
+        LANGUAGE_MAP.put("pus", "Pashto");        // 普什图语
+        LANGUAGE_MAP.put("tpi", "Tok Pisin");     // 托克皮辛语
+        LANGUAGE_MAP.put("mad", "Madurese");      // 马都拉语
     }
 
     /**
