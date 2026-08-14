@@ -1789,11 +1789,6 @@ public class VlcPlayer extends AbstractPlayer implements MediaPlayer.EventListen
                     if (bean.name == null || bean.name.isEmpty()) {
                         bean.name = audio.name;
                     }
-
-
-                    Log.e(TAG, "getTrackInfo: ~~~~~~~~ "
-                            + MediaInfoHelper.getAudioTrackName(mediaInfo, audioIndex)
-                            + " ~~~~~~~~~~ " + audio.name);
                     data.addAudio(bean);
                     audioIndex++;
                 }
