@@ -154,12 +154,10 @@ class PlayerActivity : BaseActivity<VideoView>() {
 
         //播放其他视频
         val etOtherVideo = findViewById<EditText>(R.id.et_other_video)
-        etOtherVideo.setText("http://private.root.thetechno.xyz:8880/MALAItest592119malai/TsJ7SH76KSPINJ08/51089")
+        etOtherVideo.setText("http://technolhub.xyz:8880/MALAI78b5d2123456a1/eU3uuH12345KNZ4O/864")
         findViewById<View>(R.id.btn_start_play).setOnClickListener {
-//            mVideoView.setUrl(etOtherVideo.text.toString())
-//            mVideoView.start()
-
-            mVideoView.mediaPlayer.trackInfo
+            mVideoView.setUrl(etOtherVideo.text.toString())
+            mVideoView.start()
         }
     }
 

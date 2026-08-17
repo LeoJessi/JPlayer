@@ -128,6 +128,7 @@ public class VlcPlayer extends AbstractPlayer implements MediaPlayer.EventListen
     protected boolean mEnableVlcSubtitles = true;
     private final int TRACK_GROUD_AUDIO = 0;
     private final int TRACK_GROUD_SUBTITLE = 1;
+    private long lastSpeedBytes = 0;
 
     /**
      * 已注入到 VLC 内核的字幕 Uri 集合，用于去重
@@ -1536,8 +1537,6 @@ public class VlcPlayer extends AbstractPlayer implements MediaPlayer.EventListen
         lastSpeedBytes = speed;
         return speed;
     }
-
-    private long lastSpeedBytes = 0;
 
     /**
      * VLC播放器事件回调

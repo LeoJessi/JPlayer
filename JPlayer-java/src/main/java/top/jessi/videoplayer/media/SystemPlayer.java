@@ -45,6 +45,7 @@ public class SystemPlayer extends AbstractPlayer implements MediaPlayer.OnErrorL
     private final Handler mHandler = new Handler(Looper.getMainLooper());
     private Runnable mPrepareTimeoutRunnable;
     private AssetFileDescriptor mAssetFd;
+    private long lastSpeedBytes = 0;
 
     public SystemPlayer(Context context) {
         mAppContext = context.getApplicationContext();
@@ -206,6 +207,7 @@ public class SystemPlayer extends AbstractPlayer implements MediaPlayer.OnErrorL
     public void reset() {
         lastTotalRxBytes = 0;
         lastTimeStamp = 0;
+        lastSpeedBytes = 0;
         cancelPrepareTimeout();
         mIsPreparing = false;
         closeAssetFd();
@@ -267,6 +269,7 @@ public class SystemPlayer extends AbstractPlayer implements MediaPlayer.OnErrorL
         stop();
         lastTotalRxBytes = 0;
         lastTimeStamp = 0;
+        lastSpeedBytes = 0;
         mMediaPlayer.setSurface(null);
         mMediaPlayer.setDisplay(null);
         final MediaPlayer mediaPlayer = mMediaPlayer;
@@ -393,11 +396,17 @@ public class SystemPlayer extends AbstractPlayer implements MediaPlayer.OnErrorL
         }
         long total = TrafficStats.getTotalRxBytes();
         long time = System.currentTimeMillis();
+        long timeDiff = time - lastTimeStamp;
+        // 避免除以零，同时过滤掉时间差过小的情况（< 100ms 视为同一次采样）
+        if (timeDiff < 100) {
+            return lastSpeedBytes;
+        }
         long diff = total - lastTotalRxBytes;
-        long speed = diff / Math.max(time - lastTimeStamp, 1);
+        long speed = (diff * 1000) / timeDiff; // 转换为字节/秒
         lastTimeStamp = time;
         lastTotalRxBytes = total;
-        return speed * 1024;
+        lastSpeedBytes = speed;
+        return speed;
     }
 
     // ==================== Track Info ====================
