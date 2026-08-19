@@ -122,7 +122,6 @@ public class IjkPlayer extends AbstractPlayer implements IMediaPlayer.OnErrorLis
         mMediaPlayer.setOnTimedTextListener(this);
     }
 
-
     @Override
     public void setOptions() {
         // ==================== CODEC 层：解码模式相关 ====================

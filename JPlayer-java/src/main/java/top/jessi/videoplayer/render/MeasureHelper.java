@@ -31,7 +31,8 @@ public class MeasureHelper {
      * 注意：VideoView的宽高一定要定死，否者以下算法不成立
      */
     public int[] doMeasure(int widthMeasureSpec, int heightMeasureSpec) {
-        if (mVideoRotationDegree == 90 || mVideoRotationDegree == 270) { // 软解码时处理旋转信息，交换宽高
+        // 软解码时处理旋转信息，交换宽高
+        if (mVideoRotationDegree == 90 || mVideoRotationDegree == 270) {
             widthMeasureSpec = widthMeasureSpec + heightMeasureSpec;
             heightMeasureSpec = widthMeasureSpec - heightMeasureSpec;
             widthMeasureSpec = widthMeasureSpec - heightMeasureSpec;
