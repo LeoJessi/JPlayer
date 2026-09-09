@@ -2,6 +2,8 @@ package top.jessi.videoplayer.player;
 
 import android.content.res.AssetFileDescriptor;
 import android.net.Uri;
+import android.os.Handler;
+import android.os.Looper;
 import android.view.Surface;
 import android.view.SurfaceHolder;
 
@@ -48,6 +50,89 @@ public abstract class AbstractPlayer {
      * 播放器事件回调
      */
     protected PlayerEventListener mPlayerEventListener;
+
+    // ==================== prepareAsync 超时检测 ====================
+    // 注意：此超时机制为可选功能，子类通过 {@link #isPrepareTimeoutEnabled()} 决定是否启用。
+    // 对于已有完善错误处理机制的内核（如 ExoPlayer 的 FFmpeg 回退），可选择不启用。
+
+    /**
+     * 用于 prepareAsync 超时检测的 Handler（主线程）
+     */
+    protected final Handler mHandler = new Handler(Looper.getMainLooper());
+
+    /**
+     * 超时检测的 Runnable 引用，用于取消
+     */
+    private Runnable mPrepareTimeoutRunnable;
+
+    /**
+     * 超时时间（毫秒），默认 15 秒。
+     */
+    private long mPrepareTimeoutMs = 15000L;
+
+    /**
+     * 子类决定是否启用 prepareAsync 超时检测。
+     * 默认启用。对于已有完善错误处理机制的内核（如 ExoPlayer），可重写此方法返回 false。
+     *
+     * @return true 表示启用超时检测，false 表示不启用
+     */
+    protected boolean isPrepareTimeoutEnabled() {
+        return true;
+    }
+
+    /**
+     * 子类可自定义超时时间（毫秒），默认 15 秒。
+     *
+     * @return 超时时间（毫秒）
+     */
+    protected long getPrepareTimeoutMs() {
+        return mPrepareTimeoutMs;
+    }
+
+    /**
+     * 外部设置 prepareAsync 超时时间（毫秒）。
+     * 注意：必须在 {@link #prepareAsync()} 之前调用才能生效。
+     *
+     * @param timeoutMs 超时时间（毫秒），<= 0 则不修改当前值
+     */
+    public void setPrepareTimeoutMs(long timeoutMs) {
+        if (timeoutMs <= 0) return;
+        mPrepareTimeoutMs = timeoutMs;
+    }
+
+    /**
+     * 启动 prepareAsync 超时检测。
+     * 应在子类的 prepareAsync() 方法中调用此方法。
+     * 如果 {@link #isPrepareTimeoutEnabled()} 返回 false，则不会启动。
+     */
+    protected final void startPrepareTimeout() {
+        if (!isPrepareTimeoutEnabled()) return;
+        cancelPrepareTimeout();
+        mPrepareTimeoutRunnable = this::onPrepareTimeout;
+        mHandler.postDelayed(mPrepareTimeoutRunnable, mPrepareTimeoutMs);
+    }
+
+    /**
+     * 取消 prepareAsync 超时检测。
+     * 应在子类的 onPrepared / onError / reset / release 中调用此方法。
+     */
+    protected final void cancelPrepareTimeout() {
+        if (mPrepareTimeoutRunnable != null) {
+            mHandler.removeCallbacks(mPrepareTimeoutRunnable);
+            mPrepareTimeoutRunnable = null;
+        }
+    }
+
+    /**
+     * prepareAsync 超时回调。
+     * 子类可重写此方法自定义超时后的行为（如重置播放器、释放资源等）。
+     * 默认行为是回调 onError()。
+     */
+    protected void onPrepareTimeout() {
+        if (mPlayerEventListener != null) {
+            mPlayerEventListener.onError();
+        }
+    }
 
     /**
      * 外部字幕 Uri 列表，各播放器在适当时机（如 Vout 事件、onPrepared 等）将字幕注入到内核

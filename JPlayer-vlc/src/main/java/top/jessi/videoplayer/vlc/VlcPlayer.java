@@ -738,11 +738,34 @@ public class VlcPlayer extends AbstractPlayer implements MediaPlayer.EventListen
             applyScaleTypeToNative();
 
             mMediaPlayer.play();
+
+            // 启动超时检测（基类方法）：如果超时仍未收到 Playing 或 Error 事件，
+            // 则回调 onPrepareTimeout()，避免 UI 无限等待
+            startPrepareTimeout();
         } catch (Exception e) {
             Log.w(TAG, "Error in prepareAsync", e);
             if (mPlayerEventListener != null) {
                 mPlayerEventListener.onError();
             }
+        }
+    }
+
+    /**
+     * prepareAsync 超时回调，停止播放器并触发 onError
+     */
+    @Override
+    protected void onPrepareTimeout() {
+        Log.w(TAG, "prepareAsync 超时（" + getPrepareTimeoutMs() + "ms），停止播放器并触发 onError");
+        if (mMediaPlayer != null) {
+            try {
+                mMediaPlayer.stop();
+            } catch (Exception e) {
+                Log.w(TAG, "prepareAsync 超时后 stop 失败: " + e.getMessage());
+            }
+        }
+        mIsPreparing = false;
+        if (mPlayerEventListener != null) {
+            mPlayerEventListener.onError();
         }
     }
 
@@ -935,6 +958,7 @@ public class VlcPlayer extends AbstractPlayer implements MediaPlayer.EventListen
      */
     @Override
     public void reset() {
+        cancelPrepareTimeout();  // 基类方法
         removeSurfaceListeners();
         if (mMediaPlayer != null) {
             try {
@@ -1044,6 +1068,7 @@ public class VlcPlayer extends AbstractPlayer implements MediaPlayer.EventListen
      */
     @Override
     public void release() {
+        cancelPrepareTimeout();  // 基类方法
         removeSurfaceListeners();
 
         if (mMediaPlayer != null) {
@@ -1553,6 +1578,7 @@ public class VlcPlayer extends AbstractPlayer implements MediaPlayer.EventListen
                 break;
 
             case MediaPlayer.Event.Playing:
+                cancelPrepareTimeout();  // 基类方法：播放开始，取消超时检测
                 if (mIsPreparing) {
                     mPlayerEventListener.onPrepared();
                     mIsPreparing = false;
@@ -1575,6 +1601,7 @@ public class VlcPlayer extends AbstractPlayer implements MediaPlayer.EventListen
 
             case MediaPlayer.Event.EncounteredError:
                 Log.w(TAG, "VLC Event: Error");
+                cancelPrepareTimeout();  // 基类方法：已收到错误，取消超时检测
                 mIsPreparing = false;
                 mPlayerEventListener.onError();
                 break;

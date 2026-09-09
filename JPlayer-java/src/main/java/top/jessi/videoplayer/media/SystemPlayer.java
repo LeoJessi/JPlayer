@@ -7,8 +7,6 @@ import android.media.MediaPlayer;
 import android.net.TrafficStats;
 import android.net.Uri;
 import android.os.Build;
-import android.os.Handler;
-import android.os.Looper;
 import android.util.Log;
 import android.view.Surface;
 import android.view.SurfaceHolder;
@@ -29,21 +27,11 @@ public class SystemPlayer extends AbstractPlayer implements MediaPlayer.OnErrorL
         MediaPlayer.OnVideoSizeChangedListener {
 
     private static final String TAG = "JPlayer—SystemPlayer";
-    /**
-     * prepareAsync 超时时间（毫秒）
-     * 系统 MediaPlayer 在网络异常（如 404、连接拒绝等）时可能长时间阻塞，
-     * 此处设置超时主动触发 onError，避免 UI 一直停留在加载状态。
-     * 15 秒是一个平衡值：既要给正常链接足够的缓冲准备时间，
-     * 也要避免异常链接让用户等待过久。
-     */
-    private static final long PREPARE_TIMEOUT_MS = 15000L;
 
     protected MediaPlayer mMediaPlayer;
     private int mBufferedPercent;
     private Context mAppContext;
     private boolean mIsPreparing;
-    private final Handler mHandler = new Handler(Looper.getMainLooper());
-    private Runnable mPrepareTimeoutRunnable;
     private AssetFileDescriptor mAssetFd;
     private long lastSpeedBytes = 0;
 
@@ -162,8 +150,8 @@ public class SystemPlayer extends AbstractPlayer implements MediaPlayer.OnErrorL
         try {
             mIsPreparing = true;
             mMediaPlayer.prepareAsync();
-            // 启动超时检测：如果超过 PREPARE_TIMEOUT_MS 仍未收到 onPrepared 或 onError，
-            // 则主动回调 onError，避免 UI 无限等待
+            // 启动超时检测（基类方法）：如果超时仍未收到 onPrepared 或 onError，
+            // 则回调 onPrepareTimeout()，避免 UI 无限等待
             startPrepareTimeout();
         } catch (IllegalStateException e) {
             Log.w(TAG, "onError: " + e.getMessage(), e);
@@ -172,34 +160,23 @@ public class SystemPlayer extends AbstractPlayer implements MediaPlayer.OnErrorL
     }
 
     /**
-     * 启动 prepareAsync 超时检测
+     * prepareAsync 超时回调，重置播放器并触发 onError
      */
-    private void startPrepareTimeout() {
-        cancelPrepareTimeout();
-        mPrepareTimeoutRunnable = () -> {
-            Log.w(TAG, "prepareAsync 超时（" + PREPARE_TIMEOUT_MS + "ms），重置播放器并触发 onError");
-            // 停止底层异步准备，释放网络连接和后台线程
-            if (mMediaPlayer != null) {
-                try {
-                    mMediaPlayer.reset();
-                } catch (Exception e) {
-                    Log.w(TAG, "prepareAsync 超时后 reset 失败: " + e.getMessage());
-                }
+    @Override
+    protected void onPrepareTimeout() {
+        Log.w(TAG, "prepareAsync 超时（" + getPrepareTimeoutMs() + "ms），重置播放器并触发 onError");
+        // 停止底层异步准备，释放网络连接和后台线程
+        if (mMediaPlayer != null) {
+            try {
+                mMediaPlayer.reset();
+            } catch (Exception e) {
+                Log.w(TAG, "prepareAsync 超时后 reset 失败: " + e.getMessage());
             }
-            closeAssetFd();
-            mIsPreparing = false;
+        }
+        closeAssetFd();
+        mIsPreparing = false;
+        if (mPlayerEventListener != null) {
             mPlayerEventListener.onError();
-        };
-        mHandler.postDelayed(mPrepareTimeoutRunnable, PREPARE_TIMEOUT_MS);
-    }
-
-    /**
-     * 取消 prepareAsync 超时检测
-     */
-    private void cancelPrepareTimeout() {
-        if (mPrepareTimeoutRunnable != null) {
-            mHandler.removeCallbacks(mPrepareTimeoutRunnable);
-            mPrepareTimeoutRunnable = null;
         }
     }
 
@@ -208,7 +185,7 @@ public class SystemPlayer extends AbstractPlayer implements MediaPlayer.OnErrorL
         lastTotalRxBytes = 0;
         lastTimeStamp = 0;
         lastSpeedBytes = 0;
-        cancelPrepareTimeout();
+        cancelPrepareTimeout();  // 基类方法
         mIsPreparing = false;
         closeAssetFd();
         if (mMediaPlayer == null) return;
@@ -258,7 +235,7 @@ public class SystemPlayer extends AbstractPlayer implements MediaPlayer.OnErrorL
     @Override
     public void release() {
         if (mMediaPlayer == null) return;
-        cancelPrepareTimeout();
+        cancelPrepareTimeout();  // 基类方法
         closeAssetFd();
         mMediaPlayer.setOnErrorListener(null);
         mMediaPlayer.setOnCompletionListener(null);
@@ -438,7 +415,7 @@ public class SystemPlayer extends AbstractPlayer implements MediaPlayer.OnErrorL
     @Override
     public boolean onError(MediaPlayer mp, int what, int extra) {
         Log.w(TAG, "onError: what=" + what + ", extra=" + extra);
-        cancelPrepareTimeout();
+        cancelPrepareTimeout();  // 基类方法
         mIsPreparing = false;
         closeAssetFd();
         mPlayerEventListener.onError();
@@ -475,7 +452,7 @@ public class SystemPlayer extends AbstractPlayer implements MediaPlayer.OnErrorL
 
     @Override
     public void onPrepared(MediaPlayer mp) {
-        cancelPrepareTimeout();
+        cancelPrepareTimeout();  // 基类方法
         mPlayerEventListener.onPrepared();
         start();
         // 修复播放纯音频时状态出错问题（纯音频不会回调 MEDIA_INFO_VIDEO_RENDERING_START）

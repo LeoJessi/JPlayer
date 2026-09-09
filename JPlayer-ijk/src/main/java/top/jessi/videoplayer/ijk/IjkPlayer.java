@@ -145,7 +145,7 @@ public class IjkPlayer extends AbstractPlayer implements IMediaPlayer.OnErrorLis
         mMediaPlayer.setOption(IjkMediaPlayer.OPT_CATEGORY_FORMAT, "non_block", 1L);
 
         // 设置网络超时时间（微秒），默认 0 表示无限等待；此处设为 15 秒
-        mMediaPlayer.setOption(IjkMediaPlayer.OPT_CATEGORY_FORMAT, "timeout", 15000000L);
+        mMediaPlayer.setOption(IjkMediaPlayer.OPT_CATEGORY_FORMAT, "timeout", getPrepareTimeoutMs() * 1000L);
 
         // 允许的协议白名单，按需开启需要的协议以节省探测开销
         mMediaPlayer.setOption(IjkMediaPlayer.OPT_CATEGORY_FORMAT, "protocol_whitelist",
