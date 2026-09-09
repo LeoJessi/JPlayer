@@ -19,8 +19,9 @@ public class DataUtil {
     // http://private.root.thetechno.xyz:8880/MALAItest592119malai/TsJ7SH76KSPINJ08/51089
     // http://private.root.thetechno.xyz:8880/series/MALAItest592119malai/RXdTMHA7wGOf4qHI/64263.mp4
     // http://private.root.thetechno.xyz:8880/series/MALAItest592119malai/dXmhfThzeENDSdqO/108702.mkv 127830
-    public static final String SAMPLE_URL = "http://technolhub.xyz:8880/MALAI78b5d2123456a1/eU3uuH12345KNZ4O/863";
-    // http://thetechno.xyz:8880/live/MALAI78b5d212345648/2KYv9tM6eljqdw2j/559.m3u8
+    // public static final String SAMPLE_URL = "http://thetechno.xyz:8880/MALAI78b5d2123456a1/vpuj8BGHHfYTY2IQ/863";
+    public static final String SAMPLE_URL = "http://private.root.thetechno" +
+            ".xyz:8880/MALAI20260821test08/VlLu5FZmUMeg4TfP/510890";
 
     public static List<VideoBean> getVideoList() {
         List<VideoBean> videoList = new ArrayList<>();
