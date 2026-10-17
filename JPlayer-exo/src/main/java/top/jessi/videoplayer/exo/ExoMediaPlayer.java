@@ -78,6 +78,8 @@ public class ExoMediaPlayer extends AbstractPlayer implements Player.Listener {
 
     @Override
     public void initPlayer() {
+        // 将 prepareAsync 超时时间同步到 HTTP 数据源，统一控制连接/读取/写入超时
+        mMediaSourceHelper.setPrepareTimeoutMs(getPrepareTimeoutMs());
         if (mRenderersFactory == null) {
             // 使用 NextRenderersFactory，集成 FFmpeg 软解能力
             // 支持 H265/HEVC 视频解码和 AAC 音频解码，解决设备兼容性问题

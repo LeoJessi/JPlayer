@@ -29,6 +29,7 @@ import androidx.media3.extractor.ts.TsExtractor;
 import java.io.File;
 import java.lang.reflect.Field;
 import java.util.Map;
+import java.util.concurrent.TimeUnit;
 
 import okhttp3.OkHttpClient;
 
@@ -42,6 +43,23 @@ public final class ExoMediaSourceHelper {
     private OkHttpDataSource.Factory mHttpDataSourceFactory;
     private OkHttpClient mOkClient = null;
     private Cache mCache;
+
+    /**
+     * HTTP 超时时间（毫秒），由外部通过 {@link #setPrepareTimeoutMs(long)} 统一设置。
+     * 默认 15000ms，与 AbstractPlayer 的默认 prepareAsync 超时保持一致。
+     */
+    private long mPrepareTimeoutMs = 15000L;
+
+    /**
+     * 统一设置 HTTP 连接/读取/写入超时时间（毫秒）。
+     * 应在创建 MediaSource 之前调用（如在 ExoMediaPlayer.initPlayer() 中）。
+     *
+     * @param timeoutMs 超时时间（毫秒），<= 0 则不修改当前值
+     */
+    public void setPrepareTimeoutMs(long timeoutMs) {
+        if (timeoutMs <= 0) return;
+        mPrepareTimeoutMs = timeoutMs;
+    }
 
     private ExoMediaSourceHelper(Context context) {
         mAppContext = context.getApplicationContext();
@@ -179,7 +197,18 @@ public final class ExoMediaSourceHelper {
 
     private DataSource.Factory getHttpDataSourceFactory() {
         if (mHttpDataSourceFactory == null) {
-            OkHttpClient client = mOkClient != null ? mOkClient : new OkHttpClient();
+            OkHttpClient client;
+            if (mOkClient == null) {
+                // 使用统一的超时配置（由 AbstractPlayer.getPrepareTimeoutMs() 设置）
+                long timeoutMs = mPrepareTimeoutMs;
+                client = new OkHttpClient.Builder()
+                        .connectTimeout(timeoutMs, TimeUnit.MILLISECONDS)
+                        .readTimeout(timeoutMs, TimeUnit.MILLISECONDS)
+                        .writeTimeout(timeoutMs, TimeUnit.MILLISECONDS)
+                        .build();
+            } else {
+                client = mOkClient;
+            }
             mHttpDataSourceFactory = new OkHttpDataSource.Factory(client)
                     .setUserAgent(mUserAgent);
         }
