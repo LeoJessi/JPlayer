@@ -15,6 +15,7 @@ import androidx.annotation.Nullable;
 
 import java.util.Map;
 
+import top.jessi.videoplayer.player.PlayState;
 import top.jessi.videoplayer.player.VideoView;
 import top.jessi.videoplayer.util.PlayerUtils;
 
@@ -109,9 +110,9 @@ public abstract class GestureVideoController extends BaseVideoController impleme
     }
 
     @Override
-    public void setPlayState(int playState) {
+    public void setPlayState(PlayState playState) {
         super.setPlayState(playState);
-        mCurPlayState = playState;
+        mCurPlayState = playState.getState();
     }
 
     private boolean isInPlaybackState() {

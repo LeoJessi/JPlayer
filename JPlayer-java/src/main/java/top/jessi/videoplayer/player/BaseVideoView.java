@@ -1040,7 +1040,7 @@ public class BaseVideoView<P extends AbstractPlayer> extends FrameLayout
     protected void setPlayState(PlayState playState) {
         mCurrentPlayState = playState.getState();
         if (mVideoController != null) {
-            mVideoController.setPlayState(playState.getState());
+            mVideoController.setPlayState(playState);
         }
         if (mOnStateChangeListeners != null) {
             for (OnStateChangeListener l : PlayerUtils.getSnapshot(mOnStateChangeListeners)) {

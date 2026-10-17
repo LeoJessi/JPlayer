@@ -200,8 +200,8 @@ public abstract class BaseVideoController extends FrameLayout
      * {@link VideoView}调用此方法向控制器设置播放状态
      */
     @CallSuper
-    public void setPlayState(int playState) {
-        handlePlayStateChanged(PlayState.of(playState));
+    public void setPlayState(PlayState playState) {
+        handlePlayStateChanged(playState);
     }
 
     /**

@@ -21,6 +21,7 @@ import top.jessi.player.util.DataUtil;
 import top.jessi.player.util.PIPManager;
 import top.jessi.player.util.Tag;
 import top.jessi.videocontroller.StandardVideoController;
+import top.jessi.videoplayer.player.PlayState;
 import top.jessi.videoplayer.player.VideoView;
 
 public class PIPActivity extends BaseActivity {
@@ -45,7 +46,7 @@ public class PIPActivity extends BaseActivity {
         if (mPIPManager.isStartFloatWindow()) {
             mPIPManager.stopFloatWindow();
             controller.setPlayerState(videoView.getCurrentPlayerState());
-            controller.setPlayState(videoView.getCurrentPlayState());
+            controller.setPlayState(PlayState.of(videoView.getCurrentPlayState()));
         } else {
             mPIPManager.setActClass(PIPActivity.class);
             ImageView thumb = controller.findViewById(top.jessi.videocontroller.R.id.thumb);

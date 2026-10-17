@@ -15,6 +15,7 @@ import top.jessi.player.util.IntentKeys;
 import top.jessi.player.util.Tag;
 import top.jessi.player.util.Utils;
 import top.jessi.videocontroller.StandardVideoController;
+import top.jessi.videoplayer.player.PlayState;
 import top.jessi.videoplayer.player.VideoView;
 
 public class DetailActivity extends BaseActivity<VideoView> {
@@ -69,7 +70,7 @@ public class DetailActivity extends BaseActivity<VideoView> {
         controller.addDefaultControlComponent(title, false);
         if (seamlessPlay) {
             //无缝播放需还原Controller状态
-            controller.setPlayState(mVideoView.getCurrentPlayState());
+            controller.setPlayState(PlayState.of(mVideoView.getCurrentPlayState()));
             controller.setPlayerState(mVideoView.getCurrentPlayerState());
         } else {
             //不是无缝播放的情况

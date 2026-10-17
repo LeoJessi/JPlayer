@@ -5,6 +5,7 @@ import android.view.View;
 import top.jessi.player.app.MyApplication;
 import top.jessi.player.widget.FloatView;
 import top.jessi.player.widget.controller.FloatController;
+import top.jessi.videoplayer.player.PlayState;
 import top.jessi.videoplayer.player.VideoView;
 import top.jessi.videoplayer.player.VideoViewManager;
 
@@ -46,7 +47,7 @@ public class PIPManager {
         if (mIsShowing) return;
         Utils.removeViewFormParent(mVideoView);
         mVideoView.setVideoController(mFloatController);
-        mFloatController.setPlayState(mVideoView.getCurrentPlayState());
+        mFloatController.setPlayState(PlayState.of(mVideoView.getCurrentPlayState()));
         mFloatController.setPlayerState(mVideoView.getCurrentPlayerState());
         mFloatView.addView(mVideoView);
         mFloatView.addToWindow();
