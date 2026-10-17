@@ -4,6 +4,7 @@ import android.content.res.AssetFileDescriptor;
 import android.net.Uri;
 import android.os.Handler;
 import android.os.Looper;
+import android.util.Log;
 import android.view.Surface;
 import android.view.SurfaceHolder;
 
@@ -19,6 +20,8 @@ import top.jessi.videoplayer.render.RenderViewFactory;
  * Created by Doikki on 2017/12/21.
  */
 public abstract class AbstractPlayer {
+
+    protected String TAG = "JPlayer";
 
     /**
      * 视频/音频开始渲染
@@ -124,14 +127,25 @@ public abstract class AbstractPlayer {
     }
 
     /**
+     * 统一错误通知方法：打印日志并回调 onError。
+     * 子类应优先调用此方法，避免重复编写 Log.w 和 null 检查。
+     *
+     * @param e 异常对象
+     */
+    protected void notifyError(Exception e) {
+        Log.w(TAG, "Player error: " + e.getMessage(), e);
+        if (mPlayerEventListener != null) {
+            mPlayerEventListener.onError(e);
+        }
+    }
+
+    /**
      * prepareAsync 超时回调。
      * 子类可重写此方法自定义超时后的行为（如重置播放器、释放资源等）。
      * 默认行为是回调 onError()。
      */
     protected void onPrepareTimeout() {
-        if (mPlayerEventListener != null) {
-            mPlayerEventListener.onError();
-        }
+        notifyError(new Exception("prepareAsync timeout after " + mPrepareTimeoutMs + "ms"));
     }
 
     /**
@@ -363,7 +377,7 @@ public abstract class AbstractPlayer {
 
     public interface PlayerEventListener {
 
-        void onError();
+        void onError(Exception e);
 
         void onCompletion();
 

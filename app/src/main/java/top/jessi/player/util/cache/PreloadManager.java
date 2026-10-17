@@ -1,6 +1,7 @@
 package top.jessi.player.util.cache;
 
 import android.content.Context;
+import android.util.Log;
 
 import com.danikula.videocache.HttpProxyCacheServer;
 
@@ -11,6 +12,7 @@ import java.util.Map;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
+import master.flame.danmaku.danmaku.loader.ILoader;
 import top.jessi.videoplayer.util.L;
 
 /**
@@ -40,7 +42,7 @@ public class PreloadManager {
     /**
      * 预加载的大小，每个视频预加载1M，这个参数可根据实际情况调整
      */
-    public static final int PRELOAD_LENGTH = 1024 * 1024;
+    public static final int PRELOAD_LENGTH = 1024 * 1024 * 20;
 
     private PreloadManager(Context context) {
         mHttpProxyCacheServer = ProxyVideoCacheManager.getProxy(context);
@@ -105,7 +107,7 @@ public class PreloadManager {
      * 暂停预加载
      * 根据是否反向滑动取消在position之下或之上的PreloadTask
      *
-     * @param position 当前滑到的位置
+     * @param position        当前滑到的位置
      * @param isReverseScroll 列表是否反向滑动
      */
     public void pausePreload(int position, boolean isReverseScroll) {
@@ -187,6 +189,8 @@ public class PreloadManager {
         if (task != null) {
             task.cancel();
         }
+        Log.e("TAG", "getPlayUrl: --------- " + isPreloaded(rawUrl)
+                + " ------ " + mHttpProxyCacheServer.getProxyUrl(rawUrl));
         if (isPreloaded(rawUrl)) {
             return mHttpProxyCacheServer.getProxyUrl(rawUrl);
         } else {

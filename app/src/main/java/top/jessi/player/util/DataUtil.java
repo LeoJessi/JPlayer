@@ -19,7 +19,7 @@ public class DataUtil {
     // http://private.root.thetechno.xyz:8880/MALAItest592119malai/TsJ7SH76KSPINJ08/51089
     // http://private.root.thetechno.xyz:8880/series/MALAItest592119malai/RXdTMHA7wGOf4qHI/64263.mp4
     // http://private.root.thetechno.xyz:8880/series/MALAItest592119malai/dXmhfThzeENDSdqO/108702.mkv 127830
-    public static final String SAMPLE_URL = "http://thetechno.xyz:8880/MALAI78b5d2123456a1/vpuj8BGHHfYTY2IQ/863";
+    public static final String SAMPLE_URL = "http://private.root.thetechno.xyz:8880/series/MALAItest592119malai/bMuPAPoE2XTuFbE1/160184.mkv";
     // public static final String SAMPLE_URL = "http://private.root.thetechno.xyz:8880/MALAI20260821test08/VlLu5FZmUMeg4TfP/510890";
 
     public static List<VideoBean> getVideoList() {
@@ -88,7 +88,7 @@ public class DataUtil {
     public static List<TiktokBean> getTiktokDataFromAssets(Context context) {
         try {
             if (tiktokData == null) {
-                InputStream is = context.getAssets().open("tiktok_data");
+                InputStream is = context.getAssets().open("tiktok_data2");
                 int length = is.available();
                 byte[] buffer = new byte[length];
                 is.read(buffer);

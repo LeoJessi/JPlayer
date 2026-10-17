@@ -242,8 +242,7 @@ public class IjkPlayer extends AbstractPlayer implements IMediaPlayer.OnErrorLis
                 mMediaPlayer.setDataSource(mAppContext, uri, headers);
             }
         } catch (Exception e) {
-            Log.w(TAG, "onError: " + e.getMessage(), e);
-            mPlayerEventListener.onError();
+            notifyError(e);
         }
     }
 
@@ -253,8 +252,7 @@ public class IjkPlayer extends AbstractPlayer implements IMediaPlayer.OnErrorLis
         try {
             mMediaPlayer.setDataSource(new RawDataSourceProvider(fd));
         } catch (Exception e) {
-            Log.w(TAG, "onError: " + e.getMessage(), e);
-            mPlayerEventListener.onError();
+            notifyError(e);
         }
     }
 
@@ -264,8 +262,7 @@ public class IjkPlayer extends AbstractPlayer implements IMediaPlayer.OnErrorLis
         try {
             mMediaPlayer.pause();
         } catch (IllegalStateException e) {
-            Log.w(TAG, "onError: " + e.getMessage(), e);
-            mPlayerEventListener.onError();
+            notifyError(e);
         }
     }
 
@@ -275,8 +272,7 @@ public class IjkPlayer extends AbstractPlayer implements IMediaPlayer.OnErrorLis
         try {
             mMediaPlayer.start();
         } catch (IllegalStateException e) {
-            Log.w(TAG, "onError: " + e.getMessage(), e);
-            mPlayerEventListener.onError();
+            notifyError(e);
         }
     }
 
@@ -286,8 +282,7 @@ public class IjkPlayer extends AbstractPlayer implements IMediaPlayer.OnErrorLis
         try {
             mMediaPlayer.stop();
         } catch (IllegalStateException e) {
-            Log.w(TAG, "onError: " + e.getMessage(), e);
-            mPlayerEventListener.onError();
+            notifyError(e);
         }
     }
 
@@ -297,8 +292,7 @@ public class IjkPlayer extends AbstractPlayer implements IMediaPlayer.OnErrorLis
         try {
             mMediaPlayer.prepareAsync();
         } catch (IllegalStateException e) {
-            Log.w(TAG, "onError: " + e.getMessage(), e);
-            mPlayerEventListener.onError();
+            notifyError(e);
         }
 
         // 在后台预加载媒体信息，避免首次获取轨道列表时卡顿
@@ -336,8 +330,7 @@ public class IjkPlayer extends AbstractPlayer implements IMediaPlayer.OnErrorLis
             }
             mMediaPlayer.seekTo((int) time);
         } catch (IllegalStateException e) {
-            Log.w(TAG, "onError: " + e.getMessage(), e);
-            mPlayerEventListener.onError();
+            notifyError(e);
         }
     }
 
@@ -414,8 +407,7 @@ public class IjkPlayer extends AbstractPlayer implements IMediaPlayer.OnErrorLis
 
     @Override
     public boolean onError(IMediaPlayer mp, int what, int extra) {
-        Log.w(TAG, "onError: what=" + what + ", extra=" + extra);
-        mPlayerEventListener.onError();
+        notifyError(new Exception("IJKPlayer error: what=" + what + ", extra=" + extra));
         return true;
     }
 

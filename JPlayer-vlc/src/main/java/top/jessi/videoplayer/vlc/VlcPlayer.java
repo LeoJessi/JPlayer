@@ -475,10 +475,7 @@ public class VlcPlayer extends AbstractPlayer implements MediaPlayer.EventListen
     @Override
     public void setDataSource(String path, Map<String, String> headers) {
         if (path == null || path.isEmpty()) {
-            Log.w(TAG, "Error: path is null or empty");
-            if (mPlayerEventListener != null) {
-                mPlayerEventListener.onError();
-            }
+            notifyError(new Exception("path is null or empty"));
             return;
         }
 
@@ -540,9 +537,7 @@ public class VlcPlayer extends AbstractPlayer implements MediaPlayer.EventListen
                 }
                 mMedia = null;
             }
-            if (mPlayerEventListener != null) {
-                mPlayerEventListener.onError();
-            }
+            notifyError(e);
         }
     }
 
@@ -616,9 +611,7 @@ public class VlcPlayer extends AbstractPlayer implements MediaPlayer.EventListen
                 }
                 mMedia = null;
             }
-            if (mPlayerEventListener != null) {
-                mPlayerEventListener.onError();
-            }
+            notifyError(e);
         }
     }
 
@@ -638,10 +631,7 @@ public class VlcPlayer extends AbstractPlayer implements MediaPlayer.EventListen
                 applyScaleTypeToNative();
                 mMediaPlayer.play();
             } catch (Exception e) {
-                Log.w(TAG, "Error starting player", e);
-                if (mPlayerEventListener != null) {
-                    mPlayerEventListener.onError();
-                }
+                notifyError(e);
             }
         }
     }
@@ -661,10 +651,7 @@ public class VlcPlayer extends AbstractPlayer implements MediaPlayer.EventListen
             try {
                 mMediaPlayer.pause();
             } catch (Exception e) {
-                Log.w(TAG, "Error pausing player", e);
-                if (mPlayerEventListener != null) {
-                    mPlayerEventListener.onError();
-                }
+                notifyError(e);
             }
         }
     }
@@ -689,10 +676,7 @@ public class VlcPlayer extends AbstractPlayer implements MediaPlayer.EventListen
             try {
                 mMediaPlayer.stop();
             } catch (Exception e) {
-                Log.w(TAG, "Error stopping player", e);
-                if (mPlayerEventListener != null) {
-                    mPlayerEventListener.onError();
-                }
+                notifyError(e);
             }
         }
     }
@@ -703,10 +687,7 @@ public class VlcPlayer extends AbstractPlayer implements MediaPlayer.EventListen
     @Override
     public void prepareAsync() {
         if (mMediaPlayer == null) {
-            Log.w(TAG, "Cannot prepare: MediaPlayer is null");
-            if (mPlayerEventListener != null) {
-                mPlayerEventListener.onError();
-            }
+            notifyError(new Exception("MediaPlayer is null"));
             return;
         }
 
@@ -715,10 +696,7 @@ public class VlcPlayer extends AbstractPlayer implements MediaPlayer.EventListen
         try {
             media = mMediaPlayer.getMedia();
             if (media == null) {
-                Log.w(TAG, "Cannot prepare: Media not set, call setDataSource() first");
-                if (mPlayerEventListener != null) {
-                    mPlayerEventListener.onError();
-                }
+                notifyError(new Exception("Media not set, call setDataSource() first"));
                 return;
             }
         } finally {
@@ -744,9 +722,7 @@ public class VlcPlayer extends AbstractPlayer implements MediaPlayer.EventListen
             startPrepareTimeout();
         } catch (Exception e) {
             Log.w(TAG, "Error in prepareAsync", e);
-            if (mPlayerEventListener != null) {
-                mPlayerEventListener.onError();
-            }
+            notifyError(e);
         }
     }
 
@@ -755,7 +731,6 @@ public class VlcPlayer extends AbstractPlayer implements MediaPlayer.EventListen
      */
     @Override
     protected void onPrepareTimeout() {
-        Log.w(TAG, "prepareAsync 超时（" + getPrepareTimeoutMs() + "ms），停止播放器并触发 onError");
         if (mMediaPlayer != null) {
             try {
                 mMediaPlayer.stop();
@@ -764,9 +739,7 @@ public class VlcPlayer extends AbstractPlayer implements MediaPlayer.EventListen
             }
         }
         mIsPreparing = false;
-        if (mPlayerEventListener != null) {
-            mPlayerEventListener.onError();
-        }
+        notifyError(new Exception("prepareAsync timeout after " + getPrepareTimeoutMs() + "ms"));
     }
 
     /**
@@ -1044,9 +1017,7 @@ public class VlcPlayer extends AbstractPlayer implements MediaPlayer.EventListen
             mMediaPlayer.setTime(time, false);
         } catch (Exception e) {
             Log.w(TAG, "Error seeking to " + time, e);
-            if (mPlayerEventListener != null) {
-                mPlayerEventListener.onError();
-            }
+            notifyError(e);
         }
     }
 
@@ -1230,10 +1201,7 @@ public class VlcPlayer extends AbstractPlayer implements MediaPlayer.EventListen
                 int volume = (int) ((leftVolume + rightVolume) / 2.0f * 100.0f);
                 mMediaPlayer.setVolume(volume);
             } catch (Exception e) {
-                Log.w(TAG, "Error setting volume", e);
-                if (mPlayerEventListener != null) {
-                    mPlayerEventListener.onError();
-                }
+                notifyError(e);
             }
         }
     }
@@ -1478,10 +1446,7 @@ public class VlcPlayer extends AbstractPlayer implements MediaPlayer.EventListen
                 mSpeed = speed;
                 mMediaPlayer.setRate(speed);
             } catch (Exception e) {
-                Log.w(TAG, "Error setting speed", e);
-                if (mPlayerEventListener != null) {
-                    mPlayerEventListener.onError();
-                }
+                notifyError(e);
             }
         }
     }
@@ -1600,10 +1565,9 @@ public class VlcPlayer extends AbstractPlayer implements MediaPlayer.EventListen
                 break;
 
             case MediaPlayer.Event.EncounteredError:
-                Log.w(TAG, "VLC Event: Error");
                 cancelPrepareTimeout();  // 基类方法：已收到错误，取消超时检测
                 mIsPreparing = false;
-                mPlayerEventListener.onError();
+                notifyError(new Exception("VLC encountered error"));
                 break;
 
             case MediaPlayer.Event.Buffering:

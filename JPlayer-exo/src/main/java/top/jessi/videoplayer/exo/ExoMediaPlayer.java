@@ -371,7 +371,6 @@ public class ExoMediaPlayer extends AbstractPlayer implements Player.Listener {
     @Override
     public void onPlayerError(@NonNull PlaybackException error) {
         errorCode = error.errorCode;
-        Log.w(TAG, "onPlayerError: " + error.errorCode, error);
 
         // 解码器错误处理：硬解失败后自动切换到 FFmpeg 软解
         if (isDecoderError(error)) {
@@ -405,9 +404,7 @@ public class ExoMediaPlayer extends AbstractPlayer implements Player.Listener {
                 return;
             }
             // 已经尝试过 FFmpeg 或者没有路径，上报错误
-            if (mPlayerEventListener != null) {
-                mPlayerEventListener.onError();
-            }
+            notifyError(error);
             return;
         }
 
@@ -418,9 +415,7 @@ public class ExoMediaPlayer extends AbstractPlayer implements Player.Listener {
             prepareAsync();
             start();
         } else {
-            if (mPlayerEventListener != null) {
-                mPlayerEventListener.onError();
-            }
+            notifyError(error);
         }
     }
 

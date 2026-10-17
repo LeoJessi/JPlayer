@@ -611,7 +611,7 @@ public class BaseVideoView<P extends AbstractPlayer> extends FrameLayout
      * 视频播放出错回调
      */
     @Override
-    public void onError() {
+    public void onError(Exception e) {
         mPlayerContainer.setKeepScreenOn(false);
         setPlayState(STATE_ERROR);
     }

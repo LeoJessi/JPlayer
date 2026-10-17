@@ -63,8 +63,7 @@ public class SystemPlayer extends AbstractPlayer implements MediaPlayer.OnErrorL
         try {
             mMediaPlayer.setDataSource(mAppContext, Uri.parse(path), headers);
         } catch (Exception e) {
-            Log.w(TAG, "onError: " + e.getMessage(), e);
-            mPlayerEventListener.onError();
+            notifyError(e);
         }
     }
 
@@ -77,8 +76,7 @@ public class SystemPlayer extends AbstractPlayer implements MediaPlayer.OnErrorL
         try {
             mMediaPlayer.setDataSource(fd.getFileDescriptor(), fd.getStartOffset(), fd.getLength());
         } catch (Exception e) {
-            Log.w(TAG, "onError: " + e.getMessage(), e);
-            mPlayerEventListener.onError();
+            notifyError(e);
             // 设置失败时关闭fd，避免无效持有
             closeAssetFd();
         }
@@ -105,8 +103,7 @@ public class SystemPlayer extends AbstractPlayer implements MediaPlayer.OnErrorL
         try {
             mMediaPlayer.start();
         } catch (IllegalStateException e) {
-            Log.w(TAG, "onError: " + e.getMessage(), e);
-            mPlayerEventListener.onError();
+            notifyError(e);
         } catch (NullPointerException e) {
             // 部分厂商 ROM（华为、小米等）在 MediaPlayer.start() 内部调用 getAppName() 时
             // 因 mContext 未就绪导致 NPE，此时播放器实际已准备就绪，重试一次即可
@@ -115,8 +112,7 @@ public class SystemPlayer extends AbstractPlayer implements MediaPlayer.OnErrorL
                 try {
                     mMediaPlayer.start();
                 } catch (Exception retry) {
-                    Log.w(TAG, "start() retry failed: " + retry.getMessage(), retry);
-                    mPlayerEventListener.onError();
+                    notifyError(retry);
                 }
             });
         }
@@ -128,8 +124,7 @@ public class SystemPlayer extends AbstractPlayer implements MediaPlayer.OnErrorL
         try {
             mMediaPlayer.pause();
         } catch (IllegalStateException e) {
-            Log.w(TAG, "onError: " + e.getMessage(), e);
-            mPlayerEventListener.onError();
+            notifyError(e);
         }
     }
 
@@ -139,8 +134,7 @@ public class SystemPlayer extends AbstractPlayer implements MediaPlayer.OnErrorL
         try {
             mMediaPlayer.stop();
         } catch (IllegalStateException e) {
-            Log.w(TAG, "onError: " + e.getMessage(), e);
-            mPlayerEventListener.onError();
+            notifyError(e);
         }
     }
 
@@ -154,8 +148,7 @@ public class SystemPlayer extends AbstractPlayer implements MediaPlayer.OnErrorL
             // 则回调 onPrepareTimeout()，避免 UI 无限等待
             startPrepareTimeout();
         } catch (IllegalStateException e) {
-            Log.w(TAG, "onError: " + e.getMessage(), e);
-            mPlayerEventListener.onError();
+            notifyError(e);
         }
     }
 
@@ -164,7 +157,6 @@ public class SystemPlayer extends AbstractPlayer implements MediaPlayer.OnErrorL
      */
     @Override
     protected void onPrepareTimeout() {
-        Log.w(TAG, "prepareAsync 超时（" + getPrepareTimeoutMs() + "ms），重置播放器并触发 onError");
         // 停止底层异步准备，释放网络连接和后台线程
         if (mMediaPlayer != null) {
             try {
@@ -175,9 +167,7 @@ public class SystemPlayer extends AbstractPlayer implements MediaPlayer.OnErrorL
         }
         closeAssetFd();
         mIsPreparing = false;
-        if (mPlayerEventListener != null) {
-            mPlayerEventListener.onError();
-        }
+        notifyError(new Exception("prepareAsync timeout after " + getPrepareTimeoutMs() + "ms"));
     }
 
     @Override
@@ -227,8 +217,7 @@ public class SystemPlayer extends AbstractPlayer implements MediaPlayer.OnErrorL
                 mMediaPlayer.seekTo((int) time);
             }
         } catch (IllegalStateException e) {
-            Log.w(TAG, "onError: " + e.getMessage(), e);
-            mPlayerEventListener.onError();
+            notifyError(e);
         }
     }
 
@@ -286,8 +275,7 @@ public class SystemPlayer extends AbstractPlayer implements MediaPlayer.OnErrorL
         try {
             mMediaPlayer.setSurface(surface);
         } catch (Exception e) {
-            Log.w(TAG, "onError: " + e.getMessage(), e);
-            mPlayerEventListener.onError();
+            notifyError(e);
         }
     }
 
@@ -297,8 +285,7 @@ public class SystemPlayer extends AbstractPlayer implements MediaPlayer.OnErrorL
         try {
             mMediaPlayer.setDisplay(holder);
         } catch (Exception e) {
-            Log.w(TAG, "onError: " + e.getMessage(), e);
-            mPlayerEventListener.onError();
+            notifyError(e);
         }
     }
 
@@ -326,8 +313,7 @@ public class SystemPlayer extends AbstractPlayer implements MediaPlayer.OnErrorL
             try {
                 mMediaPlayer.setPlaybackParams(mMediaPlayer.getPlaybackParams().setSpeed(speed));
             } catch (Exception e) {
-                Log.w(TAG, "onError: " + e.getMessage(), e);
-                mPlayerEventListener.onError();
+                notifyError(e);
             }
         }
     }
@@ -414,11 +400,10 @@ public class SystemPlayer extends AbstractPlayer implements MediaPlayer.OnErrorL
 
     @Override
     public boolean onError(MediaPlayer mp, int what, int extra) {
-        Log.w(TAG, "onError: what=" + what + ", extra=" + extra);
         cancelPrepareTimeout();  // 基类方法
         mIsPreparing = false;
         closeAssetFd();
-        mPlayerEventListener.onError();
+        notifyError(new Exception("SystemPlayer error: what=" + what + ", extra=" + extra));
         return true;
     }
 
