@@ -8,6 +8,7 @@ import top.jessi.player.activity.BaseActivity;
 import top.jessi.player.util.DataUtil;
 import top.jessi.player.widget.component.MyDanmakuView;
 import top.jessi.videocontroller.StandardVideoController;
+import top.jessi.videoplayer.player.PlayState;
 import top.jessi.videoplayer.player.VideoView;
 
 /**
@@ -43,10 +44,10 @@ public class DanmakuActivity extends BaseActivity<VideoView> {
 
         mVideoView.addOnStateChangeListener(new VideoView.SimpleOnStateChangeListener() {
             @Override
-            public void onPlayStateChanged(int playState) {
-                if (playState == VideoView.STATE_PREPARED) {
+            public void onPlayStateChanged(PlayState playState) {
+                if (playState.getState() == VideoView.STATE_PREPARED) {
                     simulateDanmu();
-                } else if (playState == VideoView.STATE_PLAYBACK_COMPLETED) {
+                } else if (playState.getState() == VideoView.STATE_PLAYBACK_COMPLETED) {
                     mHandler.removeCallbacksAndMessages(null);
                 }
             }

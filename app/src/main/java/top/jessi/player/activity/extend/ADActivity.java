@@ -9,6 +9,7 @@ import top.jessi.player.util.DataUtil;
 import top.jessi.player.util.cache.ProxyVideoCacheManager;
 import top.jessi.player.widget.component.AdControlView;
 import top.jessi.videocontroller.StandardVideoController;
+import top.jessi.videoplayer.player.PlayState;
 import top.jessi.videoplayer.player.VideoView;
 
 /**
@@ -59,8 +60,8 @@ public class ADActivity extends BaseActivity<VideoView> {
         //监听播放结束
         mVideoView.addOnStateChangeListener(new VideoView.SimpleOnStateChangeListener() {
             @Override
-            public void onPlayStateChanged(int playState) {
-                if (playState == VideoView.STATE_PLAYBACK_COMPLETED) {
+            public void onPlayStateChanged(PlayState playState) {
+                if (playState.getState() == VideoView.STATE_PLAYBACK_COMPLETED) {
                     playVideo();
                 }
             }

@@ -6,6 +6,8 @@ import android.view.animation.Animation;
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 
+import top.jessi.videoplayer.player.PlayState;
+
 /**
  * 可继承此接口实现自己的控制ui，以及监听播放器的状态
  */
@@ -35,9 +37,9 @@ public interface IControlComponent {
      * 回调播放器的播放器状态，如果你只是单纯的想监听此状态，建议使用
      * {@link top.jessi.videoplayer.player.VideoView} 中的
      * addOnStateChangeListener 方法
-     * @param playState 播放状态
+     * @param playState 播放状态（包含状态码、描述信息和可选的异常对象）
      */
-    void onPlayStateChanged(int playState);
+    void onPlayStateChanged(PlayState playState);
 
     /**
      * 回调播放器的状态，如果你只是单纯的想监听此状态，建议使用

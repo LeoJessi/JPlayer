@@ -24,6 +24,7 @@ import top.jessi.player.widget.render.gl2.filter.GlWatermarkFilter
 import top.jessi.videocontroller.StandardVideoController
 import top.jessi.videocontroller.component.*
 import top.jessi.videoplayer.player.BaseVideoView
+import top.jessi.videoplayer.player.PlayState
 import top.jessi.videoplayer.player.VideoView
 import top.jessi.videoplayer.render.IRenderView
 import top.jessi.videoplayer.render.RenderViewFactory
@@ -46,7 +47,7 @@ class PlayerActivity : BaseActivity<VideoView>() {
         mVideoView = findViewById(R.id.player)
         intent?.let {
             val controller = StandardVideoController(this)
-            //根据屏幕方向自动进入/退出全屏
+            // 根据屏幕方向自动进入/退出全屏
             controller.setEnableOrientation(true)
             val prepareView = PrepareView(this) //准备播放界面
             prepareView.setClickStart()
@@ -173,8 +174,8 @@ class PlayerActivity : BaseActivity<VideoView>() {
                 }
             }
 
-            override fun onPlayStateChanged(playState: Int) {
-                when (playState) {
+            override fun onPlayStateChanged(playState: PlayState) {
+                when (playState.state) {
                     VideoView.STATE_IDLE -> {
                     }
 

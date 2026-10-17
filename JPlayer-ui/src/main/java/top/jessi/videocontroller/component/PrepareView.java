@@ -15,6 +15,7 @@ import androidx.annotation.Nullable;
 import top.jessi.videocontroller.R;
 import top.jessi.videoplayer.controller.IControlComponent;
 import top.jessi.videoplayer.controller.ControlWrapper;
+import top.jessi.videoplayer.player.PlayState;
 import top.jessi.videoplayer.player.VideoView;
 import top.jessi.videoplayer.player.VideoViewManager;
 
@@ -86,8 +87,8 @@ public class PrepareView extends FrameLayout implements IControlComponent {
     }
 
     @Override
-    public void onPlayStateChanged(int playState) {
-        switch (playState) {
+    public void onPlayStateChanged(PlayState playState) {
+        switch (playState.getState()) {
             case VideoView.STATE_PREPARING:
                 bringToFront();
                 setVisibility(VISIBLE);

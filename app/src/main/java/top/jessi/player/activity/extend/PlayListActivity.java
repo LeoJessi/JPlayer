@@ -12,6 +12,7 @@ import top.jessi.videocontroller.component.GestureView;
 import top.jessi.videocontroller.component.PrepareView;
 import top.jessi.videocontroller.component.TitleView;
 import top.jessi.videocontroller.component.VodControlView;
+import top.jessi.videoplayer.player.PlayState;
 import top.jessi.videoplayer.player.VideoView;
 
 import java.util.List;
@@ -56,8 +57,8 @@ public class PlayListActivity extends BaseActivity {
         mVideoView.addOnStateChangeListener(new VideoView.SimpleOnStateChangeListener() {
             private int mCurrentVideoPosition;
             @Override
-            public void onPlayStateChanged(int playState) {
-                if (playState == VideoView.STATE_PLAYBACK_COMPLETED) {
+            public void onPlayStateChanged(PlayState playState) {
+                if (playState.getState() == VideoView.STATE_PLAYBACK_COMPLETED) {
                     if (data != null) {
                         mCurrentVideoPosition++;
                         if (mCurrentVideoPosition >= data.size()) return;

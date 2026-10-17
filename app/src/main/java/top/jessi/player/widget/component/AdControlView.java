@@ -16,6 +16,7 @@ import androidx.annotation.Nullable;
 import top.jessi.player.R;
 import top.jessi.videoplayer.controller.IControlComponent;
 import top.jessi.videoplayer.controller.ControlWrapper;
+import top.jessi.videoplayer.player.PlayState;
 import top.jessi.videoplayer.player.VideoView;
 import top.jessi.videoplayer.util.PlayerUtils;
 
@@ -79,8 +80,8 @@ public class AdControlView extends FrameLayout implements IControlComponent, Vie
     }
 
     @Override
-    public void onPlayStateChanged(int playState) {
-        switch (playState) {
+    public void onPlayStateChanged(PlayState playState) {
+        switch (playState.getState()) {
             case VideoView.STATE_PLAYING:
                 mControlWrapper.startProgress();
                 mPlayButton.setSelected(true);

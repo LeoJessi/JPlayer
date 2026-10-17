@@ -23,6 +23,7 @@ import top.jessi.videocontroller.component.PrepareView;
 import top.jessi.videocontroller.component.TitleView;
 import top.jessi.videocontroller.component.VodControlView;
 import top.jessi.videoplayer.controller.GestureVideoController;
+import top.jessi.videoplayer.player.PlayState;
 import top.jessi.videoplayer.player.VideoView;
 import top.jessi.videoplayer.util.PlayerUtils;
 
@@ -164,9 +165,9 @@ public class StandardVideoController extends GestureVideoController implements V
     }
 
     @Override
-    protected void onPlayStateChanged(int playState) {
+    protected void onPlayStateChanged(PlayState playState) {
         super.onPlayStateChanged(playState);
-        switch (playState) {
+        switch (playState.getState()) {
             //调用release方法会回到此状态
             case VideoView.STATE_IDLE:
                 mLockButton.setSelected(false);
@@ -177,7 +178,7 @@ public class StandardVideoController extends GestureVideoController implements V
             case VideoView.STATE_PREPARED:
             case VideoView.STATE_ERROR:
             case VideoView.STATE_BUFFERED:
-                if (playState == VideoView.STATE_BUFFERED) {
+                if (playState.getState() == VideoView.STATE_BUFFERED) {
                     isBuffering = false;
                 }
                 if (!isBuffering) {
@@ -187,7 +188,7 @@ public class StandardVideoController extends GestureVideoController implements V
             case VideoView.STATE_PREPARING:
             case VideoView.STATE_BUFFERING:
                 mLoadingProgress.setVisibility(VISIBLE);
-                if (playState == VideoView.STATE_BUFFERING) {
+                if (playState.getState() == VideoView.STATE_BUFFERING) {
                     isBuffering = true;
                 }
                 break;

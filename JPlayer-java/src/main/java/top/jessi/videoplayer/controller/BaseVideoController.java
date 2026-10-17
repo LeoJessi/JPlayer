@@ -20,6 +20,7 @@ import java.util.Iterator;
 import java.util.LinkedHashMap;
 import java.util.Map;
 
+import top.jessi.videoplayer.player.PlayState;
 import top.jessi.videoplayer.player.VideoView;
 import top.jessi.videoplayer.player.VideoViewManager;
 import top.jessi.videoplayer.util.CutoutUtil;
@@ -30,7 +31,7 @@ import top.jessi.videoplayer.util.PlayerUtils;
  * 控制器基类
  * 此类集成各种事件的处理逻辑，包括
  * 1.播放器状态改变: {@link #handlePlayerStateChanged(int)}
- * 2.播放状态改变: {@link #handlePlayStateChanged(int)}
+ * 2.播放状态改变: {@link #handlePlayStateChanged(PlayState)}
  * 3.控制视图的显示和隐藏: {@link #handleVisibilityChanged(boolean, Animation)}
  * 4.播放进度改变: {@link #handleSetProgress(int, int)}
  * 5.锁定状态改变: {@link #handleLockStateChanged(boolean)}
@@ -200,7 +201,7 @@ public abstract class BaseVideoController extends FrameLayout
      */
     @CallSuper
     public void setPlayState(int playState) {
-        handlePlayStateChanged(playState);
+        handlePlayStateChanged(PlayState.of(playState));
     }
 
     /**
@@ -560,7 +561,7 @@ public abstract class BaseVideoController extends FrameLayout
 
     }
 
-    private void handlePlayStateChanged(int playState) {
+    private void handlePlayStateChanged(PlayState playState) {
         for (Map.Entry<IControlComponent, Boolean> next
                 : mControlComponents.entrySet()) {
             IControlComponent component = next.getKey();
@@ -573,8 +574,8 @@ public abstract class BaseVideoController extends FrameLayout
      * 子类重写此方法并在其中更新控制器在不同播放状态下的ui
      */
     @CallSuper
-    protected void onPlayStateChanged(int playState) {
-        switch (playState) {
+    protected void onPlayStateChanged(PlayState playState) {
+        switch (playState.getState()) {
             case VideoView.STATE_IDLE:
                 mOrientationHelper.disable();
                 mOrientation = 0;

@@ -16,6 +16,7 @@ import androidx.annotation.Nullable;
 import top.jessi.videocontroller.R;
 import top.jessi.videoplayer.controller.IControlComponent;
 import top.jessi.videoplayer.controller.ControlWrapper;
+import top.jessi.videoplayer.player.PlayState;
 import top.jessi.videoplayer.player.VideoView;
 import top.jessi.videoplayer.util.PlayerUtils;
 
@@ -81,8 +82,8 @@ public class CompleteView extends FrameLayout implements IControlComponent {
     }
 
     @Override
-    public void onPlayStateChanged(int playState) {
-        if (playState == VideoView.STATE_PLAYBACK_COMPLETED) {
+    public void onPlayStateChanged(PlayState playState) {
+        if (playState.getState() == VideoView.STATE_PLAYBACK_COMPLETED) {
             setVisibility(VISIBLE);
             mStopFullscreen.setVisibility(mControlWrapper.isFullScreen() ? VISIBLE : GONE);
             bringToFront();

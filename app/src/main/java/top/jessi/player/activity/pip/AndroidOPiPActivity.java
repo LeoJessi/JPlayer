@@ -25,6 +25,7 @@ import androidx.appcompat.app.AppCompatActivity;
 import top.jessi.player.R;
 import top.jessi.player.util.DataUtil;
 import top.jessi.videocontroller.StandardVideoController;
+import top.jessi.videoplayer.player.PlayState;
 import top.jessi.videoplayer.player.VideoView;
 
 import java.util.ArrayList;
@@ -106,8 +107,8 @@ public class AndroidOPiPActivity extends AppCompatActivity {
         mVideoView.start();
         mVideoView.addOnStateChangeListener(new VideoView.SimpleOnStateChangeListener() {
             @Override
-            public void onPlayStateChanged(int playState) {
-                switch (playState) {
+            public void onPlayStateChanged(PlayState playState) {
+                switch (playState.getState()) {
                     case VideoView.STATE_PAUSED:
                         updatePictureInPictureActions(
                                 top.jessi.videocontroller.R.drawable.dkplayer_ic_action_play_arrow, "播放", CONTROL_TYPE_PLAY, REQUEST_PLAY);

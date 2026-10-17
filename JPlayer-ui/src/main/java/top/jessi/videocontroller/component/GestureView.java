@@ -21,6 +21,7 @@ import androidx.annotation.Nullable;
 import top.jessi.videocontroller.R;
 import top.jessi.videoplayer.controller.ControlWrapper;
 import top.jessi.videoplayer.controller.IGestureComponent;
+import top.jessi.videoplayer.player.PlayState;
 import top.jessi.videoplayer.player.VideoView;
 
 /**
@@ -133,13 +134,13 @@ public class GestureView extends FrameLayout implements IGestureComponent {
     }
 
     @Override
-    public void onPlayStateChanged(int playState) {
-        if (playState == VideoView.STATE_IDLE
-                || playState == VideoView.STATE_START_ABORT
-                || playState == VideoView.STATE_PREPARING
-                || playState == VideoView.STATE_PREPARED
-                || playState == VideoView.STATE_ERROR
-                || playState == VideoView.STATE_PLAYBACK_COMPLETED) {
+    public void onPlayStateChanged(PlayState playState) {
+        if (playState.getState() == VideoView.STATE_IDLE
+                || playState.getState() == VideoView.STATE_START_ABORT
+                || playState.getState() == VideoView.STATE_PREPARING
+                || playState.getState() == VideoView.STATE_PREPARED
+                || playState.getState() == VideoView.STATE_ERROR
+                || playState.getState() == VideoView.STATE_PLAYBACK_COMPLETED) {
             setVisibility(GONE);
         } else {
             setVisibility(VISIBLE);

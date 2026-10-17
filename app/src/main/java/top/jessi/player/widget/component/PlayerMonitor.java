@@ -8,6 +8,7 @@ import androidx.annotation.NonNull;
 import top.jessi.player.util.Utils;
 import top.jessi.videoplayer.controller.ControlWrapper;
 import top.jessi.videoplayer.controller.IControlComponent;
+import top.jessi.videoplayer.player.PlayState;
 import top.jessi.videoplayer.util.L;
 
 public class PlayerMonitor implements IControlComponent {
@@ -30,7 +31,7 @@ public class PlayerMonitor implements IControlComponent {
     }
 
     @Override
-    public void onPlayStateChanged(int playState) {
+    public void onPlayStateChanged(PlayState playState) {
     }
 
     @Override

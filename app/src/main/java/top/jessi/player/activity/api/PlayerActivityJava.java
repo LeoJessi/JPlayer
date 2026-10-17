@@ -24,6 +24,7 @@ import top.jessi.videocontroller.component.LiveControlView;
 import top.jessi.videocontroller.component.PrepareView;
 import top.jessi.videocontroller.component.TitleView;
 import top.jessi.videocontroller.component.VodControlView;
+import top.jessi.videoplayer.player.PlayState;
 import top.jessi.videoplayer.player.VideoView;
 import top.jessi.videoplayer.util.L;
 
@@ -174,8 +175,8 @@ public class PlayerActivityJava extends BaseActivity<VideoView> {
         }
 
         @Override
-        public void onPlayStateChanged(int playState) {
-            switch (playState) {
+        public void onPlayStateChanged(PlayState playState) {
+            switch (playState.getState()) {
                 case VideoView.STATE_IDLE:
                     break;
                 case VideoView.STATE_PREPARING:

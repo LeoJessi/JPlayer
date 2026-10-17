@@ -19,6 +19,7 @@ import top.jessi.videoplayer.controller.IControlComponent;
 import top.jessi.videoplayer.exo.ExoMediaPlayerFactory;
 import top.jessi.videoplayer.ijk.IjkPlayerFactory;
 import top.jessi.videoplayer.media.SystemPlayerFactory;
+import top.jessi.videoplayer.player.PlayState;
 
 /**
  * 调试信息
@@ -65,8 +66,8 @@ public class DebugInfoView extends AppCompatTextView implements IControlComponen
     }
 
     @Override
-    public void onPlayStateChanged(int playState) {
-        setText(getDebugString(playState));
+    public void onPlayStateChanged(PlayState playState) {
+        setText(getDebugString(playState.getState()));
         bringToFront();
     }
 

@@ -30,9 +30,11 @@ import java.util.Map;
 import top.jessi.videoplayer.R;
 import top.jessi.videoplayer.controller.BaseVideoController;
 import top.jessi.videoplayer.controller.MediaPlayerControl;
+import top.jessi.videoplayer.player.PlayState;
 import top.jessi.videoplayer.render.IRenderView;
 import top.jessi.videoplayer.render.RenderViewFactory;
 import top.jessi.videoplayer.render.TextureRenderViewFactory;
+import top.jessi.videoplayer.player.PlayState;
 import top.jessi.videoplayer.util.L;
 import top.jessi.videoplayer.util.PlayerUtils;
 
@@ -613,7 +615,7 @@ public class BaseVideoView<P extends AbstractPlayer> extends FrameLayout
     @Override
     public void onError(Exception e) {
         mPlayerContainer.setKeepScreenOn(false);
-        setPlayState(STATE_ERROR);
+        setPlayState(PlayState.error(e.getMessage(), e));
     }
 
     /**
@@ -1029,9 +1031,16 @@ public class BaseVideoView<P extends AbstractPlayer> extends FrameLayout
      * 向Controller设置播放状态，用于控制Controller的ui展示
      */
     protected void setPlayState(int playState) {
-        mCurrentPlayState = playState;
+        setPlayState(PlayState.of(playState));
+    }
+
+    /**
+     * 向Controller设置播放状态（包含详细状态信息），用于控制Controller的ui展示
+     */
+    protected void setPlayState(PlayState playState) {
+        mCurrentPlayState = playState.getState();
         if (mVideoController != null) {
-            mVideoController.setPlayState(playState);
+            mVideoController.setPlayState(playState.getState());
         }
         if (mOnStateChangeListeners != null) {
             for (OnStateChangeListener l : PlayerUtils.getSnapshot(mOnStateChangeListeners)) {
@@ -1065,7 +1074,7 @@ public class BaseVideoView<P extends AbstractPlayer> extends FrameLayout
     public interface OnStateChangeListener {
         void onPlayerStateChanged(int playerState);
 
-        void onPlayStateChanged(int playState);
+        void onPlayStateChanged(PlayState playState);
     }
 
     /**
@@ -1078,7 +1087,7 @@ public class BaseVideoView<P extends AbstractPlayer> extends FrameLayout
         }
 
         @Override
-        public void onPlayStateChanged(int playState) {
+        public void onPlayStateChanged(PlayState playState) {
 
         }
     }

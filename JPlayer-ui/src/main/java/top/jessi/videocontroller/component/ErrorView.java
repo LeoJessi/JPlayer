@@ -15,6 +15,7 @@ import androidx.annotation.Nullable;
 import top.jessi.videocontroller.R;
 import top.jessi.videoplayer.controller.IControlComponent;
 import top.jessi.videoplayer.controller.ControlWrapper;
+import top.jessi.videoplayer.player.PlayState;
 import top.jessi.videoplayer.player.VideoView;
 
 /**
@@ -69,11 +70,11 @@ public class ErrorView extends LinearLayout implements IControlComponent {
     }
 
     @Override
-    public void onPlayStateChanged(int playState) {
-        if (playState == VideoView.STATE_ERROR) {
+    public void onPlayStateChanged(PlayState playState) {
+        if (playState.getState() == VideoView.STATE_ERROR) {
             bringToFront();
             setVisibility(VISIBLE);
-        } else if (playState == VideoView.STATE_IDLE) {
+        } else if (playState.getState() == VideoView.STATE_IDLE) {
             setVisibility(GONE);
         }
     }

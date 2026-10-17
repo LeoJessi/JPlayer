@@ -17,6 +17,7 @@ import androidx.annotation.Nullable;
 import top.jessi.player.R;
 import top.jessi.videoplayer.controller.IControlComponent;
 import top.jessi.videoplayer.controller.ControlWrapper;
+import top.jessi.videoplayer.player.PlayState;
 import top.jessi.videoplayer.player.VideoView;
 import top.jessi.videoplayer.util.L;
 
@@ -93,8 +94,8 @@ public class TikTokView extends FrameLayout implements IControlComponent {
     }
 
     @Override
-    public void onPlayStateChanged(int playState) {
-        switch (playState) {
+    public void onPlayStateChanged(PlayState playState) {
+        switch (playState.getState()) {
             case VideoView.STATE_IDLE:
                 L.e("STATE_IDLE " + hashCode());
                 thumb.setVisibility(VISIBLE);

@@ -6,6 +6,7 @@ import top.jessi.videocontroller.component.CompleteView;
 import top.jessi.videocontroller.component.ErrorView;
 import top.jessi.videocontroller.component.GestureView;
 import top.jessi.videocontroller.component.TitleView;
+import top.jessi.videoplayer.player.PlayState;
 import top.jessi.videoplayer.player.VideoView;
 
 /**
@@ -18,8 +19,8 @@ public class RecyclerViewPortraitFragment extends RecyclerViewAutoPlayFragment {
         mVideoView = new VideoView(getActivity());
         mVideoView.setOnStateChangeListener(new VideoView.SimpleOnStateChangeListener() {
             @Override
-            public void onPlayStateChanged(int playState) {
-                if (playState == VideoView.STATE_IDLE) {
+            public void onPlayStateChanged(PlayState playState) {
+                if (playState.getState() == VideoView.STATE_IDLE) {
                     Utils.removeViewFormParent(mVideoView);
                     mLastPos = mCurPos;
                     mCurPos = -1;

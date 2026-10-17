@@ -17,6 +17,7 @@ import androidx.annotation.Nullable;
 import top.jessi.videocontroller.R;
 import top.jessi.videoplayer.controller.IControlComponent;
 import top.jessi.videoplayer.controller.ControlWrapper;
+import top.jessi.videoplayer.player.PlayState;
 import top.jessi.videoplayer.player.VideoView;
 import top.jessi.videoplayer.util.PlayerUtils;
 
@@ -86,8 +87,8 @@ public class LiveControlView extends FrameLayout implements IControlComponent, V
     }
 
     @Override
-    public void onPlayStateChanged(int playState) {
-        switch (playState) {
+    public void onPlayStateChanged(PlayState playState) {
+        switch (playState.getState()) {
             case VideoView.STATE_IDLE:
             case VideoView.STATE_START_ABORT:
             case VideoView.STATE_PREPARING:

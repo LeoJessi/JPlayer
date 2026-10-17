@@ -17,6 +17,7 @@ import top.jessi.player.R;
 import top.jessi.player.util.PIPManager;
 import top.jessi.videoplayer.controller.IControlComponent;
 import top.jessi.videoplayer.controller.ControlWrapper;
+import top.jessi.videoplayer.player.PlayState;
 import top.jessi.videoplayer.player.VideoView;
 
 public class PipControlView extends FrameLayout implements IControlComponent, View.OnClickListener {
@@ -91,8 +92,8 @@ public class PipControlView extends FrameLayout implements IControlComponent, Vi
     }
 
     @Override
-    public void onPlayStateChanged(int playState) {
-        switch (playState) {
+    public void onPlayStateChanged(PlayState playState) {
+        switch (playState.getState()) {
             case VideoView.STATE_IDLE:
             case VideoView.STATE_PAUSED:
                 mPlay.setSelected(false);
