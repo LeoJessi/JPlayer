@@ -73,9 +73,9 @@ public abstract class AbstractPlayer {
     private long mPrepareTimeoutMs = 15000L;
 
     /**
-     * 错误最大重试次数，默认 3 次。
+     * 错误最大重试次数，默认 2 次。
      */
-    private int mMaxRetryCount = 3;
+    private int mMaxRetryCount = 2;
 
     /**
      * 子类决定是否启用 prepareAsync 超时检测。
