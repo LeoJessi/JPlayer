@@ -109,6 +109,16 @@ public class BaseVideoView<P extends AbstractPlayer> extends FrameLayout
     protected AudioFocusHelper mAudioFocusHelper;
 
     /**
+     * 超时时间配置，在 initPlayer 之前应用到 mMediaPlayer
+     */
+    private long mPrepareTimeoutMs;
+
+    /**
+     * 最大重试次数配置，在 initPlayer 之前应用到 mMediaPlayer
+     */
+    private int mMaxRetryCount;
+
+    /**
      * OnStateChangeListener集合，保存了所有开发者设置的监听器
      */
     protected List<OnStateChangeListener> mOnStateChangeListeners;
@@ -260,6 +270,13 @@ public class BaseVideoView<P extends AbstractPlayer> extends FrameLayout
      * 初始化之前的配置项
      */
     protected void setInitOptions() {
+        // 如果用户在 start() 之前设置了超时和重试次数，在 initPlayer 之前应用
+        if (mPrepareTimeoutMs > 0) {
+            mMediaPlayer.setPrepareTimeoutMs(mPrepareTimeoutMs);
+        }
+        if (mMaxRetryCount > 0) {
+            mMediaPlayer.setMaxRetryCount(mMaxRetryCount);
+        }
     }
 
     /**
@@ -720,6 +737,28 @@ public class BaseVideoView<P extends AbstractPlayer> extends FrameLayout
         if (mMediaPlayer != null) {
             mMediaPlayer.setVolume(v1, v2);
         }
+    }
+
+    /**
+     * 设置 prepareAsync 超时时间（毫秒），默认 15 秒。
+     * 配置值会在 {@link #setInitOptions()} 中应用到播放器。
+     *
+     * @param timeoutMs 超时时间（毫秒），<= 0 则不修改
+     */
+    public void setPrepareTimeoutMs(long timeoutMs) {
+        if (timeoutMs <= 0) return;
+        mPrepareTimeoutMs = timeoutMs;
+    }
+
+    /**
+     * 设置错误最大重试次数，默认 3 次。
+     * 配置值会在 {@link #setInitOptions()} 中应用到播放器。
+     *
+     * @param maxRetryCount 最大重试次数，<= 0 则不修改
+     */
+    public void setMaxRetryCount(int maxRetryCount) {
+        if (maxRetryCount <= 0) return;
+        mMaxRetryCount = maxRetryCount;
     }
 
     /**
