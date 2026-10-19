@@ -31,6 +31,7 @@ import java.lang.reflect.Field;
 import java.util.Map;
 import java.util.concurrent.TimeUnit;
 
+import okhttp3.ConnectionPool;
 import okhttp3.OkHttpClient;
 
 @OptIn(markerClass = UnstableApi.class)
@@ -205,6 +206,10 @@ public final class ExoMediaSourceHelper {
                         .connectTimeout(timeoutMs, TimeUnit.MILLISECONDS)
                         .readTimeout(timeoutMs, TimeUnit.MILLISECONDS)
                         .writeTimeout(timeoutMs, TimeUnit.MILLISECONDS)
+                        // 连接失败时自动重试，避免陈旧连接导致 Connection reset
+                        .retryOnConnectionFailure(true)
+                        // 缩短连接存活时间，减少使用已被中间设备断开的陈旧连接
+                        .connectionPool(new ConnectionPool(5, 3, TimeUnit.MINUTES))
                         .build();
             } else {
                 client = mOkClient;
@@ -216,7 +221,7 @@ public final class ExoMediaSourceHelper {
     }
 
     private void setHeaders(Map<String, String> headers) {
-        if (headers != null && headers.size() > 0) {
+        if (headers != null && !headers.isEmpty()) {
             if (headers.containsKey("User-Agent")) {
                 String value = headers.remove("User-Agent");
                 if (!TextUtils.isEmpty(value)) {
@@ -231,8 +236,7 @@ public final class ExoMediaSourceHelper {
             }
             for (String k : headers.keySet()) {
                 String v = headers.get(k);
-                if (v != null)
-                    headers.put(k, v.trim());
+                if (v != null) headers.put(k, v.trim());
             }
             mHttpDataSourceFactory.setDefaultRequestProperties(headers);
         }

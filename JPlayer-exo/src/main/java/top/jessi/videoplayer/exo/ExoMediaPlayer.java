@@ -3,6 +3,8 @@ package top.jessi.videoplayer.exo;
 import android.content.Context;
 import android.content.res.AssetFileDescriptor;
 import android.net.TrafficStats;
+import android.os.Handler;
+import android.os.Looper;
 import android.text.TextUtils;
 import android.util.Log;
 import android.view.Surface;
@@ -35,7 +37,6 @@ import io.github.anilbeesetti.nextlib.media3ext.ffdecoder.NextRenderersFactory;
 import io.github.anilbeesetti.nextlib.mediainfo.MediaInfo;
 
 import java.util.HashMap;
-import java.util.IllformedLocaleException;
 import java.util.List;
 import java.util.Map;
 
@@ -61,7 +62,6 @@ public class ExoMediaPlayer extends AbstractPlayer implements Player.Listener {
     private DefaultTrackSelector mTrackSelector;
 
     private int errorCode = -100;
-    private String path;
     private Map<String, String> headers;
     // 保存原始数据源路径，用于 getTrackInfo 中获取媒体信息（path 会在播放开始后被置空）
     private String mSourcePath;
@@ -70,6 +70,10 @@ public class ExoMediaPlayer extends AbstractPlayer implements Player.Listener {
     // 保存当前 Surface，用于 Player 重建后重新绑定
     private Surface mCurrentSurface = null;
     private long lastSpeedBytes = 0;
+    // 网络错误重试计数器
+    private int mNetworkRetryCount = 0;
+    // 重试退避延迟基数（ms），实际延迟 = BASE_RETRY_DELAY_MS * (2 ^ retryCount)
+    private static final long BASE_RETRY_DELAY_MS = 1000L;
 
     public ExoMediaPlayer(Context context) {
         mAppContext = context.getApplicationContext();
@@ -120,7 +124,6 @@ public class ExoMediaPlayer extends AbstractPlayer implements Player.Listener {
 
     @Override
     public void setDataSource(String path, Map<String, String> headers) {
-        this.path = path;
         this.headers = headers;
         this.mSourcePath = path; // 保存原始路径供 getTrackInfo 使用
         mMediaSource = mMediaSourceHelper.getMediaSource(path, headers, false, errorCode);
@@ -181,6 +184,8 @@ public class ExoMediaPlayer extends AbstractPlayer implements Player.Listener {
         lastTotalRxBytes = 0;
         lastTimeStamp = 0;
         lastSpeedBytes = 0;
+        // 重置网络错误重试计数器
+        mNetworkRetryCount = 0;
         // 切换播放源时重置 FFmpeg 回退标志，下次播放重新尝试硬解
         mTriedFfmpegFallback = false;
         // 恢复为 ON 模式（硬解优先）
@@ -373,11 +378,10 @@ public class ExoMediaPlayer extends AbstractPlayer implements Player.Listener {
     @Override
     public void onPlayerError(@NonNull PlaybackException error) {
         errorCode = error.errorCode;
-
         // 解码器错误处理：硬解失败后自动切换到 FFmpeg 软解
         if (isDecoderError(error)) {
             // 如果还没尝试过 FFmpeg 回退，则切换到 PREFER 模式重新播放
-            if (!mTriedFfmpegFallback && path != null) {
+            if (!mTriedFfmpegFallback && mSourcePath != null) {
                 Log.w(TAG, "Hardware decoder failed, fallback to FFmpeg software decoder");
                 mTriedFfmpegFallback = true;
                 // 切换到 PREFER 模式（FFmpeg 优先）
@@ -396,11 +400,8 @@ public class ExoMediaPlayer extends AbstractPlayer implements Player.Listener {
                 if (mCurrentSurface != null) {
                     mMediaPlayer.setVideoSurface(mCurrentSurface);
                 }
-                // 重新设置数据源并播放
-                String savedPath = path;
-                Map<String, String> savedHeaders = headers;
-                setDataSource(savedPath, savedHeaders);
-                path = null;
+                // 重新设置数据源并播放（使用 mSourcePath 保持路径持久化）
+                setDataSource(mSourcePath, headers);
                 prepareAsync();
                 start();
                 return;
@@ -409,16 +410,39 @@ public class ExoMediaPlayer extends AbstractPlayer implements Player.Listener {
             notifyError(error);
             return;
         }
-
-        // 非解码器错误，尝试重试
-        if (path != null) {
-            setDataSource(path, headers);
-            path = null;
-            prepareAsync();
-            start();
+        // 非解码器错误，统一使用带退避的重试机制
+        if (mSourcePath != null) {
+            retryWithBackoff(error);
         } else {
             notifyError(error);
         }
+    }
+
+    /**
+     * 带指数退避的通用错误重试
+     * 延迟策略：1s, 2s, 4s（递增退避，避免频繁重试加重服务器负担）
+     * 使用 mSourcePath（永久保存原始路径），避免 path 被置 null 后无法继续重试
+     */
+    private void retryWithBackoff(PlaybackException error) {
+        if (mSourcePath == null || mNetworkRetryCount >= getMaxRetryCount()) {
+            Log.w(TAG, "Retry exhausted (count=" + mNetworkRetryCount + "), reporting error");
+            mNetworkRetryCount = 0;
+            if (mMediaPlayer != null) {
+                notifyError(error);
+            }
+            return;
+        }
+        mNetworkRetryCount++;
+        long delay = BASE_RETRY_DELAY_MS * (1L << (mNetworkRetryCount - 1));
+        Log.i(TAG, "Error detected, retry #" + mNetworkRetryCount + " after " + delay + "ms");
+        // 使用 Handler 延迟重试，避免立即重试
+        new Handler(Looper.getMainLooper()).postDelayed(() -> {
+            // 如果 Player 已释放，取消重试
+            if (mMediaPlayer == null || mSourcePath == null) return;
+            setDataSource(mSourcePath, headers);
+            prepareAsync();
+            start();
+        }, delay);
     }
 
     /**

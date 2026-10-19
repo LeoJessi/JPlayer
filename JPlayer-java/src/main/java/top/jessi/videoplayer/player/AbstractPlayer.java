@@ -17,7 +17,6 @@ import top.jessi.videoplayer.render.RenderViewFactory;
 
 /**
  * 抽象的播放器，继承此接口扩展自己的播放器
- * Created by Doikki on 2017/12/21.
  */
 public abstract class AbstractPlayer {
 
@@ -74,6 +73,11 @@ public abstract class AbstractPlayer {
     private long mPrepareTimeoutMs = 15000L;
 
     /**
+     * 错误最大重试次数，默认 3 次。
+     */
+    private int mMaxRetryCount = 3;
+
+    /**
      * 子类决定是否启用 prepareAsync 超时检测。
      * 默认启用。对于已有完善错误处理机制的内核（如 ExoPlayer），可重写此方法返回 false。
      *
@@ -101,6 +105,26 @@ public abstract class AbstractPlayer {
     public void setPrepareTimeoutMs(long timeoutMs) {
         if (timeoutMs <= 0) return;
         mPrepareTimeoutMs = timeoutMs;
+    }
+
+    /**
+     * 获取错误最大重试次数，默认 3 次。
+     *
+     * @return 最大重试次数
+     */
+    public int getMaxRetryCount() {
+        return mMaxRetryCount;
+    }
+
+    /**
+     * 外部设置错误最大重试次数。
+     * 注意：应在播放前调用才能生效。
+     *
+     * @param maxRetryCount 最大重试次数，<= 0 则不修改当前值
+     */
+    public void setMaxRetryCount(int maxRetryCount) {
+        if (maxRetryCount <= 0) return;
+        mMaxRetryCount = maxRetryCount;
     }
 
     /**
