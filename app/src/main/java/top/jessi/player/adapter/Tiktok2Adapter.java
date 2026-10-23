@@ -15,7 +15,7 @@ import androidx.viewpager.widget.PagerAdapter;
 import com.bumptech.glide.Glide;
 import top.jessi.player.R;
 import top.jessi.player.bean.TiktokBean;
-import top.jessi.player.util.cache.PreloadManager;
+import top.jessi.videoplayer.cache.preload.PreloadManager;
 import top.jessi.player.widget.component.TikTokView;
 
 import java.util.ArrayList;

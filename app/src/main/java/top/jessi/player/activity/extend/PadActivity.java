@@ -6,7 +6,7 @@ import android.widget.Toast;
 import top.jessi.player.R;
 import top.jessi.player.activity.BaseActivity;
 import top.jessi.player.util.DataUtil;
-import top.jessi.videocontroller.StandardVideoController;
+import top.jessi.videoplayer.controller.StandardVideoController;
 
 public class PadActivity extends BaseActivity {
 
@@ -55,7 +55,7 @@ public class PadActivity extends BaseActivity {
     public void onBackPressed() {
         if (mController.isLocked()) {
             mController.show();
-            Toast.makeText(this, top.jessi.videocontroller.R.string.dkplayer_lock_tip, Toast.LENGTH_SHORT).show();
+            Toast.makeText(this, top.jessi.videoplayer.controller.R.string.dkplayer_lock_tip, Toast.LENGTH_SHORT).show();
             return;
         }
         if (mVideoView.isFullScreen()) {

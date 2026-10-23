@@ -137,7 +137,7 @@ public class AdControlView extends FrameLayout implements IControlComponent, Vie
 
     private void doMute() {
         mControlWrapper.setMute(!mControlWrapper.isMute());
-        mVolume.setImageResource(mControlWrapper.isMute() ? top.jessi.videocontroller.R.drawable.dkplayer_ic_action_volume_up : top.jessi.videocontroller.R.drawable.dkplayer_ic_action_volume_off);
+        mVolume.setImageResource(mControlWrapper.isMute() ? top.jessi.videoplayer.controller.R.drawable.dkplayer_ic_action_volume_up : top.jessi.videoplayer.controller.R.drawable.dkplayer_ic_action_volume_off);
     }
 
     /**

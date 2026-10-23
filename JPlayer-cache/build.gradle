@@ -1,0 +1,21 @@
+apply plugin: 'com.android.library'
+apply from: "$rootDir/gradle/publish.gradle"
+apply from: '../constants.gradle'
+
+android {
+    namespace "top.jessi.videoplayer.cache"
+    compileSdkVersion project.ext.compileSdkVersion
+    buildToolsVersion project.ext.buildToolsVersion
+
+    defaultConfig {
+        minSdkVersion project.ext.minSdkVersion
+        targetSdkVersion project.ext.targetSdkVersion
+        consumerProguardFiles 'consumer-proguard-rules.pro'
+    }
+}
+
+dependencies {
+    // Optional data source used via HttpProxyCacheServer.Builder#sourceFactory(SourceFactory).
+    // Declared as api so consumers that opt into OkHttpSourceFactory get it transitively.
+    implementation 'com.squareup.okhttp3:okhttp:3.12.11'
+}

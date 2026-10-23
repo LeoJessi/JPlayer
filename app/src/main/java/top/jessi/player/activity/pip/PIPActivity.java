@@ -20,7 +20,7 @@ import top.jessi.player.activity.BaseActivity;
 import top.jessi.player.util.DataUtil;
 import top.jessi.player.util.PIPManager;
 import top.jessi.player.util.Tag;
-import top.jessi.videocontroller.StandardVideoController;
+import top.jessi.videoplayer.controller.StandardVideoController;
 import top.jessi.videoplayer.player.PlayState;
 import top.jessi.videoplayer.player.VideoView;
 
@@ -49,7 +49,7 @@ public class PIPActivity extends BaseActivity {
             controller.setPlayState(PlayState.of(videoView.getCurrentPlayState()));
         } else {
             mPIPManager.setActClass(PIPActivity.class);
-            ImageView thumb = controller.findViewById(top.jessi.videocontroller.R.id.thumb);
+            ImageView thumb = controller.findViewById(top.jessi.videoplayer.controller.R.id.thumb);
             Glide.with(this)
                     .load("http://sh.people.com.cn/NMediaFile/2016/0112/LOCAL201601121344000138197365721.jpg")
                     .placeholder(android.R.color.darker_gray)

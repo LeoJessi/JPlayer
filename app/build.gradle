@@ -102,5 +102,5 @@ dependencies {
     implementation project(':JPlayer-ijk')
     implementation project(':JPlayer-exo')
     implementation project(':JPlayer-vlc')
-    implementation project(':JPlayer-videocache')
+    implementation project(':JPlayer-cache')
 }

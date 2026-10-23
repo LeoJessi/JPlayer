@@ -12,7 +12,7 @@ import java.util.List;
 
 import top.jessi.player.R;
 import top.jessi.player.util.DataUtil;
-import top.jessi.videocontroller.StandardVideoController;
+import top.jessi.videoplayer.controller.StandardVideoController;
 import top.jessi.videoplayer.player.VideoView;
 
 /**

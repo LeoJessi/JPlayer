@@ -24,7 +24,7 @@ import java.util.ListIterator;
 import java.util.Map;
 
 import top.jessi.player.R;
-import top.jessi.videocontroller.component.VodControlView;
+import top.jessi.videoplayer.controller.component.VodControlView;
 import top.jessi.videoplayer.player.VideoView;
 import top.jessi.videoplayer.util.L;
 import top.jessi.videoplayer.util.PlayerUtils;

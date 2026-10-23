@@ -2,13 +2,13 @@ package top.jessi.player.activity.extend;
 
 import android.widget.Toast;
 
-import com.danikula.videocache.HttpProxyCacheServer;
+import top.jessi.videoplayer.cache.HttpProxyCacheServer;
 import top.jessi.player.R;
 import top.jessi.player.activity.BaseActivity;
 import top.jessi.player.util.DataUtil;
-import top.jessi.player.util.cache.ProxyVideoCacheManager;
+import top.jessi.videoplayer.cache.preload.ProxyVideoCacheManager;
 import top.jessi.player.widget.component.AdControlView;
-import top.jessi.videocontroller.StandardVideoController;
+import top.jessi.videoplayer.controller.StandardVideoController;
 import top.jessi.videoplayer.player.PlayState;
 import top.jessi.videoplayer.player.VideoView;
 

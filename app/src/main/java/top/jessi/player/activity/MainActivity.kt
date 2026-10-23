@@ -18,7 +18,7 @@ import top.jessi.player.fragment.main.PipFragment
 import top.jessi.player.util.PIPManager
 import top.jessi.player.util.Tag
 import top.jessi.player.util.Utils
-import top.jessi.player.util.cache.ProxyVideoCacheManager
+import top.jessi.videoplayer.cache.preload.ProxyVideoCacheManager
 import top.jessi.videoplayer.exo.ExoMediaPlayerFactory
 import top.jessi.videoplayer.ijk.IjkPlayerFactory
 import top.jessi.videoplayer.media.SystemPlayerFactory

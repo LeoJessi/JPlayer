@@ -2,10 +2,10 @@
 # 作为consumer配置，使用方会自动合并这些规则
 
 # 保留所有公共API类
--keep class top.jessi.videocontroller.** { *; }
+-keep class top.jessi.videoplayer.videocontroller.** { *; }
 
 # 保留接口
--keep interface top.jessi.videocontroller.** { *; }
+-keep interface top.jessi.videoplayer.videocontroller.** { *; }
 
 # 保留带注解的View属性（用于XML布局解析）
 -keepclassmembers class * {
@@ -13,7 +13,7 @@
 }
 
 # 保留自定义View的构造方法（用于XML布局inflate）
--keepclassmembers class top.jessi.videocontroller.component.** {
+-keepclassmembers class top.jessi.videoplayer.videocontroller.controller.component.** {
     public <init>(android.content.Context);
     public <init>(android.content.Context, android.util.AttributeSet);
     public <init>(android.content.Context, android.util.AttributeSet, int);

@@ -3,7 +3,7 @@ apply from: "$rootDir/gradle/publish.gradle"
 apply from: '../constants.gradle'
 
 android {
-    namespace "top.jessi.videocontroller"
+    namespace "top.jessi.videoplayer.controller"
     compileSdkVersion project.ext.compileSdkVersion
     buildToolsVersion project.ext.buildToolsVersion
 

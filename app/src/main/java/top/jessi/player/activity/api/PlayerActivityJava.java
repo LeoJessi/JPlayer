@@ -16,14 +16,14 @@ import top.jessi.player.util.IntentKeys;
 import top.jessi.player.util.Utils;
 import top.jessi.player.widget.component.DebugInfoView;
 import top.jessi.player.widget.component.PlayerMonitor;
-import top.jessi.videocontroller.StandardVideoController;
-import top.jessi.videocontroller.component.CompleteView;
-import top.jessi.videocontroller.component.ErrorView;
-import top.jessi.videocontroller.component.GestureView;
-import top.jessi.videocontroller.component.LiveControlView;
-import top.jessi.videocontroller.component.PrepareView;
-import top.jessi.videocontroller.component.TitleView;
-import top.jessi.videocontroller.component.VodControlView;
+import top.jessi.videoplayer.controller.StandardVideoController;
+import top.jessi.videoplayer.controller.component.CompleteView;
+import top.jessi.videoplayer.controller.component.ErrorView;
+import top.jessi.videoplayer.controller.component.GestureView;
+import top.jessi.videoplayer.controller.component.LiveControlView;
+import top.jessi.videoplayer.controller.component.PrepareView;
+import top.jessi.videoplayer.controller.component.TitleView;
+import top.jessi.videoplayer.controller.component.VodControlView;
 import top.jessi.videoplayer.player.PlayState;
 import top.jessi.videoplayer.player.VideoView;
 import top.jessi.videoplayer.util.L;
@@ -63,7 +63,7 @@ public class PlayerActivityJava extends BaseActivity<VideoView> {
 
             PrepareView prepareView = new PrepareView(this);//准备播放界面
             prepareView.setClickStart();
-            ImageView thumb = prepareView.findViewById(top.jessi.videocontroller.R.id.thumb);//封面图
+            ImageView thumb = prepareView.findViewById(top.jessi.videoplayer.controller.R.id.thumb);//封面图
             Glide.with(this).load(THUMB).into(thumb);
             controller.addControlComponent(prepareView);
 

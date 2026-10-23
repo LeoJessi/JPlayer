@@ -10,7 +10,7 @@ import top.jessi.player.R;
 import top.jessi.player.activity.BaseActivity;
 import top.jessi.player.util.DataUtil;
 import top.jessi.player.widget.videoview.ExoVideoView;
-import top.jessi.videocontroller.StandardVideoController;
+import top.jessi.videoplayer.controller.StandardVideoController;
 import top.jessi.videoplayer.exo.ExoMediaPlayer;
 import top.jessi.videoplayer.exo.ExoMediaSourceHelper;
 import top.jessi.videoplayer.player.AbstractPlayer;

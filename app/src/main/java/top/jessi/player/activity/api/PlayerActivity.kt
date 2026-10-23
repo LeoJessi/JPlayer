@@ -4,12 +4,10 @@ import android.content.Context
 import android.content.Intent
 import android.graphics.BitmapFactory
 import android.text.TextUtils
-import android.util.Log
 import android.view.View
 import android.widget.EditText
 import android.widget.ImageView
 import com.bumptech.glide.Glide
-import com.google.gson.Gson
 import top.jessi.player.R
 import top.jessi.player.activity.BaseActivity
 import top.jessi.player.util.IntentKeys
@@ -21,8 +19,8 @@ import top.jessi.player.widget.render.gl2.filter.GlFilterGroup
 import top.jessi.player.widget.render.gl2.filter.GlSepiaFilter
 import top.jessi.player.widget.render.gl2.filter.GlSharpenFilter
 import top.jessi.player.widget.render.gl2.filter.GlWatermarkFilter
-import top.jessi.videocontroller.StandardVideoController
-import top.jessi.videocontroller.component.*
+import top.jessi.videoplayer.controller.StandardVideoController
+import top.jessi.videoplayer.controller.component.*
 import top.jessi.videoplayer.player.BaseVideoView
 import top.jessi.videoplayer.player.PlayState
 import top.jessi.videoplayer.player.VideoView
@@ -51,7 +49,7 @@ class PlayerActivity : BaseActivity<VideoView>() {
             controller.setEnableOrientation(true)
             val prepareView = PrepareView(this) //准备播放界面
             prepareView.setClickStart()
-            val thumb = prepareView.findViewById<ImageView>(top.jessi.videocontroller.R.id.thumb) //封面图
+            val thumb = prepareView.findViewById<ImageView>(top.jessi.videoplayer.controller.R.id.thumb) //封面图
             Glide.with(this).load(THUMB).into(thumb)
             controller.addControlComponent(prepareView)
             controller.addControlComponent(CompleteView(this)) //自动完成播放界面

@@ -2,7 +2,7 @@ package top.jessi.player.app;
 
 import androidx.multidex.MultiDexApplication;
 
-import com.danikula.videocache.Logger;
+import top.jessi.videoplayer.cache.internal.Logger;
 
 import top.jessi.player.BuildConfig;
 import top.jessi.videoplayer.exo.ExoMediaPlayerFactory;

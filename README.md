@@ -4,6 +4,10 @@
 
 再次感谢Doikki开源的好项目！感谢
 
+#### 2026.10.22 - 1.4.0
+1. 优化整理适配缓存与预加载逻辑
+2. 鸣谢[AndroidVideoCache](https://github.com/danikula/AndroidVideoCache)
+
 #### 2026.10.19 - 1.3.13
 1. 新增播放器重连配置
 2. 新增超时时间和错误重试次数外部配置方法

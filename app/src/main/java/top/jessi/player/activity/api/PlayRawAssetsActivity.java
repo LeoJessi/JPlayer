@@ -12,7 +12,7 @@ import java.io.IOException;
 import top.jessi.player.R;
 import top.jessi.player.activity.BaseActivity;
 import top.jessi.player.util.Utils;
-import top.jessi.videocontroller.StandardVideoController;
+import top.jessi.videoplayer.controller.StandardVideoController;
 import top.jessi.videoplayer.exo.ExoMediaPlayerFactory;
 import top.jessi.videoplayer.player.VideoView;
 

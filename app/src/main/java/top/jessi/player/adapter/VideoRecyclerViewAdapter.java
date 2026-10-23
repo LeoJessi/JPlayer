@@ -15,7 +15,7 @@ import top.jessi.player.R;
 import top.jessi.player.adapter.listener.OnItemChildClickListener;
 import top.jessi.player.adapter.listener.OnItemClickListener;
 import top.jessi.player.bean.VideoBean;
-import top.jessi.videocontroller.component.PrepareView;
+import top.jessi.videoplayer.controller.component.PrepareView;
 
 import java.util.List;
 
@@ -77,7 +77,7 @@ public class VideoRecyclerViewAdapter extends RecyclerView.Adapter<VideoRecycler
             mPlayerContainer = itemView.findViewById(R.id.player_container);
             mTitle = itemView.findViewById(R.id.tv_title);
             mPrepareView = itemView.findViewById(R.id.prepare_view);
-            mThumb = mPrepareView.findViewById(top.jessi.videocontroller.R.id.thumb);
+            mThumb = mPrepareView.findViewById(top.jessi.videoplayer.controller.R.id.thumb);
             if (mOnItemChildClickListener != null) {
                 mPlayerContainer.setOnClickListener(this);
             }

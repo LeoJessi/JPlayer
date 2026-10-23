@@ -88,7 +88,7 @@ public class DataUtil {
     public static List<TiktokBean> getTiktokDataFromAssets(Context context) {
         try {
             if (tiktokData == null) {
-                InputStream is = context.getAssets().open("tiktok_data2");
+                InputStream is = context.getAssets().open("tiktok_data");
                 int length = is.available();
                 byte[] buffer = new byte[length];
                 is.read(buffer);

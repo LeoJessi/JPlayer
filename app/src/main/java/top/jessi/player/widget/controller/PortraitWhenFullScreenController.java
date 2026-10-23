@@ -10,8 +10,8 @@ import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 
 import top.jessi.player.R;
-import top.jessi.videocontroller.StandardVideoController;
-import top.jessi.videocontroller.component.VodControlView;
+import top.jessi.videoplayer.controller.StandardVideoController;
+import top.jessi.videoplayer.controller.component.VodControlView;
 import top.jessi.videoplayer.controller.MediaPlayerControl;
 import top.jessi.videoplayer.player.VideoView;
 
@@ -106,16 +106,16 @@ public class PortraitWhenFullScreenController extends StandardVideoController {
         int i = v.getId();
         if (i == R.id.fullscreen) {
             toggleFullScreen();
-        } else if (i == top.jessi.videocontroller.R.id.lock) {
+        } else if (i == top.jessi.videoplayer.controller.R.id.lock) {
             mControlWrapper.toggleLockState();
         } else if (i == R.id.iv_play) {
             togglePlay();
         } else if (i == R.id.back) {
             stopFullScreen();
-        } else if (i == top.jessi.videocontroller.R.id.thumb) {
+        } else if (i == top.jessi.videoplayer.controller.R.id.thumb) {
             mControlWrapper.start();
             mControlWrapper.startFullScreen();
-        } else if (i == top.jessi.videocontroller.R.id.iv_replay) {
+        } else if (i == top.jessi.videoplayer.controller.R.id.iv_replay) {
             mControlWrapper.replay(true);
             mControlWrapper.startFullScreen();
         }

@@ -24,7 +24,7 @@ import androidx.appcompat.app.AppCompatActivity;
 
 import top.jessi.player.R;
 import top.jessi.player.util.DataUtil;
-import top.jessi.videocontroller.StandardVideoController;
+import top.jessi.videoplayer.controller.StandardVideoController;
 import top.jessi.videoplayer.player.PlayState;
 import top.jessi.videoplayer.player.VideoView;
 
@@ -111,15 +111,15 @@ public class AndroidOPiPActivity extends AppCompatActivity {
                 switch (playState.getState()) {
                     case VideoView.STATE_PAUSED:
                         updatePictureInPictureActions(
-                                top.jessi.videocontroller.R.drawable.dkplayer_ic_action_play_arrow, "播放", CONTROL_TYPE_PLAY, REQUEST_PLAY);
+                                top.jessi.videoplayer.controller.R.drawable.dkplayer_ic_action_play_arrow, "播放", CONTROL_TYPE_PLAY, REQUEST_PLAY);
                         break;
                     case VideoView.STATE_PLAYING:
                         updatePictureInPictureActions(
-                                top.jessi.videocontroller.R.drawable.dkplayer_ic_action_pause, "暂停", CONTROL_TYPE_PAUSE, REQUEST_PAUSE);
+                                top.jessi.videoplayer.controller.R.drawable.dkplayer_ic_action_pause, "暂停", CONTROL_TYPE_PAUSE, REQUEST_PAUSE);
                         break;
                     case VideoView.STATE_PLAYBACK_COMPLETED:
                         updatePictureInPictureActions(
-                                top.jessi.videocontroller.R.drawable.dkplayer_ic_action_replay, "重新播放", CONTROL_TYPE_REPLAY, REQUEST_REPLAY);
+                                top.jessi.videoplayer.controller.R.drawable.dkplayer_ic_action_replay, "重新播放", CONTROL_TYPE_REPLAY, REQUEST_REPLAY);
                         break;
                 }
             }

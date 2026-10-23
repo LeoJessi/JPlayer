@@ -12,7 +12,7 @@ import top.jessi.player.R;
 import top.jessi.player.activity.BaseActivity;
 import top.jessi.player.util.DataUtil;
 import top.jessi.player.widget.videoview.IjkVideoView;
-import top.jessi.videocontroller.StandardVideoController;
+import top.jessi.videoplayer.controller.StandardVideoController;
 
 /**
  * 自定义的IjkVideoView

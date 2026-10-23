@@ -23,12 +23,12 @@ import top.jessi.player.util.DataUtil;
 import top.jessi.player.util.PIPManager;
 import top.jessi.player.util.Tag;
 import top.jessi.player.util.Utils;
-import top.jessi.videocontroller.StandardVideoController;
-import top.jessi.videocontroller.component.CompleteView;
-import top.jessi.videocontroller.component.ErrorView;
-import top.jessi.videocontroller.component.GestureView;
-import top.jessi.videocontroller.component.TitleView;
-import top.jessi.videocontroller.component.VodControlView;
+import top.jessi.videoplayer.controller.StandardVideoController;
+import top.jessi.videoplayer.controller.component.CompleteView;
+import top.jessi.videoplayer.controller.component.ErrorView;
+import top.jessi.videoplayer.controller.component.GestureView;
+import top.jessi.videoplayer.controller.component.TitleView;
+import top.jessi.videoplayer.controller.component.VodControlView;
 import top.jessi.videoplayer.player.PlayState;
 import top.jessi.videoplayer.player.VideoView;
 

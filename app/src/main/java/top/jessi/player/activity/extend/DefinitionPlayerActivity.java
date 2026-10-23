@@ -3,12 +3,12 @@ package top.jessi.player.activity.extend;
 import top.jessi.player.R;
 import top.jessi.player.activity.BaseActivity;
 import top.jessi.player.widget.component.DefinitionControlView;
-import top.jessi.videocontroller.StandardVideoController;
-import top.jessi.videocontroller.component.CompleteView;
-import top.jessi.videocontroller.component.ErrorView;
-import top.jessi.videocontroller.component.GestureView;
-import top.jessi.videocontroller.component.PrepareView;
-import top.jessi.videocontroller.component.TitleView;
+import top.jessi.videoplayer.controller.StandardVideoController;
+import top.jessi.videoplayer.controller.component.CompleteView;
+import top.jessi.videoplayer.controller.component.ErrorView;
+import top.jessi.videoplayer.controller.component.GestureView;
+import top.jessi.videoplayer.controller.component.PrepareView;
+import top.jessi.videoplayer.controller.component.TitleView;
 import top.jessi.videoplayer.player.VideoView;
 
 import java.util.LinkedHashMap;

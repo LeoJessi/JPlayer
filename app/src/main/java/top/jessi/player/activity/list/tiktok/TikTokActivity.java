@@ -16,7 +16,7 @@ import top.jessi.player.adapter.TikTokAdapter;
 import top.jessi.player.bean.TiktokBean;
 import top.jessi.player.util.DataUtil;
 import top.jessi.player.util.Utils;
-import top.jessi.player.util.cache.PreloadManager;
+import top.jessi.videoplayer.cache.preload.PreloadManager;
 import top.jessi.player.widget.controller.TikTokController;
 import top.jessi.player.widget.render.TikTokRenderViewFactory;
 import top.jessi.videoplayer.player.VideoView;
