@@ -2,15 +2,15 @@ package top.jessi.videoplayer.cache.preload;
 
 import android.content.Context;
 
-import top.jessi.videoplayer.cache.HttpProxyCacheServer;
-import top.jessi.videoplayer.cache.internal.Logger;
-
 import java.io.File;
 import java.util.Iterator;
 import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+
+import top.jessi.videoplayer.cache.HttpProxyCacheServer;
+import top.jessi.videoplayer.cache.internal.Logger;
 
 /**
  * 抖音式短视频预加载工具，基于 {@link HttpProxyCacheServer} 实现。
@@ -100,7 +100,6 @@ public class PreloadManager {
         task.mCacheServer = mHttpProxyCacheServer;
         Logger.info("addPreloadTask: " + position);
         mPreloadTasks.put(rawUrl, task);
-
         if (mIsStartPreload) {
             //开始预加载
             task.executeOn(mExecutorService);
@@ -127,7 +126,6 @@ public class PreloadManager {
         if (tempCacheFile.exists()) {
             return tempCacheFile.length() >= PRELOAD_LENGTH;
         }
-
         return false;
     }
 

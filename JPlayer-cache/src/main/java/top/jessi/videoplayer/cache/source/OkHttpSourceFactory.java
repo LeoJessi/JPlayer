@@ -11,7 +11,7 @@ import javax.net.ssl.TrustManager;
  * <p>
  * Requires the {@code com.squareup.okhttp3:okhttp} dependency.
  */
-public class OkHttpSourceFactory implements SourceFactory {
+public class  OkHttpSourceFactory implements SourceFactory {
 
     private final HostnameVerifier hostnameVerifier;
     private final TrustManager[] trustAllCerts;
