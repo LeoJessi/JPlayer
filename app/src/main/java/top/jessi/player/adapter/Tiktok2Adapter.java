@@ -15,7 +15,6 @@ import androidx.viewpager.widget.PagerAdapter;
 import com.bumptech.glide.Glide;
 import top.jessi.player.R;
 import top.jessi.player.bean.TiktokBean;
-import top.jessi.videoplayer.cache.preload.PreloadManager;
 import top.jessi.player.widget.component.TikTokView;
 
 import java.util.ArrayList;
@@ -66,8 +65,6 @@ public class Tiktok2Adapter extends PagerAdapter {
         }
 
         TiktokBean item = mVideoBeans.get(position);
-        //开始预加载
-        PreloadManager.getInstance(context).addPreloadTask(item.videoDownloadUrl, position);
         Glide.with(context)
                 .load(item.coverImgUrl)
                 .placeholder(android.R.color.white)
@@ -88,9 +85,6 @@ public class Tiktok2Adapter extends PagerAdapter {
     public void destroyItem(@NonNull ViewGroup container, int position, @NonNull Object object) {
         View itemView = (View) object;
         container.removeView(itemView);
-        TiktokBean item = mVideoBeans.get(position);
-        //取消预加载
-        PreloadManager.getInstance(container.getContext()).removePreloadTask(item.videoDownloadUrl);
         //保存起来用来复用
         mViewPool.add(itemView);
     }

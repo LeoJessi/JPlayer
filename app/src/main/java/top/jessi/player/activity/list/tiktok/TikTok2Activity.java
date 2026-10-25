@@ -16,7 +16,7 @@ import top.jessi.player.bean.TiktokBean;
 import top.jessi.player.util.DataUtil;
 import top.jessi.player.util.Utils;
 import top.jessi.videoplayer.cache.preload.PreloadManager;
-import top.jessi.videoplayer.cache.preload.ProxyVideoCacheManager;
+import top.jessi.videoplayer.cache.preload.PreloadSession;
 import top.jessi.player.widget.VerticalViewPager;
 import top.jessi.player.widget.controller.TikTokController;
 import top.jessi.player.widget.render.TikTokRenderViewFactory;
@@ -40,6 +40,11 @@ public class TikTok2Activity extends BaseActivity<VideoView> {
     private VerticalViewPager mViewPager;
 
     private PreloadManager mPreloadManager;
+
+    /**
+     * 每页一个的预加载会话，自动跟随页面生命周期暂停/恢复/释放
+     */
+    private PreloadSession mPreloadSession;
 
     private TikTokController mController;
 
@@ -68,6 +73,7 @@ public class TikTok2Activity extends BaseActivity<VideoView> {
         initViewPager();
         initVideoView();
         mPreloadManager = PreloadManager.getInstance(this);
+        mPreloadSession = mPreloadManager.createSession(this);
 
         addData(null);
         Intent extras = getIntent();
@@ -101,42 +107,11 @@ public class TikTok2Activity extends BaseActivity<VideoView> {
         mViewPager.setAdapter(mTiktok2Adapter);
         mViewPager.setOverScrollMode(View.OVER_SCROLL_NEVER);
         mViewPager.setOnPageChangeListener(new ViewPager.SimpleOnPageChangeListener() {
-
-            private int mCurItem;
-
-            /**
-             * VerticalViewPager是否反向滑动
-             */
-            private boolean mIsReverseScroll;
-
-            @Override
-            public void onPageScrolled(int position, float positionOffset, int positionOffsetPixels) {
-                super.onPageScrolled(position, positionOffset, positionOffsetPixels);
-                if (position == mCurItem) {
-                    return;
-                }
-                mIsReverseScroll = position < mCurItem;
-            }
-
             @Override
             public void onPageSelected(int position) {
                 super.onPageSelected(position);
                 if (position == mCurPos) return;
                 startPlay(position);
-            }
-
-            @Override
-            public void onPageScrollStateChanged(int state) {
-                super.onPageScrollStateChanged(state);
-                if (state == VerticalViewPager.SCROLL_STATE_DRAGGING) {
-                    mCurItem = mViewPager.getCurrentItem();
-                }
-
-                if (state == VerticalViewPager.SCROLL_STATE_IDLE) {
-                    mPreloadManager.resumePreload(mCurPos, mIsReverseScroll);
-                } else {
-                    mPreloadManager.pausePreload(mCurPos, mIsReverseScroll);
-                }
             }
         });
     }
@@ -159,6 +134,8 @@ public class TikTok2Activity extends BaseActivity<VideoView> {
                 viewHolder.mPlayerContainer.addView(mVideoView, 0);
                 mVideoView.start();
                 mCurPos = position;
+                // 预加载窗口跟随当前下标
+                mPreloadSession.setCurrentIndex(position);
                 break;
             }
         }
@@ -167,13 +144,22 @@ public class TikTok2Activity extends BaseActivity<VideoView> {
     public void addData(View view) {
         mVideoList.addAll(DataUtil.getTiktokDataFromAssets(this));
         mTiktok2Adapter.notifyDataSetChanged();
+        // 数据加载完成后，把 url 列表交给预加载会话（重复调用是幂等的）
+        mPreloadSession.setUrls(toUrls(mVideoList));
+    }
+
+    private List<String> toUrls(List<TiktokBean> beans) {
+        List<String> urls = new ArrayList<>(beans.size());
+        for (TiktokBean bean : beans) {
+            urls.add(bean.videoDownloadUrl);
+        }
+        return urls;
     }
 
     @Override
     protected void onDestroy() {
         super.onDestroy();
-        mPreloadManager.removeAllPreloadTask();
-        //清除缓存，实际使用可以不需要清除，这里为了方便测试
-        ProxyVideoCacheManager.clearAllCache(this);
+        // 预加载会话已随页面生命周期自动释放，无需手动清理
+        // 缓存文件保留，这样再次进入本页时可直接命中，才能验证预加载的实际效果
     }
 }

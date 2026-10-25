@@ -7,13 +7,11 @@ import android.view.ViewGroup;
 import android.widget.FrameLayout;
 import android.widget.ImageView;
 
-import androidx.annotation.NonNull;
 import androidx.recyclerview.widget.RecyclerView;
 
 import com.bumptech.glide.Glide;
 import top.jessi.player.R;
 import top.jessi.player.bean.TiktokBean;
-import top.jessi.videoplayer.cache.preload.PreloadManager;
 import top.jessi.player.widget.component.TikTokView;
 
 import java.util.List;
@@ -45,14 +43,6 @@ public class TikTokAdapter extends RecyclerView.Adapter<TikTokAdapter.VideoHolde
                 .placeholder(android.R.color.white)
                 .into(holder.thumb);
         holder.mPosition = position;
-        PreloadManager.getInstance(holder.itemView.getContext()).addPreloadTask(item.videoDownloadUrl, position);
-    }
-
-    @Override
-    public void onViewDetachedFromWindow(@NonNull VideoHolder holder) {
-        super.onViewDetachedFromWindow(holder);
-        TiktokBean item = videos.get(holder.mPosition);
-        PreloadManager.getInstance(holder.itemView.getContext()).removePreloadTask(item.videoDownloadUrl);
     }
 
     @Override
