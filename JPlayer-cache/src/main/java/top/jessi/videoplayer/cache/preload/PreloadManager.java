@@ -50,9 +50,9 @@ public class PreloadManager {
     private final HttpProxyCacheServer mHttpProxyCacheServer;
 
     /**
-     * 预加载的大小，每个视频预加载 20MB，这个参数可根据实际情况调整
+     * 预加载的大小，每个视频预加载 2MB，这个参数可根据实际情况调整
      */
-    public static final int PRELOAD_LENGTH = 1024 * 1024 * 20;
+    public static final int PRELOAD_LENGTH = 1024 * 1024 * 2;
 
     private PreloadManager(Context context) {
         mHttpProxyCacheServer = ProxyVideoCacheManager.getProxy(context);

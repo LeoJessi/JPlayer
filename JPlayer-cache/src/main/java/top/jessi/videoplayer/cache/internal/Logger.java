@@ -6,7 +6,7 @@ public final class Logger {
 
     private static final String TAG = "VideoCache";
 
-    private static boolean IS_DEBUG = false;
+    private static boolean IS_DEBUG = true;
 
     public static void setDebug(boolean isDebug) {
         IS_DEBUG = isDebug;

@@ -366,6 +366,7 @@ public class HttpProxyCacheServer {
     public static final class Builder {
 
         private static final long DEFAULT_MAX_SIZE = 512 * 1024 * 1024;
+        private static final long DEFAULT_SOURCE_TIMEOUT_MS = 10_000L;
 
         private File cacheRoot;
         private FileNameGenerator fileNameGenerator;
@@ -375,6 +376,7 @@ public class HttpProxyCacheServer {
         private HostnameVerifier hostnameVerifier;
         private TrustManager[] trustAllCerts;
         private SourceFactory sourceFactory;
+        private long sourceTimeoutMs = DEFAULT_SOURCE_TIMEOUT_MS;
 
         public Builder(Context context) {
             this.sourceInfoStorage = SourceInfoStorageFactory.newSourceInfoStorage(context);
@@ -510,6 +512,26 @@ public class HttpProxyCacheServer {
         }
 
         /**
+         * Sets the timeout (in milliseconds) for network connections opened by the default
+         * {@link HttpUrlSourceFactory}.
+         * <p>
+         * Default value is {@value #DEFAULT_SOURCE_TIMEOUT_MS} ms.
+         * <p>
+         * <b>Note:</b> this setting only applies when the default {@link HttpUrlSourceFactory} is used.
+         * If a custom {@link SourceFactory} is set via {@link #sourceFactory(SourceFactory)}, the timeout
+         * must be configured inside that factory.
+         *
+         * @param timeoutMs timeout in milliseconds, {@code <= 0} keeps the current value.
+         * @return a builder.
+         */
+        public Builder sourceTimeoutMs(long timeoutMs) {
+            if (timeoutMs > 0) {
+                this.sourceTimeoutMs = timeoutMs;
+            }
+            return this;
+        }
+
+        /**
          * Builds new instance of {@link HttpProxyCacheServer}.
          *
          * @return proxy cache. Only single instance should be used across whole app.
@@ -521,7 +543,7 @@ public class HttpProxyCacheServer {
 
         private Config buildConfig() {
             SourceFactory sourceFactory = this.sourceFactory != null ? this.sourceFactory
-                    : new HttpUrlSourceFactory(hostnameVerifier, trustAllCerts);
+                    : new HttpUrlSourceFactory(hostnameVerifier, trustAllCerts, sourceTimeoutMs);
             return new Config(cacheRoot, fileNameGenerator, diskUsage, sourceInfoStorage, headerInjector,
                     hostnameVerifier, trustAllCerts, sourceFactory);
         }
