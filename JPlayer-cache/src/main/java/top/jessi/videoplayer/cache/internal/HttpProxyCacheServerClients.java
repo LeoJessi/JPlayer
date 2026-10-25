@@ -42,15 +42,26 @@ public final class HttpProxyCacheServerClients {
     public void processRequest(GetRequest request, Socket socket) throws ProxyCacheException, IOException {
         startProcessRequest();
         try {
-            clientsCount.incrementAndGet();
             proxyCache.processRequest(request, socket);
         } finally {
             finishProcessRequest();
         }
     }
 
+    /**
+     * 建立（或复用）代理缓存，并把客户端计数 +1。
+     * <p><b>计数必须在同步块内自增</b>：{@link #finishProcessRequest()} 也是 synchronized 的，
+     * 计数归零时会把 {@code proxyCache} 置为 {@code null}。若自增留在锁外，
+     * 线程 A 建好 proxyCache 出锁后、尚未自增即被抢占，线程 B 跑完并把 proxyCache 置空，
+     * A 恢复后就会在 {@code proxyCache.processRequest()} 上抛 NPE
+     * （{@code HttpProxyCacheServer#processSocket} 只捕获 SocketException /
+     * ProxyCacheException / IOException，捕获不到 NullPointerException）。
+     * <p>把自增挪进来之后，{@code clientsCount > 0} 与 {@code proxyCache != null}
+     * 成为同一个临界区维护的不变量。
+     */
     private synchronized void startProcessRequest() throws ProxyCacheException {
         proxyCache = proxyCache == null ? newHttpProxyCache() : proxyCache;
+        clientsCount.incrementAndGet();
     }
 
     private synchronized void finishProcessRequest() {

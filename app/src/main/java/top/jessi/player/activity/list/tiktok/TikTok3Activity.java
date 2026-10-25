@@ -20,6 +20,8 @@ import top.jessi.videoplayer.cache.preload.PreloadManager;
 import top.jessi.videoplayer.cache.preload.PreloadSession;
 import top.jessi.player.widget.controller.TikTokController;
 import top.jessi.player.widget.render.TikTokRenderViewFactory;
+import top.jessi.videoplayer.player.BaseVideoView;
+import top.jessi.videoplayer.player.PlayState;
 import top.jessi.videoplayer.player.VideoView;
 import top.jessi.videoplayer.util.L;
 
@@ -75,6 +77,8 @@ public class TikTok3Activity extends BaseActivity<VideoView> {
         initVideoView();
         mPreloadManager = PreloadManager.getInstance(this);
         mPreloadSession = mPreloadManager.createSession(this);
+        // 跨度用引擎默认值（向前 2、向后 5），短视频场景不需要改；
+        // 需要调整时调用 mPreloadManager.setPreloadSpan(backward, forward)
 
         addData(null);
         Intent extras = getIntent();
@@ -101,6 +105,15 @@ public class TikTok3Activity extends BaseActivity<VideoView> {
 
         mController = new TikTokController(this);
         mVideoView.setVideoController(mController);
+
+        // 当前视频开始缓冲时暂停预加载，把带宽让给播放器；缓冲结束自动恢复
+        mVideoView.addOnStateChangeListener(new BaseVideoView.SimpleOnStateChangeListener() {
+            @Override
+            public void onPlayStateChanged(PlayState playState) {
+                mPreloadManager.setPlaybackBuffering(
+                        playState.getState() == BaseVideoView.STATE_BUFFERING);
+            }
+        });
     }
 
     private void initViewPager() {

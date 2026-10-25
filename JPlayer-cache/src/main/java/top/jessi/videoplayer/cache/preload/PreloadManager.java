@@ -1,6 +1,7 @@
 package top.jessi.videoplayer.cache.preload;
 
 import android.content.Context;
+import android.os.SystemClock;
 
 import java.io.File;
 import java.util.ArrayList;
@@ -20,6 +21,7 @@ import java.util.concurrent.ThreadFactory;
 import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.atomic.AtomicLong;
 
 import androidx.lifecycle.Lifecycle;
 import androidx.lifecycle.LifecycleOwner;
@@ -30,7 +32,7 @@ import top.jessi.videoplayer.cache.internal.Logger;
 /**
  * 预加载引擎：持有线程池、任务表与缓存状态，<b>不持有任何页面状态</b>。
  * <p>
- * 页面相关的状态（url 列表、当前下标、预加载窗口）由每页一个的 {@link PreloadSession} 持有，
+ * 页面相关的状态（url 列表、当前下标、预加载跨度）由每页一个的 {@link PreloadSession} 持有，
  * 通过 {@link #createSession(LifecycleOwner)} 创建。引擎只负责调度与执行。
  * <p>
  * 原理：主动请求 {@link HttpProxyCacheServer} 生成的代理地址，触发其缓存机制，缓存到
@@ -50,26 +52,53 @@ public class PreloadManager {
 
     private static volatile PreloadManager sInstance;
 
-    /**
-     * 默认预加载大小：2MB
+    /*
+     * 默认配置一律包级可见，不作为公开 API：外部引用它们只会写出
+     * "把默认值设回默认值"的空操作。DEFAULT_PRELOAD_LENGTH 需要被同包的
+     * PreloadTask 读取，因此无法再收窄为 private。
      */
-    public static final int DEFAULT_PRELOAD_LENGTH = 1024 * 1024 * 2;
 
     /**
-     * 默认窗口大小：当前下标 ± 4
+     * 默认预加载大小：5MB
      */
-    public static final int DEFAULT_WINDOW_SIZE = 4;
+    static final int DEFAULT_PRELOAD_LENGTH = 1024 * 1024 * 5;
 
     /**
-     * 默认执行线程数
+     * 默认向后（未播方向）预加载条数：5。
+     * <p>短视频/短剧流里"下一个"几乎必然会被播放，向后的收益远高于向前。
+     * <p>跨度越小，单次滑动消耗的带宽越少。
      */
-    public static final int DEFAULT_WORKER_COUNT = 3;
+    static final int DEFAULT_PRELOAD_FORWARD = 5;
+
+    /**
+     * 默认向前（已播方向）预加载条数：2。
+     * <p>回滑后往往能命中播放器写下的缓存，但留少量余量可以让回滑起播更快。
+     */
+    static final int DEFAULT_PRELOAD_BACKWARD = 2;
+
+    /**
+     * 默认执行线程数：3。
+     * <p>多一个线程就多一份与播放器抢带宽的力气，按网络条件调整。
+     * <p><b>上界受代理侧限制</b>：{@code HttpProxyCacheServer} 的 socket 线程池固定 8 个线程，
+     * 每路预加载连接会独占一个线程直到读完 {@code mPreloadLength}。因此线程数 + 1（播放器）
+     * 必须小于 8，否则播放器的 socket 会排到预加载队列后面，反而把起播拖卡。
+     */
+    static final int DEFAULT_WORKER_COUNT = 3;
+
+    /**
+     * 执行线程数的硬上界：代理侧 socket 线程池固定 8 个，为播放器留一个。
+     */
+    static final int MAX_WORKER_COUNT = 7;
 
     /**
      * 执行队列容量。超出后丢弃新任务（窗口会重新计算，丢弃是安全的），
      * 避免滚动时任务无限堆积。
+     * <p>预加载跨度最多 {@code DEFAULT_PRELOAD_BACKWARD + DEFAULT_PRELOAD_FORWARD} 条（当前 7 条），
+     * 执行池为 {@code DEFAULT_WORKER_COUNT}（3）个线程，队列 4 刚好装下跨度内剩余的任务。
+     * <p><b>改大跨度或 worker 数时必须同步调整本值</b>，否则超出的任务会被静默丢弃
+     * （表现为"某些集一直预加载不上"，日志里能看到"预加载任务被丢弃"）。
      */
-    private static final int WORK_QUEUE_CAPACITY = 8;
+    private static final int WORK_QUEUE_CAPACITY = 4;
 
     /**
      * 已缓存文件被认为"已就绪"的最小字节数
@@ -102,7 +131,7 @@ public class PreloadManager {
     private final HttpProxyCacheServer mHttpProxyCacheServer;
 
     /**
-     * 调度线程：单线程串行，处理窗口重算与任务提交，避免并发竞态
+     * 调度线程：单线程串行，处理预加载跨度重算与任务提交，避免并发竞态
      */
     private final ExecutorService mScheduler;
 
@@ -142,9 +171,25 @@ public class PreloadManager {
     private final Set<String> mCheckedUrls = newBoundedSet(STATE_CACHE_SIZE);
 
     private volatile int mPreloadLength = DEFAULT_PRELOAD_LENGTH;
-    private volatile int mWindowSize = DEFAULT_WINDOW_SIZE;
+    private volatile int mPreloadBackward = DEFAULT_PRELOAD_BACKWARD;
+    private volatile int mPreloadForward = DEFAULT_PRELOAD_FORWARD;
+
     /**
-     * 默认网络策略（基于 ConnectivityManager），网络变化时触发窗口重算
+     * 执行线程数。volatile：{@link #setWorkerCount(int)} 可能在任意线程调用，
+     * 而构造线程池的线程与读取它的线程不同。
+     */
+    private volatile int mWorkerCount = DEFAULT_WORKER_COUNT;
+
+    /**
+     * 预加载事件回调，可为 {@code null}
+     */
+    private volatile PreloadListener mPreloadListener;
+
+    /** 默认埋点每隔多少次提交打印一行汇总 */
+    private static final int REPORT_INTERVAL = 10;
+
+    /**
+     * 默认网络策略（基于 ConnectivityManager），网络变化时触发预加载跨度重算
      */
     private final ConnectivityNetworkPolicy mDefaultNetworkPolicy;
 
@@ -155,6 +200,22 @@ public class PreloadManager {
      */
     private volatile boolean mShutdown;
 
+    /**
+     * 卡顿暂停的防抖间隔：弱网下缓冲/恢复可能反复交替，只取消一次，
+     * 避免"取消 → 重提交 → 再取消"的抖动把带宽白白耗在重建连接上。
+     */
+    private static final long BUFFERING_DEBOUNCE_MS = 1000L;
+
+    /**
+     * 播放器是否正在缓冲。为 {@code true} 时暂停一切预加载，把带宽让给当前视频。
+     */
+    private volatile boolean mPlaybackBuffering;
+
+    /**
+     * 上一次因卡顿取消任务的时间，用于防抖
+     */
+    private long mLastPauseAt;
+
     private PreloadManager(Context context) {
         mHttpProxyCacheServer = ProxyVideoCacheManager.getProxy(context);
         // 默认策略：任何网络下都允许预加载（包含移动网络），但无网络时不发起请求
@@ -163,8 +224,8 @@ public class PreloadManager {
         mNetworkPolicy = mDefaultNetworkPolicy;
         mScheduler = Executors.newSingleThreadExecutor(r -> new Thread(r, "preload-scheduler"));
         mWorkerPool = new ThreadPoolExecutor(
-                DEFAULT_WORKER_COUNT,
-                DEFAULT_WORKER_COUNT,
+                mWorkerCount,
+                mWorkerCount,
                 0L, TimeUnit.MILLISECONDS,
                 new LinkedBlockingQueue<>(WORK_QUEUE_CAPACITY),
                 new ThreadFactory() {
@@ -182,6 +243,8 @@ public class PreloadManager {
                     }
                     Logger.info("预加载任务被丢弃（执行队列已满）");
                 });
+        // 默认埋点：只打日志，业务方调用 setPreloadListener 后可接管
+        mPreloadListener = new LogPreloadListener();
     }
 
     public static PreloadManager getInstance(Context context) {
@@ -230,31 +293,106 @@ public class PreloadManager {
     // ---------- 配置 ----------
 
     /**
-     * 设置预加载大小（字节），默认 {@link #DEFAULT_PRELOAD_LENGTH}
+     * 设置预加载大小（字节），默认 {@link #DEFAULT_PRELOAD_LENGTH}。
+     * <p>调用后会触发一次跨度重算。注意：<b>只影响之后创建的任务</b>——
+     * 已提交的任务持有创建时的快照，要等它们出窗后重建才会用上新值。
+     * <p>调大时，内存中已有"已预加载"记录的 url 不会重新检查；如需重新对齐，
+     * 调用 {@link #clearPreloadState()}。
      */
     public PreloadManager setPreloadLength(int preloadLength) {
-        if (preloadLength > 0) {
-            mPreloadLength = preloadLength;
-        }
+        if (preloadLength <= 0) return this;
+        if (preloadLength == mPreloadLength) return this;
+        mPreloadLength = preloadLength;
+        scheduleCompute();
         return this;
     }
 
     /**
-     * 设置预加载窗口大小（当前下标 ± N），默认 {@link #DEFAULT_WINDOW_SIZE}
+     * 设置执行线程数，默认 {@link #DEFAULT_WORKER_COUNT}。
+     * <p>调大只能让<b>多个视频同时下载</b>，对单个视频的下载速度没有帮助
+     * ——缓存是连续前缀模型，单视频无法并行下载（见 {@link #MAX_WORKER_COUNT}）。
+     * <p>线程数会被限制在 {@link #MAX_WORKER_COUNT} 以内。超出代理侧 socket 线程池
+     * （固定 8 个）时，播放器的 socket 会排到预加载队列后面，反而把起播拖卡。
+     *
+     * @param workerCount 线程数，{@code <= 0} 时忽略
      */
-    public PreloadManager setWindowSize(int windowSize) {
-        if (windowSize >= 0) {
-            mWindowSize = windowSize;
-            scheduleCompute();
+    public PreloadManager setWorkerCount(int workerCount) {
+        if (workerCount <= 0) return this;
+        workerCount = Math.min(workerCount, MAX_WORKER_COUNT);
+        if (workerCount == mWorkerCount) return this;
+        mWorkerCount = workerCount;
+        // corePoolSize == maximumPoolSize，且 setCorePoolSize 要求 max >= core，
+        // 因此调大必须先改 max，调小必须先改 core
+        if (workerCount > mWorkerPool.getCorePoolSize()) {
+            mWorkerPool.setMaximumPoolSize(workerCount);
+            mWorkerPool.setCorePoolSize(workerCount);
+        } else {
+            mWorkerPool.setCorePoolSize(workerCount);
+            mWorkerPool.setMaximumPoolSize(workerCount);
         }
+        scheduleCompute();
         return this;
     }
 
     /**
-     * 窗口大小，供 {@link PreloadSession} 在调度线程上读取
+     * 执行线程数，默认 {@link #DEFAULT_WORKER_COUNT}，上界 {@link #MAX_WORKER_COUNT}
      */
-    int getWindowSize() {
-        return mWindowSize;
+    public int getWorkerCount() {
+        return mWorkerCount;
+    }
+
+    /**
+     * 设置预加载跨度：以当前下标为中心，向前、向后各预加载几条。
+     * <p>跨度为 {@code [当前下标 - backward, 当前下标 + forward]}，<b>不包含当前项</b>
+     * （当前项由播放器自己缓存）。默认前 2 / 后 5。
+     * <p>改小跨度是省流量最直接的手段：跨度从 前 2 后 5（7 条）收到 前 2 后 2（4 条），
+     * 单次滑动消耗从 35MB 降到 20MB 左右（按默认 5MB/条估算）。
+     * <p>某一边填 {@code 0} 表示该方向不预加载：
+     * <pre><code>
+     * // 只向后预加载 5 条，向前不预加载
+     * manager.setPreloadSpan(0, 5);
+     * </code></pre>
+     *
+     * @param backward 向前（已播方向）预加载条数，{@code 0} 表示不预加载
+     * @param forward  向后（未播方向）预加载条数，{@code 0} 表示不预加载
+     */
+    public PreloadManager setPreloadSpan(int backward, int forward) {
+        if (backward < 0 || forward < 0) return this;
+        if (backward == mPreloadBackward && forward == mPreloadForward) return this;
+        mPreloadBackward = backward;
+        mPreloadForward = forward;
+        scheduleCompute();
+        return this;
+    }
+
+    /**
+     * 预加载大小（字节），默认 {@link #DEFAULT_PRELOAD_LENGTH}
+     */
+    public int getPreloadLength() {
+        return mPreloadLength;
+    }
+
+    /**
+     * 向前（已播方向）预加载条数，默认 {@link #DEFAULT_PRELOAD_BACKWARD}
+     */
+    public int getPreloadBackward() {
+        return mPreloadBackward;
+    }
+
+    /**
+     * 向后（未播方向）预加载条数，默认 {@link #DEFAULT_PRELOAD_FORWARD}
+     */
+    public int getPreloadForward() {
+        return mPreloadForward;
+    }
+
+    /**
+     * 设置预加载事件回调，用于统计命中率。
+     * <p>不设置时引擎自带一份日志实现，可在 logcat 里直接看到命中率。
+     */
+    public PreloadManager setPreloadListener(PreloadListener listener) {
+        mPreloadListener = listener;
+        return this;
     }
 
     /**
@@ -320,24 +458,24 @@ public class PreloadManager {
     }
 
     /**
-     * 在调度线程上重算预加载窗口。
+     * 在调度线程上重算预加载跨度。
      * <p>调度线程已关闭时静默忽略：页面销毁等回调可能晚于 {@link #shutdown()} 到达，
      * 直接 {@code execute} 会抛 {@link RejectedExecutionException}。
      */
     void scheduleCompute() {
         if (mShutdown) return;
         try {
-            mScheduler.execute(this::computeWindows);
+            mScheduler.execute(this::computePreloadSpan);
         } catch (RejectedExecutionException e) {
             // 调度线程已关闭，忽略
         }
     }
 
-    private void computeWindows() {
+    private void computePreloadSpan() {
         // url -&gt; 与当前下标的距离。同一 url 被多个会话命中时取最小距离。
         Map<String, Integer> desired = new HashMap<>();
         for (PreloadSession session : mSessions) {
-            session.collectWindow(desired);
+            session.collectPreloadSpan(desired);
         }
 
         // 取消并移除已出窗的任务
@@ -352,7 +490,8 @@ public class PreloadManager {
             }
         }
 
-        if (!canPreloadNow() || desired.isEmpty()) return;
+        // 当前视频正在缓冲时不提交新任务：带宽要让给播放器
+        if (!canPreloadNow() || mPlaybackBuffering || desired.isEmpty()) return;
 
         // 按"离当前下标的距离"从近到远提交。
         // 执行池只有 DEFAULT_WORKER_COUNT 个线程，队列满时会丢弃队尾任务，
@@ -377,6 +516,10 @@ public class PreloadManager {
             Integer position = mPositions.get(url);
             task.mPosition = position != null ? position : -1;
             mInFlight.add(url);
+            PreloadListener listener = mPreloadListener;
+            if (listener != null) {
+                listener.onPreloadSubmit(url, task.mPosition);
+            }
             task.executeOn(mWorkerPool);
         }
     }
@@ -386,12 +529,20 @@ public class PreloadManager {
         task.mRawUrl = url;
         task.mCacheServer = mHttpProxyCacheServer;
         task.mPreloadLength = mPreloadLength;
-        task.mListener = (u, preloaded) -> {
+        task.mListener = (u, preloaded, bytes, costMs) -> {
+            PreloadListener listener = mPreloadListener;
             if (preloaded) {
                 mPreloadedUrls.add(u);
+                if (listener != null) {
+                    listener.onPreloadDone(u, task.mPosition, bytes, costMs);
+                }
             } else {
                 // 未读满，允许下次重新磁盘检查（缓存可能已被播放器写满）
                 mCheckedUrls.remove(u);
+                // 被取消（滑出窗口 / 卡顿暂停）不算失败，但值得统计浪费了多少字节
+                if (listener != null && task.isCanceled()) {
+                    listener.onPreloadCancel(u, task.mPosition, bytes);
+                }
             }
             // 仅当该任务仍是当前任务时才清理在飞标记。
             // 否则旧任务（已出窗并被替换）的回调会误清新任务的标记，
@@ -405,6 +556,52 @@ public class PreloadManager {
 
     private boolean canPreloadNow() {
         return mNetworkPolicy.canPreload();
+    }
+
+    /**
+     * 通知引擎当前视频是否正在缓冲。
+     * <p>缓冲时暂停一切预加载，把带宽让给当前视频——这是"预加载把当前视频搞卡"
+     * 最直接的解法。可在任意线程调用（内部只做一次 volatile 写 + 投递到调度线程）。
+     * <p>页面侧在播放器的状态回调里调用即可，无需改动播放器：
+     * <pre><code>
+     * videoView.addOnStateChangeListener(new BaseVideoView.SimpleOnStateChangeListener() {
+     *     &#64;Override public void onPlayStateChanged(PlayState playState) {
+     *         preloadManager.setPlaybackBuffering(
+     *                 playState.getState() == BaseVideoView.STATE_BUFFERING);
+     *     }
+     * });
+     * </code></pre>
+     *
+     * @param buffering {@code true} 表示正在缓冲，应暂停预加载
+     */
+    public void setPlaybackBuffering(boolean buffering) {
+        if (mPlaybackBuffering == buffering) return;
+        mPlaybackBuffering = buffering;
+        if (buffering) {
+            long now = SystemClock.elapsedRealtime();
+            if (now - mLastPauseAt >= BUFFERING_DEBOUNCE_MS) {
+                mLastPauseAt = now;
+                // 投递到调度线程执行：cancel() 会调 HttpURLConnection.disconnect()，
+                // 而本方法通常在主线程被调用，不能在那里做可能阻塞的 IO。
+                scheduleCancelAll();
+            }
+        }
+        scheduleCompute();
+    }
+
+    /**
+     * 在调度线程上取消所有任务。
+     * <p>不主动触发窗口重算，因此不会立刻重新开始下载；等下次窗口变化时才会按需重试。
+     * <p>取消后 {@code mPreloadedUrls} 保留，恢复时只会重试未读满的那部分；
+     * 代理的 {@code .download} 临时文件仍在，重试会从断点继续，不会重下。
+     */
+    private void scheduleCancelAll() {
+        if (mShutdown) return;
+        try {
+            mScheduler.execute(this::cancelAllTasks);
+        } catch (RejectedExecutionException e) {
+            // 调度线程已关闭，忽略
+        }
     }
 
     // ---------- 缓存状态 ----------
@@ -526,7 +723,78 @@ public class PreloadManager {
     public String getPlayUrl(String rawUrl) {
         if (rawUrl == null || rawUrl.isEmpty()) return rawUrl;
         cancelTask(rawUrl);
+        reportHitOrMiss(rawUrl);
         return mHttpProxyCacheServer.getProxyUrl(rawUrl);
+    }
+
+    /**
+     * 统计预加载命中情况。<b>只读内存记录，不查盘</b>：本方法在主线程被调用，
+     * 不能在这里做磁盘 IO。
+     * <p>只统计"尝试过预加载"的 url：既没命中也没未命中的（例如被网络策略拦掉、
+     * 在黑名单里）说明压根没预加载，不该计入分母。
+     */
+    private void reportHitOrMiss(String rawUrl) {
+        PreloadListener listener = mPreloadListener;
+        if (listener == null) return;
+        Integer position = mPositions.get(rawUrl);
+        int pos = position != null ? position : -1;
+        if (mPreloadedUrls.contains(rawUrl)) {
+            listener.onPreloadHit(rawUrl, pos);
+        } else if (mCheckedUrls.contains(rawUrl)) {
+            listener.onPreloadMiss(rawUrl, pos);
+        }
+    }
+
+    /**
+     * 默认埋点实现：累计计数并定期打印一行汇总，供调参时对照。
+     * <p>业务方调用 {@link #setPreloadListener(PreloadListener)} 后本实现即被替换。
+     */
+    private static class LogPreloadListener implements PreloadListener {
+
+        private final AtomicInteger mSubmit = new AtomicInteger();
+        private final AtomicInteger mDone = new AtomicInteger();
+        private final AtomicInteger mCancel = new AtomicInteger();
+        private final AtomicLong mCancelBytes = new AtomicLong();
+        private final AtomicInteger mHit = new AtomicInteger();
+        private final AtomicInteger mMiss = new AtomicInteger();
+
+        @Override
+        public void onPreloadSubmit(String url, int position) {
+            report();
+        }
+
+        @Override
+        public void onPreloadDone(String url, int position, long bytes, long costMs) {
+            mDone.incrementAndGet();
+        }
+
+        @Override
+        public void onPreloadCancel(String url, int position, long bytes) {
+            mCancel.incrementAndGet();
+            mCancelBytes.addAndGet(bytes);
+        }
+
+        @Override
+        public void onPreloadHit(String url, int position) {
+            mHit.incrementAndGet();
+        }
+
+        @Override
+        public void onPreloadMiss(String url, int position) {
+            mMiss.incrementAndGet();
+        }
+
+        private void report() {
+            int submit = mSubmit.incrementAndGet();
+            if (submit % REPORT_INTERVAL != 0) return;
+            int hit = mHit.get();
+            int total = hit + mMiss.get();
+            Logger.info("预加载统计：提交 " + submit
+                    + " 完成 " + mDone.get()
+                    + " 取消 " + mCancel.get() + "（浪费 " + (mCancelBytes.get() / 1024) + "KB）"
+                    + " 命中 " + hit + "/" + total
+                    + (total > 0 ? "（" + (hit * 100 / total) + "%）" : ""));
+        }
     }
 
     /**
@@ -543,6 +811,8 @@ public class PreloadManager {
         mSessions.clear();
         mPreloadedUrls.clear();
         mCheckedUrls.clear();
+        // 业务方可能传入持有 Activity 的匿名内部类，不清掉会泄漏
+        mPreloadListener = null;
         mWorkerPool.shutdownNow();
         mScheduler.shutdownNow();
         if (mNetworkPolicy instanceof ConnectivityNetworkPolicy) {

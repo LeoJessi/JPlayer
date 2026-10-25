@@ -1,5 +1,7 @@
 package top.jessi.videoplayer.cache.preload;
 
+import android.os.SystemClock;
+
 import top.jessi.videoplayer.cache.HttpProxyCacheServer;
 import top.jessi.videoplayer.cache.internal.Logger;
 
@@ -15,44 +17,49 @@ import java.util.concurrent.ExecutorService;
  * 缓存到 {@link #mPreloadLength} 的数据之后停止请求，完成预加载
  * 播放器去播放 VideoCache 生成的代理地址的时候，VideoCache 会直接返回缓存数据，
  * 从而提升播放速度。
+ * <p>
+ * <b>包级可见</b>：任务完全由 {@link PreloadManager} 创建与注入，不对外提供。
+ * 外部自行 {@code new PreloadTask()} 只会得到一个无法工作的任务。
  */
-public class PreloadTask implements Runnable {
+class PreloadTask implements Runnable {
 
     /**
-     * 原始地址
+     * 原始地址，由 {@link PreloadManager} 注入
      */
-    public String mRawUrl;
+    String mRawUrl;
 
     /**
-     * 列表中的位置
+     * 列表中的位置，由 {@link PreloadManager} 注入，仅用于日志与埋点
      */
-    public int mPosition;
+    int mPosition;
 
     /**
-     * VideoCache 服务器
+     * VideoCache 服务器，由 {@link PreloadManager} 注入
      */
-    public HttpProxyCacheServer mCacheServer;
+    HttpProxyCacheServer mCacheServer;
 
     /**
      * 需要预加载的字节数，由 {@link PreloadManager} 在创建任务时注入
      */
-    public long mPreloadLength = PreloadManager.DEFAULT_PRELOAD_LENGTH;
+    long mPreloadLength = PreloadManager.DEFAULT_PRELOAD_LENGTH;
 
     /**
      * 预加载结果回调，由 {@link PreloadManager} 注入
      */
-    public OnPreloadListener mListener;
+    OnPreloadListener mListener;
 
     /**
      * 预加载结果回调。
      */
-    public interface OnPreloadListener {
+    interface OnPreloadListener {
 
         /**
          * @param url        原始地址
          * @param preloaded  {@code true} 表示已读满 {@link #mPreloadLength}，缓存已就绪
+         * @param bytes      本次实际读取的字节数
+         * @param costMs     本次耗时（毫秒）
          */
-        void onPreloadFinished(String url, boolean preloaded);
+        void onPreloadFinished(String url, boolean preloaded, long bytes, long costMs);
     }
 
     /**
@@ -61,6 +68,13 @@ public class PreloadTask implements Runnable {
      * 否则取消指令可能长时间不可见，导致任务无法及时停止。
      */
     private volatile boolean mIsCanceled;
+
+    /**
+     * 是否已被取消（供同包的调度方统计用）
+     */
+    boolean isCanceled() {
+        return mIsCanceled;
+    }
 
     /**
      * 当前正在读取的连接。{@link #cancel()} 时调用 {@link HttpURLConnection#disconnect()}
@@ -93,7 +107,7 @@ public class PreloadTask implements Runnable {
      * 该 url 是否在小黑屋里（预加载失败过，且尚未到解封时间）。
      * <p>供调度方在提交前过滤，避免重复提交必然失败的任务。
      */
-    public static boolean isBlackListed(String url) {
+    static boolean isBlackListed(String url) {
         if (url == null) return false;
         synchronized (BLACK_LIST) {
             Long expireAt = BLACK_LIST.get(url);
@@ -118,25 +132,36 @@ public class PreloadTask implements Runnable {
 
     @Override
     public void run() {
+        long startedAt = SystemClock.elapsedRealtime();
+        long bytes = 0;
         boolean preloaded = false;
-        if (!mIsCanceled) {
-            preloaded = start();
-        }
-        if (mListener != null) {
-            mListener.onPreloadFinished(mRawUrl, preloaded);
+        try {
+            if (!mIsCanceled) {
+                bytes = start();
+                preloaded = bytes >= mPreloadLength;
+            }
+        } finally {
+            // 回调必须放在 finally：start() 只 catch 了 Exception，一旦抛 Error
+            // （OOM、NoClassDefFoundError 等），回调仍是清理 mInFlight 的唯一入口。
+            // 跳过它会让该 url 在进程剩余生命周期内永久失去预加载机会，且没有任何日志。
+            if (mListener != null) {
+                mListener.onPreloadFinished(mRawUrl, preloaded, bytes,
+                        SystemClock.elapsedRealtime() - startedAt);
+            }
         }
     }
 
     /**
      * 开始预加载
      *
-     * @return 是否读满了 {@link #mPreloadLength}
+     * @return 本次实际读取的字节数（也是判断是否读满的依据）
      */
-    private boolean start() {
+    private long start() {
         // 如果在小黑屋里不加载
-        if (isBlackListed(mRawUrl)) return false;
+        if (isBlackListed(mRawUrl)) return 0;
         Logger.info("预加载开始：" + mPosition);
         HttpURLConnection connection = null;
+        long read = 0;
         try {
             //获取 HttpProxyCacheServer 的代理地址。
             // 必须传 allowCachedFileUri=false：否则缓存已完整时 getProxyUrl 会返回 file:// uri，
@@ -147,14 +172,14 @@ public class PreloadTask implements Runnable {
             // 2MB 带宽白花还会被误标记为"已预加载"，直接放弃
             if (proxyUrl == null || proxyUrl.equals(mRawUrl)) {
                 Logger.info("预加载跳过（缓存服务未启动）：" + mPosition);
-                return false;
+                return 0;
             }
             URL url = new URL(proxyUrl);
             // 只预加载 http/https 资源，本地或非常规协议无法走 HttpURLConnection
             String protocol = url.getProtocol();
             if (!"http".equals(protocol) && !"https".equals(protocol)) {
                 Logger.info("预加载跳过（不支持的协议 " + protocol + "）：" + mPosition);
-                return false;
+                return 0;
             }
             connection = (HttpURLConnection) url.openConnection();
             // 先设好超时再暴露引用，保证 cancel() 一旦看到 mConnection，超时就绪
@@ -164,23 +189,22 @@ public class PreloadTask implements Runnable {
             // 取消指令可能恰好在 openConnection() 与 mConnection 赋值之间到达，这里补一次检查
             if (mIsCanceled) {
                 connection.disconnect();
-                return false;
+                return 0;
             }
             InputStream in = new BufferedInputStream(connection.getInputStream());
             int length;
-            long read = 0;
-            byte[] bytes = new byte[8 * 1024];
-            while ((length = in.read(bytes)) != -1) {
+            byte[] buffer = new byte[8 * 1024];
+            while ((length = in.read(buffer)) != -1) {
                 read += length;
                 //被取消
                 if (mIsCanceled) {
                     Logger.info("预加载取消：" + mPosition + " 读取数据：" + read + " Byte");
-                    return false;
+                    return read;
                 }
                 //预加载完成
                 if (read >= mPreloadLength) {
                     Logger.info("预加载成功：" + mPosition + " 读取数据：" + read + " Byte");
-                    return true;
+                    return read;
                 }
             }
         } catch (Exception e) {
@@ -201,7 +225,7 @@ public class PreloadTask implements Runnable {
             mConnection = null;
             Logger.info("预加载结束: " + mPosition);
         }
-        return false;
+        return read;
     }
 
     /**
@@ -211,7 +235,7 @@ public class PreloadTask implements Runnable {
      * 保证同一 url 不会被重复提交。这里若再加一层基于任务状态的守卫，
      * 一旦线程池因队列已满而丢弃任务，标记将无法复位，导致该 url 之后永久不再预加载。
      */
-    public void executeOn(ExecutorService executorService) {
+    void executeOn(ExecutorService executorService) {
         mIsCanceled = false;
         executorService.submit(this);
     }
@@ -221,7 +245,7 @@ public class PreloadTask implements Runnable {
      * <p>除了置标志位，还会 {@link HttpURLConnection#disconnect()} 打断阻塞中的 read，
      * 让线程尽快释放，否则要等读超时（5s）才退出。
      */
-    public void cancel() {
+    void cancel() {
         mIsCanceled = true;
         HttpURLConnection connection = mConnection;
         if (connection != null) {
