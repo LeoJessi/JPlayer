@@ -17,8 +17,9 @@ import androidx.lifecycle.LifecycleOwner;
  * 每页一个的预加载会话：持有 url 列表与当前下标，并负责计算预加载跨度。
  * <p>
  * 跨度为 {@code [当前下标 - backward, 当前下标 + forward]}（由
- * {@link PreloadManager#setPreloadSpan(int, int)} 配置，默认前 2 / 后 2），
- * <b>不包含当前项</b>——当前项由播放器自己缓存。
+ * {@link PreloadManager#setPreloadSpan(int, int)} 配置，默认前 2 / 后 2）。
+ * 当前项<b>仅在从未预加载过</b>时纳入：首次进入时播放器无缓存，起播会回源；
+ * 已预加载过的当前项由播放器自己写缓存，不重复预加载。
  * 只有落在跨度内的 url 才会被预加载，滑出跨度的任务会被取消。
  * <p>
  * 连续快速滑动时跨度会临时收缩到"只预加载紧邻的下一条"：快速滑动中途不会停留，
@@ -192,10 +193,15 @@ public class PreloadSession implements DefaultLifecycleObserver {
             if (url == null || url.isEmpty()) continue;
             // 下标只用于日志与埋点，当前项也要记录
             mManager.putPosition(url, i);
-            // 当前项由播放器自己缓存，不重复预加载：
-            // 它与播放器共享同一个 ProxyCache，读的是已缓存数据，
-            // 但会多占一路 socket / 一个代理线程，并在 FileCache 的锁上与播放器竞争。
-            if (i == mCurIndex) continue;
+            // 当前项：仅当从未预加载过才补一次（首次进入时播放器无缓存，起播会回源）。
+            // 已预加载过的当前项由播放器自己写缓存，不重复预加载——避免多占一路 socket、
+            // 并在 FileCache 的锁上与播放器竞争。
+            if (i == mCurIndex) {
+                if (!mManager.isPreloaded(url)) {
+                    out.put(url, 0);
+                }
+                continue;
+            }
             int distance = Math.abs(i - mCurIndex);
             Integer old = out.get(url);
             if (old == null || distance < old) {

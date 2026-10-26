@@ -106,12 +106,15 @@ public class TikTok3Activity extends BaseActivity<VideoView> {
         mController = new TikTokController(this);
         mVideoView.setVideoController(mController);
 
-        // 当前视频开始缓冲时暂停预加载，把带宽让给播放器；缓冲结束自动恢复
+        // 播放器准备/缓冲时暂停预加载，把 XC 的单连接让给播放器；播放中自动恢复。
+        // XC 后台只允许 1 路并发连接，播放器与预加载同时请求会互相排队，拖慢起播。
         mVideoView.addOnStateChangeListener(new BaseVideoView.SimpleOnStateChangeListener() {
             @Override
             public void onPlayStateChanged(PlayState playState) {
-                mPreloadManager.setPlaybackBuffering(
-                        playState.getState() == BaseVideoView.STATE_BUFFERING);
+                int state = playState.getState();
+                boolean occupying = state == BaseVideoView.STATE_PREPARING
+                        || state == BaseVideoView.STATE_BUFFERING;
+                mPreloadManager.setPlaybackBuffering(occupying);
             }
         });
     }

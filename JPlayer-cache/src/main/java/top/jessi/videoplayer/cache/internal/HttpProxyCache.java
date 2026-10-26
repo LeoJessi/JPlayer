@@ -58,6 +58,11 @@ class HttpProxyCache extends ProxyCache {
     }
 
     private boolean isUseCache(GetRequest request) throws ProxyCacheException {
+        // 离散缓存区间（如末尾 moov）已就绪时直接命中，避免走不写缓存的响应路径
+        if (cache.isCached(request.rangeOffset, DEFAULT_BUFFER_SIZE)) {
+            return true;
+        }
+
         long cacheAvailable = cache.available();
         // 优化：如果有足够缓存（1MB+），假定元数据已知，优先使用缓存
         if (cacheAvailable >= 1024 * 1024) {

@@ -30,6 +30,12 @@ class ProxyCache {
     private volatile boolean stopped;
     private volatile int percentsAvailable = -1;
 
+    /**
+     * 最近一次 {@link #read} 请求的偏移，供 {@link #readSource()} 决定续传起点。
+     * <p>{@code -1} 表示无待处理请求。
+     */
+    private volatile long pendingRequestOffset = -1;
+
     public ProxyCache(Source source, Cache cache) {
         this.source = checkNotNull(source);
         this.cache = checkNotNull(cache);
@@ -39,13 +45,15 @@ class ProxyCache {
     public int read(byte[] buffer, long offset, int length) throws ProxyCacheException {
         ProxyCacheUtils.assertBuffer(buffer, offset, length);
 
-        // 优化：如果缓存已经足够本次请求，直接读取，延迟源连接
-        long cacheAvailable = cache.available();
-        boolean cacheHasEnoughData = cacheAvailable >= (offset + length);
+        // 记录本次请求位置：readSource 会优先从这里续传，
+        // 使"末尾 moov"这类离散区间也能被缓存，而不总是从顺序前缀开头重下。
+        pendingRequestOffset = offset;
+
+        boolean cacheHasEnoughData = cache.isCached(offset, length);
 
         if (!cacheHasEnoughData && !cache.isCompleted() && !stopped) {
             // 缓存不够，启动后台线程从源读取
-            while (!cache.isCompleted() && cache.available() < (offset + length) && !stopped) {
+            while (!cache.isCached(offset, length) && !cache.isCompleted() && !stopped) {
                 readSourceAsync();
                 waitForSourceData();
                 checkReadSourceErrorsCount();
@@ -128,6 +136,12 @@ class ProxyCache {
         long offset = 0;
         try {
             offset = cache.available();
+            // 若请求的是更靠后的离散区间（如末尾 moov），从请求位置续传，
+            // 避免把整个文件从顺序前缀重下一遍。
+            long requestOffset = pendingRequestOffset;
+            if (requestOffset > offset) {
+                offset = requestOffset;
+            }
             source.open(offset);
             sourceAvailable = source.length();
             byte[] buffer = new byte[ProxyCacheUtils.DEFAULT_BUFFER_SIZE];
@@ -137,7 +151,7 @@ class ProxyCache {
                     if (isStopped()) {
                         return;
                     }
-                    cache.append(buffer, readBytes);
+                    cache.appendAt(offset, buffer, readBytes);
                 }
                 offset += readBytes;
                 notifyNewCacheDataAvailable(offset, sourceAvailable);

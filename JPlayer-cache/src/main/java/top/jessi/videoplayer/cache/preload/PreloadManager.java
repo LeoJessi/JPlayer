@@ -78,13 +78,15 @@ public class PreloadManager {
     static final int DEFAULT_PRELOAD_BACKWARD = 2;
 
     /**
-     * 默认执行线程数：3。
+     * 默认执行线程数：2。
      * <p>多一个线程就多一份与播放器抢带宽的力气，按网络条件调整。
      * <p><b>上界受代理侧限制</b>：{@code HttpProxyCacheServer} 的 socket 线程池固定 8 个线程，
      * 每路预加载连接会独占一个线程直到读完 {@code mPreloadLength}。因此线程数 + 1（播放器）
      * 必须小于 8，否则播放器的 socket 会排到预加载队列后面，反而把起播拖卡。
+     * <p><b>XC 单连接限制</b>：后台只允许 1 路并发连接，线程数再多也是在排队，
+     * 反而放大尾部请求的等待。实测 3 线程时尾部请求全部超时，故降为 2。
      */
-    static final int DEFAULT_WORKER_COUNT = 3;
+    static final int DEFAULT_WORKER_COUNT = 2;
 
     /**
      * 执行线程数的硬上界：代理侧 socket 线程池固定 8 个，为播放器留一个。
@@ -140,6 +142,13 @@ public class PreloadManager {
      * 执行池：固定线程数 + 有界队列 + 丢弃策略
      */
     private final ThreadPoolExecutor mWorkerPool;
+
+    /**
+     * 尾部（moov）预加载执行器：单线程串行，优先级最低。
+     * <p>尾部请求只在头部就绪后发一次，且 XC 只允许 1 路并发连接——若多个尾部请求
+     * 并发，会互相抢连接导致全部超时（实测均为 5s 整）。串行后每个尾部请求都能独占连接。
+     */
+    private final ExecutorService mTailExecutor;
 
     /**
      * 所有页面会话
@@ -213,6 +222,11 @@ public class PreloadManager {
     private PreloadManager(Context context) {
         mHttpProxyCacheServer = HttpProxyCacheServer.getInstance(context);
         mScheduler = Executors.newSingleThreadExecutor(r -> new Thread(r, "preload-scheduler"));
+        mTailExecutor = Executors.newSingleThreadExecutor(r -> {
+            Thread t = new Thread(r, "preload-tail");
+            t.setPriority(Thread.MIN_PRIORITY);
+            return t;
+        });
         mWorkerPool = new ThreadPoolExecutor(
                 mWorkerCount,
                 mWorkerCount,
@@ -490,6 +504,7 @@ public class PreloadManager {
         task.mRawUrl = url;
         task.mCacheServer = mHttpProxyCacheServer;
         task.mPreloadLength = mPreloadLength;
+        task.mTailExecutor = mTailExecutor;
         task.mListener = (u, preloaded, bytes, costMs) -> {
             PreloadListener listener = mPreloadListener;
             if (preloaded) {
@@ -780,5 +795,6 @@ public class PreloadManager {
         mPreloadListener = null;
         mWorkerPool.shutdownNow();
         mScheduler.shutdownNow();
+        mTailExecutor.shutdownNow();
     }
 }
