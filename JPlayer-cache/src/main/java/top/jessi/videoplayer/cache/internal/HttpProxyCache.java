@@ -13,7 +13,9 @@ import java.util.Locale;
 
 import static top.jessi.videoplayer.cache.internal.ProxyCacheUtils.DEFAULT_BUFFER_SIZE;
 import top.jessi.videoplayer.cache.source.Source;
+import top.jessi.videoplayer.cache.source.HttpUrlSource;
 import top.jessi.videoplayer.cache.source.SourceFactory;
+import top.jessi.videoplayer.cache.sourcestorage.SourceInfo;
 import top.jessi.videoplayer.cache.CacheListener;
 import top.jessi.videoplayer.cache.ProxyCacheException;
 
@@ -56,17 +58,40 @@ class HttpProxyCache extends ProxyCache {
     }
 
     private boolean isUseCache(GetRequest request) throws ProxyCacheException {
+        long cacheAvailable = cache.available();
+        // 优化：如果有足够缓存（1MB+），假定元数据已知，优先使用缓存
+        if (cacheAvailable >= 1024 * 1024) {
+            return true;
+        }
+
         long sourceLength = source.length();
         boolean sourceLengthKnown = sourceLength > 0;
-        long cacheAvailable = cache.available();
         // do not use cache for partial requests which too far from available cache. It seems user seek video.
         return !sourceLengthKnown || !request.partial || request.rangeOffset <= cacheAvailable + sourceLength * NO_CACHE_BARRIER;
     }
 
     private String newResponseHeaders(GetRequest request) throws IOException, ProxyCacheException {
+        long cacheAvailable = cache.available();
+        boolean cacheCompleted = cache.isCompleted();
+
+        // 优化：如果缓存足够（完整或 ≥ 1MB），优先使用数据库元数据，避免调用 source 方法
+        if ((cacheCompleted || cacheAvailable >= 1024 * 1024) && source instanceof HttpUrlSource) {
+            SourceInfo info = ((HttpUrlSource) source).getSourceInfoDirect();
+            if (info != null && info.length > 0) {
+                // 数据库有完整元数据，直接使用，完全不调用 source.getMime() 或 source.length()
+                long length = cacheCompleted ? cacheAvailable : info.length;
+                return buildResponseHeaders(request, info.mime, length);
+            }
+        }
+
+        // 正常流程：调用 source 获取元数据（可能触发连接）
         String mime = source.getMime();
+        long length = cacheCompleted ? cacheAvailable : source.length();
+        return buildResponseHeaders(request, mime, length);
+    }
+
+    private String buildResponseHeaders(GetRequest request, String mime, long length) {
         boolean mimeKnown = !TextUtils.isEmpty(mime);
-        long length = cache.isCompleted() ? cache.available() : source.length();
         boolean lengthKnown = length >= 0;
         long contentLength = request.partial ? length - request.rangeOffset : length;
         boolean addRange = lengthKnown && request.partial;

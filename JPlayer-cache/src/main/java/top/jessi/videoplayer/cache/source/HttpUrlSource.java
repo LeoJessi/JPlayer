@@ -106,6 +106,14 @@ public class HttpUrlSource implements Source {
         return sourceInfo.length;
     }
 
+    /**
+     * 直接获取 sourceInfo，不触发网络请求。
+     * 用于缓存优化：当有足够缓存时，直接用数据库元数据，避免连源站。
+     */
+    public SourceInfo getSourceInfoDirect() {
+        return sourceInfo;
+    }
+
     @Override
     public void open(long offset) throws ProxyCacheException {
         try {

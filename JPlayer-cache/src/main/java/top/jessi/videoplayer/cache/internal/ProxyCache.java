@@ -39,11 +39,19 @@ class ProxyCache {
     public int read(byte[] buffer, long offset, int length) throws ProxyCacheException {
         ProxyCacheUtils.assertBuffer(buffer, offset, length);
 
-        while (!cache.isCompleted() && cache.available() < (offset + length) && !stopped) {
-            readSourceAsync();
-            waitForSourceData();
-            checkReadSourceErrorsCount();
+        // 优化：如果缓存已经足够本次请求，直接读取，延迟源连接
+        long cacheAvailable = cache.available();
+        boolean cacheHasEnoughData = cacheAvailable >= (offset + length);
+
+        if (!cacheHasEnoughData && !cache.isCompleted() && !stopped) {
+            // 缓存不够，启动后台线程从源读取
+            while (!cache.isCompleted() && cache.available() < (offset + length) && !stopped) {
+                readSourceAsync();
+                waitForSourceData();
+                checkReadSourceErrorsCount();
+            }
         }
+
         int read = cache.read(buffer, offset, length);
         if (cache.isCompleted() && percentsAvailable != 100) {
             percentsAvailable = 100;

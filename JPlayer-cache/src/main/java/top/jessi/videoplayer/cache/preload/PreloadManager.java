@@ -59,9 +59,10 @@ public class PreloadManager {
      */
 
     /**
-     * 默认预加载大小：5MB
+     * 默认预加载大小：1MB
+     * <p>1MB 足够播放器获取元数据和首帧，配合元数据缓存优化可实现秒播。
      */
-    static final int DEFAULT_PRELOAD_LENGTH = 1024 * 1024 * 5;
+    static final int DEFAULT_PRELOAD_LENGTH = 1024 * 1024;
 
     /**
      * 默认向后（未播方向）预加载条数：5。

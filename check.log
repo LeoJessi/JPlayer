@@ -1,0 +1,347 @@
+2026-10-26 20:23:31.974 11574-11574 MediaPlayer             com.rio.tv.mobile                    I  [HSM] stayAwake false uid: 10411, pid: 11574
+2026-10-26 20:23:31.975 11574-11574 MediaPlayerNative       com.rio.tv.mobile                    D  Action:stop, CurrentState:MEDIA_PLAYER_STOPPED
+2026-10-26 20:23:31.975 11574-12746 MediaPlayerNative       com.rio.tv.mobile                    D  Message: Unknown MediaEventType(8), ext1=0, ext2=0x0
+2026-10-26 20:23:31.975 11574-11574 PlayerBase              com.rio.tv.mobile                    V  baseStop() piid=3359
+2026-10-26 20:23:32.007 11574-12941 PlayerBase              com.rio.tv.mobile                    V  baseRelease() piid=3359 state=4
+2026-10-26 20:23:32.008 11574-12941 MediaPlayer             com.rio.tv.mobile                    I  [HSM] stayAwake false uid: 10411, pid: 11574
+2026-10-26 20:23:32.008 11574-12941 MediaPlayer             com.rio.tv.mobile                    V  resetDrmState:  mDrmInfo=null mDrmProvisioningThread=null mPrepareDrmInProgress=false mActiveDrmScheme=false
+2026-10-26 20:23:32.008 11574-12941 MediaPlayer             com.rio.tv.mobile                    V  cleanDrmObj: mDrmObj=null mDrmSessionId=null
+2026-10-26 20:23:32.009 11574-11574 AudioManager            com.rio.tv.mobile                    I  abandonAudioFocus listener
+2026-10-26 20:23:32.010 11574-11574 TikTokView              com.rio.tv.mobile                    E  onPlayStateChanged: PlayState{state=0, message='null', throwable=null}
+2026-10-26 20:23:32.010 11574-11574 TikTokView              com.rio.tv.mobile                    E  onPlayStateChanged: PlayState{state=0, message='null', throwable=null}
+2026-10-26 20:23:32.011 11574-11574 RmeSchedManager         com.rio.tv.mobile                    I  SetMarginData, input:3, animation:4, traversal:4, util:600, frameRate:60
+2026-10-26 20:23:32.012 11574-11574 DecorView[...yActivity] com.rio.tv.mobile                    I  pkgName:com.rio.tv.mobile old windowMode:1 new windoMode:1, isFixedSize:false
+2026-10-26 20:23:32.017 11574-11574 HwViewRootImpl          com.rio.tv.mobile                    I  removeInvalidNode all the node in jank list is out of time
+2026-10-26 20:23:32.017 11574-11574 MediaPlayer             com.rio.tv.mobile                    W  mediaplayer went away with unhandled events
+2026-10-26 20:23:32.018 11574-11574 chatty                  com.rio.tv.mobile                    I  uid=10411(com.rio.tv.mobile) identical 2 lines
+2026-10-26 20:23:32.018 11574-11574 MediaPlayer             com.rio.tv.mobile                    W  mediaplayer went away with unhandled events
+2026-10-26 20:23:32.019 11574-12651 VideoCache              com.rio.tv.mobile                    D  Open connection  to http://127.0.0.1:44453/ping
+2026-10-26 20:23:32.024 11574-12600 VideoCache              com.rio.tv.mobile                    D  Accept new socket Socket[address=/127.0.0.1,port=39602,localPort=44453]
+2026-10-26 20:23:32.026 11574-12673 VideoCache              com.rio.tv.mobile                    D  Request to cache proxy:GetRequest{rangeOffset=0, partial=false, uri='ping'}
+2026-10-26 20:23:32.027 11574-12673 VideoCache              com.rio.tv.mobile                    D  Opened connections: 1
+2026-10-26 20:23:32.027 11574-12651 VideoCache              com.rio.tv.mobile                    I  Ping response: `ping ok`, pinged? true
+2026-10-26 20:23:32.028 11574-11574 riotv                   com.rio.tv.mobile                    I  <===============  ShortPlayActivity.kt --- Line: 479 --- Method: startPlay$lambda$24$lambda$23  ===============>
+                                                                                                    短剧开始播放 --- http://127.0.0.1:44453/http%3A%2F%2Fxc.my-one.xyz%3A8880%2Fseries%2FMALAI2026101015%2FRdP3FETNRij6WJ5%2F159662.mp4
+2026-10-26 20:23:32.029 11574-12941 MediaPlayerNative       com.rio.tv.mobile                    I  Pid:11574 MediaPlayer destructor MediaPlayer(0x704ee17bc0)
+2026-10-26 20:23:32.031 11574-11574 MediaPlayer             com.rio.tv.mobile                    W  Use of stream types is deprecated for operations other than volume control
+2026-10-26 20:23:32.031 11574-11574 MediaPlayer             com.rio.tv.mobile                    W  See the documentation for what to use instead with android.media.AudioAttributes to qualify your playback use case
+2026-10-26 20:23:32.032 11574-11574 MediaPlayer             com.rio.tv.mobile                    W  Couldn't open uri in attemptDataSource
+2026-10-26 20:23:32.032 11574-11574 MediaHTTPService        com.rio.tv.mobile                    V  MediaHTTPService(android.media.MediaHTTPService@915f42): Cookies: null
+2026-10-26 20:23:32.036 11574-11574 TikTokView              com.rio.tv.mobile                    E  onPlayStateChanged: PlayState{state=1, message='null', throwable=null}
+2026-10-26 20:23:32.036 11574-11574 chatty                  com.rio.tv.mobile                    I  uid=10411(com.rio.tv.mobile) identical 2 lines
+2026-10-26 20:23:32.036 11574-11574 TikTokView              com.rio.tv.mobile                    E  onPlayStateChanged: PlayState{state=1, message='null', throwable=null}
+2026-10-26 20:23:32.036 11574-12375 MediaHTTPService        com.rio.tv.mobile                    V  makeHTTPConnection: CookieHandler (java.net.CookieManager@171f1d4) exists.
+2026-10-26 20:23:32.036 11574-12375 MediaHTTPService        com.rio.tv.mobile                    V  makeHTTPConnection(android.media.MediaHTTPService@915f42): cookieHandler: java.net.CookieManager@171f1d4 Cookies: null
+2026-10-26 20:23:32.040 11574-12600 VideoCache              com.rio.tv.mobile                    D  Accept new socket Socket[address=/127.0.0.1,port=39616,localPort=44453]
+2026-10-26 20:23:32.043 11574-12654 VideoCache              com.rio.tv.mobile                    D  Request to cache proxy:GetRequest{rangeOffset=0, partial=false, uri='http%3A%2F%2Fxc.my-one.xyz%3A8880%2Fseries%2FMALAI2026101015%2FRdP3FETNRij6WJ5%2F159662.mp4'}
+2026-10-26 20:23:32.046 11574-12946 VideoCache              com.rio.tv.mobile                    D  Open connection  to http://xc.my-one.xyz:8880/series/MALAI2026101015/RdP3FETNRij6WJ5/159662.mp4
+2026-10-26 20:23:32.090 11574-11992 RmeSchedManager         com.rio.tv.mobile                    I  SetMarginData, input:3, animation:4, traversal:4, util:600, frameRate:60
+2026-10-26 20:23:32.157 11574-11992 RmeSchedManager         com.rio.tv.mobile                    I  SetMarginData, input:3, animation:4, traversal:4, util:600, frameRate:60
+2026-10-26 20:23:32.224 11574-11992 RmeSchedManager         com.rio.tv.mobile                    I  SetMarginData, input:3, animation:4, traversal:4, util:600, frameRate:60
+2026-10-26 20:23:32.290 11574-11992 RmeSchedManager         com.rio.tv.mobile                    I  SetMarginData, input:3, animation:4, traversal:4, util:600, frameRate:60
+2026-10-26 20:23:32.353 11574-11992 RmeSchedManager         com.rio.tv.mobile                    I  SetMarginData, input:3, animation:4, traversal:4, util:600, frameRate:60
+2026-10-26 20:23:32.372 11574-12678 VideoCache              com.rio.tv.mobile                    D  Shutdown proxy for HttpUrlSource{sourceInfo='SourceInfo{url='http://xc.my-one.xyz:8880/series/MALAI2026101015/RdP3FETNRij6WJ5/159651.mp4', length=9286133, mime='video/mp4'}}
+2026-10-26 20:23:32.372 11574-12678 VideoCache              com.rio.tv.mobile                    D  Closing socket… Socket is closed by client.
+2026-10-26 20:23:32.373 11574-12678 VideoCache              com.rio.tv.mobile                    E  HttpProxyCacheServer error
+2026-10-26 20:23:32.373 11574-12678 VideoCache              com.rio.tv.mobile                    W  Failed to close socket on proxy side: {}. It seems client have already closed connection.
+2026-10-26 20:23:32.373 11574-12678 VideoCache              com.rio.tv.mobile                    D  Opened connections: 1
+2026-10-26 20:23:33.787 11574-12600 VideoCache              com.rio.tv.mobile                    D  Accept new socket Socket[address=/127.0.0.1,port=39626,localPort=44453]
+2026-10-26 20:23:33.790 11574-12659 VideoCache              com.rio.tv.mobile                    D  Request to cache proxy:GetRequest{rangeOffset=13002759, partial=true, uri='http%3A%2F%2Fxc.my-one.xyz%3A8880%2Fseries%2FMALAI2026101015%2FRdP3FETNRij6WJ5%2F159662.mp4'}
+2026-10-26 20:23:33.792 11574-12659 VideoCache              com.rio.tv.mobile                    D  Open connection  with offset 13002759 to http://xc.my-one.xyz:8880/series/MALAI2026101015/RdP3FETNRij6WJ5/159662.mp4
+2026-10-26 20:23:33.855 11574-12654 VideoCache              com.rio.tv.mobile                    D  Closing socket… Socket is closed by client.
+2026-10-26 20:23:33.856 11574-12654 VideoCache              com.rio.tv.mobile                    E  HttpProxyCacheServer error
+2026-10-26 20:23:33.856 11574-12654 VideoCache              com.rio.tv.mobile                    W  Failed to close socket on proxy side: {}. It seems client have already closed connection.
+2026-10-26 20:23:33.857 11574-12654 VideoCache              com.rio.tv.mobile                    D  Opened connections: 1
+2026-10-26 20:23:35.044 11574-11574 RmeSchedManager         com.rio.tv.mobile                    I  SetMarginData, input:3, animation:4, traversal:4, util:600, frameRate:60
+2026-10-26 20:23:35.847 11574-12659 VideoCache              com.rio.tv.mobile                    D  Shutdown proxy for HttpUrlSource{sourceInfo='SourceInfo{url='http://xc.my-one.xyz:8880/series/MALAI2026101015/RdP3FETNRij6WJ5/159662.mp4', length=13360058, mime='video/mp4'}}
+2026-10-26 20:23:35.850 11574-12659 VideoCache              com.rio.tv.mobile                    D  Opened connections: 0
+2026-10-26 20:23:35.858 11574-12747 MediaPlayerNative       com.rio.tv.mobile                    D  Message: MEDIA_SET_VIDEO_SIZE(5), ext1=1920, ext2=1080
+2026-10-26 20:23:35.914 11574-11574 RmeSchedManager         com.rio.tv.mobile                    I  SetMarginData, input:3, animation:4, traversal:4, util:600, frameRate:60
+2026-10-26 20:23:35.954 11574-12600 VideoCache              com.rio.tv.mobile                    D  Accept new socket Socket[address=/127.0.0.1,port=39642,localPort=44453]
+2026-10-26 20:23:35.955 11574-12663 VideoCache              com.rio.tv.mobile                    D  Request to cache proxy:GetRequest{rangeOffset=0, partial=false, uri='http%3A%2F%2Fxc.my-one.xyz%3A8880%2Fseries%2FMALAI2026101015%2FRdP3FETNRij6WJ5%2F159662.mp4'}
+2026-10-26 20:23:35.980 11574-11574 RmeSchedManager         com.rio.tv.mobile                    I  SetMarginData, input:3, animation:4, traversal:4, util:600, frameRate:60
+2026-10-26 20:23:35.981 11574-12950 VideoCache              com.rio.tv.mobile                    D  Open connection  with offset 2065926 to http://xc.my-one.xyz:8880/series/MALAI2026101015/RdP3FETNRij6WJ5/159662.mp4
+2026-10-26 20:23:36.003 11574-12375 MediaPlayerNative       com.rio.tv.mobile                    D  Message: MEDIA_PREPARED(1), ext1=0, ext2=0x0
+2026-10-26 20:23:36.003 11574-11574 MediaPlayer             com.rio.tv.mobile                    I  SetSubtitleAnchorThread start
+2026-10-26 20:23:36.004 11574-12951 MediaPlayer             com.rio.tv.mobile                    I  getSubtitleLooper
+2026-10-26 20:23:36.004 11574-12951 MediaPlayer             com.rio.tv.mobile                    I  SetSubtitleAnchorThread quit begins
+2026-10-26 20:23:36.004 11574-12951 MediaPlayer             com.rio.tv.mobile                    I  SetSubtitleAnchorThread quit ends
+2026-10-26 20:23:36.004 11574-11574 MediaPlayer             com.rio.tv.mobile                    I  setSubtitleAnchor end
+2026-10-26 20:23:36.006 11574-11574 TikTokView              com.rio.tv.mobile                    E  onPlayStateChanged: PlayState{state=2, message='null', throwable=null}
+2026-10-26 20:23:36.006 11574-11574 chatty                  com.rio.tv.mobile                    I  uid=10411(com.rio.tv.mobile) identical 2 lines
+2026-10-26 20:23:36.007 11574-11574 TikTokView              com.rio.tv.mobile                    E  onPlayStateChanged: PlayState{state=2, message='null', throwable=null}
+2026-10-26 20:23:36.007 11574-11574 AudioManager            com.rio.tv.mobile                    I  requestAudioFocus streamType: 3 durationHint: 1
+2026-10-26 20:23:36.007 11574-11574 AudioManager            com.rio.tv.mobile                    W  Use of stream types is deprecated for operations other than volume control
+2026-10-26 20:23:36.007 11574-11574 AudioManager            com.rio.tv.mobile                    W  See the documentation for what to use instead with android.media.AudioAttributes to qualify your playback use case
+2026-10-26 20:23:36.010 11574-11574 PlayerBase              com.rio.tv.mobile                    D  baseStart() piid=3367
+2026-10-26 20:23:36.011 11574-11574 MediaPlayer             com.rio.tv.mobile                    I  [HSM] stayAwake true uid: 10411, pid: 11574
+2026-10-26 20:23:36.012 11574-11574 MediaPlayerNative       com.rio.tv.mobile                    W  Action:start, CurrentState:MEDIA_PLAYER_STARTED
+2026-10-26 20:23:36.045 11574-11574 RmeSchedManager         com.rio.tv.mobile                    I  SetMarginData, input:3, animation:4, traversal:4, util:600, frameRate:60
+2026-10-26 20:23:36.060 11574-12375 MediaPlayerNative       com.rio.tv.mobile                    D  Message: Unknown MediaEventType(6), ext1=0, ext2=0x0
+2026-10-26 20:23:36.098 11574-12375 MediaPlayerNative       com.rio.tv.mobile                    D  Message: MEDIA_SET_VIDEO_SIZE(5), ext1=1920, ext2=1080
+2026-10-26 20:23:36.099 11574-12375 MediaPlayerNative       com.rio.tv.mobile                    W  info/warning (3, 0)
+2026-10-26 20:23:36.099 11574-11574 TikTokView              com.rio.tv.mobile                    E  onPlayStateChanged: PlayState{state=3, message='null', throwable=null}
+2026-10-26 20:23:36.100 11574-11574 chatty                  com.rio.tv.mobile                    I  uid=10411(com.rio.tv.mobile) identical 2 lines
+2026-10-26 20:23:36.100 11574-11574 TikTokView              com.rio.tv.mobile                    E  onPlayStateChanged: PlayState{state=3, message='null', throwable=null}
+2026-10-26 20:23:36.100 11574-11574 TikTokView              com.rio.tv.mobile                    E  onPlayStateChanged: PlayState{state=7, message='null', throwable=null}
+2026-10-26 20:23:36.100 11574-11574 chatty                  com.rio.tv.mobile                    I  uid=10411(com.rio.tv.mobile) identical 2 lines
+2026-10-26 20:23:36.100 11574-11574 TikTokView              com.rio.tv.mobile                    E  onPlayStateChanged: PlayState{state=7, message='null', throwable=null}
+2026-10-26 20:23:36.111 11574-11574 RmeSchedManager         com.rio.tv.mobile                    I  SetMarginData, input:3, animation:4, traversal:4, util:600, frameRate:60
+2026-10-26 20:23:36.113 11574-11574 DecorView[...yActivity] com.rio.tv.mobile                    I  pkgName:com.rio.tv.mobile old windowMode:1 new windoMode:1, isFixedSize:false
+2026-10-26 20:23:36.248 11574-11992 RmeSchedManager         com.rio.tv.mobile                    I  SetMarginData, input:3, animation:4, traversal:4, util:600, frameRate:60
+2026-10-26 20:23:36.381 11574-11992 RmeSchedManager         com.rio.tv.mobile                    I  SetMarginData, input:3, animation:4, traversal:4, util:600, frameRate:60
+2026-10-26 20:23:36.514 11574-11992 RmeSchedManager         com.rio.tv.mobile                    I  SetMarginData, input:3, animation:4, traversal:4, util:600, frameRate:60
+2026-10-26 20:23:36.642 11574-11992 RmeSchedManager         com.rio.tv.mobile                    I  SetMarginData, input:3, animation:4, traversal:4, util:600, frameRate:60
+2026-10-26 20:23:36.776 11574-11992 RmeSchedManager         com.rio.tv.mobile                    I  SetMarginData, input:3, animation:4, traversal:4, util:600, frameRate:60
+2026-10-26 20:23:36.922 11574-11992 RmeSchedManager         com.rio.tv.mobile                    I  SetMarginData, input:3, animation:4, traversal:4, util:600, frameRate:60
+2026-10-26 20:23:40.078 11574-11992 RmeSchedManager         com.rio.tv.mobile                    I  SetMarginData, input:3, animation:4, traversal:4, util:600, frameRate:60
+2026-10-26 20:23:40.101 11574-11574 MediaPlayer             com.rio.tv.mobile                    I  [HSM] stayAwake false uid: 10411, pid: 11574
+2026-10-26 20:23:40.102 11574-11574 MediaPlayerNative       com.rio.tv.mobile                    D  Action:stop, CurrentState:MEDIA_PLAYER_STOPPED
+2026-10-26 20:23:40.102 11574-11574 PlayerBase              com.rio.tv.mobile                    V  baseStop() piid=3367
+2026-10-26 20:23:40.103 11574-12375 MediaPlayerNative       com.rio.tv.mobile                    D  Message: Unknown MediaEventType(8), ext1=0, ext2=0x0
+2026-10-26 20:23:40.139 11574-12967 PlayerBase              com.rio.tv.mobile                    V  baseRelease() piid=3367 state=4
+2026-10-26 20:23:40.140 11574-12967 MediaPlayer             com.rio.tv.mobile                    I  [HSM] stayAwake false uid: 10411, pid: 11574
+2026-10-26 20:23:40.141 11574-12967 MediaPlayer             com.rio.tv.mobile                    V  resetDrmState:  mDrmInfo=null mDrmProvisioningThread=null mPrepareDrmInProgress=false mActiveDrmScheme=false
+2026-10-26 20:23:40.141 11574-12967 MediaPlayer             com.rio.tv.mobile                    V  cleanDrmObj: mDrmObj=null mDrmSessionId=null
+2026-10-26 20:23:40.143 11574-11574 AudioManager            com.rio.tv.mobile                    I  abandonAudioFocus listener
+2026-10-26 20:23:40.144 11574-11574 TikTokView              com.rio.tv.mobile                    E  onPlayStateChanged: PlayState{state=0, message='null', throwable=null}
+2026-10-26 20:23:40.144 11574-11574 chatty                  com.rio.tv.mobile                    I  uid=10411(com.rio.tv.mobile) identical 2 lines
+2026-10-26 20:23:40.144 11574-11574 TikTokView              com.rio.tv.mobile                    E  onPlayStateChanged: PlayState{state=0, message='null', throwable=null}
+2026-10-26 20:23:40.146 11574-11574 DecorView[...yActivity] com.rio.tv.mobile                    I  pkgName:com.rio.tv.mobile old windowMode:1 new windoMode:1, isFixedSize:false
+2026-10-26 20:23:40.151 11574-11574 HwViewRootImpl          com.rio.tv.mobile                    I  removeInvalidNode all the node in jank list is out of time
+2026-10-26 20:23:40.152 11574-11574 MediaPlayer             com.rio.tv.mobile                    W  mediaplayer went away with unhandled events
+2026-10-26 20:23:40.152 11574-11574 chatty                  com.rio.tv.mobile                    I  uid=10411(com.rio.tv.mobile) identical 3 lines
+2026-10-26 20:23:40.152 11574-11574 MediaPlayer             com.rio.tv.mobile                    W  mediaplayer went away with unhandled events
+2026-10-26 20:23:40.153 11574-12651 VideoCache              com.rio.tv.mobile                    D  Open connection  to http://127.0.0.1:44453/ping
+2026-10-26 20:23:40.156 11574-12600 VideoCache              com.rio.tv.mobile                    D  Accept new socket Socket[address=/127.0.0.1,port=33442,localPort=44453]
+2026-10-26 20:23:40.157 11574-12657 VideoCache              com.rio.tv.mobile                    D  Request to cache proxy:GetRequest{rangeOffset=0, partial=false, uri='ping'}
+2026-10-26 20:23:40.158 11574-12657 VideoCache              com.rio.tv.mobile                    D  Opened connections: 1
+2026-10-26 20:23:40.158 11574-12651 VideoCache              com.rio.tv.mobile                    I  Ping response: `ping ok`, pinged? true
+2026-10-26 20:23:40.159 11574-12967 MediaPlayerNative       com.rio.tv.mobile                    I  Pid:11574 MediaPlayer destructor MediaPlayer(0x7013903140)
+2026-10-26 20:23:40.160 11574-11574 riotv                   com.rio.tv.mobile                    I  <===============  ShortPlayActivity.kt --- Line: 479 --- Method: startPlay$lambda$24$lambda$23  ===============>
+                                                                                                    短剧开始播放 --- http://127.0.0.1:44453/http%3A%2F%2Fxc.my-one.xyz%3A8880%2Fseries%2FMALAI2026101015%2FRdP3FETNRij6WJ5%2F159651.mp4
+2026-10-26 20:23:40.162 11574-11574 MediaPlayer             com.rio.tv.mobile                    W  Use of stream types is deprecated for operations other than volume control
+2026-10-26 20:23:40.162 11574-11574 MediaPlayer             com.rio.tv.mobile                    W  See the documentation for what to use instead with android.media.AudioAttributes to qualify your playback use case
+2026-10-26 20:23:40.163 11574-11574 MediaPlayer             com.rio.tv.mobile                    W  Couldn't open uri in attemptDataSource
+2026-10-26 20:23:40.163 11574-11574 MediaHTTPService        com.rio.tv.mobile                    V  MediaHTTPService(android.media.MediaHTTPService@554ad87): Cookies: null
+2026-10-26 20:23:40.167 11574-11574 TikTokView              com.rio.tv.mobile                    E  onPlayStateChanged: PlayState{state=1, message='null', throwable=null}
+2026-10-26 20:23:40.167 11574-11574 chatty                  com.rio.tv.mobile                    I  uid=10411(com.rio.tv.mobile) identical 2 lines
+2026-10-26 20:23:40.167 11574-11574 TikTokView              com.rio.tv.mobile                    E  onPlayStateChanged: PlayState{state=1, message='null', throwable=null}
+2026-10-26 20:23:40.167 11574-12375 MediaHTTPService        com.rio.tv.mobile                    V  makeHTTPConnection: CookieHandler (java.net.CookieManager@171f1d4) exists.
+2026-10-26 20:23:40.167 11574-12375 MediaHTTPService        com.rio.tv.mobile                    V  makeHTTPConnection(android.media.MediaHTTPService@554ad87): cookieHandler: java.net.CookieManager@171f1d4 Cookies: null
+2026-10-26 20:23:40.170 11574-12600 VideoCache              com.rio.tv.mobile                    D  Accept new socket Socket[address=/127.0.0.1,port=33444,localPort=44453]
+2026-10-26 20:23:40.171 11574-12660 VideoCache              com.rio.tv.mobile                    D  Request to cache proxy:GetRequest{rangeOffset=0, partial=false, uri='http%3A%2F%2Fxc.my-one.xyz%3A8880%2Fseries%2FMALAI2026101015%2FRdP3FETNRij6WJ5%2F159651.mp4'}
+2026-10-26 20:23:40.187 11574-11992 RmeSchedManager         com.rio.tv.mobile                    I  SetMarginData, input:3, animation:4, traversal:4, util:600, frameRate:60
+2026-10-26 20:23:40.202 11574-12973 VideoCache              com.rio.tv.mobile                    D  Open connection  with offset 6437034 to http://xc.my-one.xyz:8880/series/MALAI2026101015/RdP3FETNRij6WJ5/159651.mp4
+2026-10-26 20:23:40.255 11574-11992 RmeSchedManager         com.rio.tv.mobile                    I  SetMarginData, input:3, animation:4, traversal:4, util:600, frameRate:60
+2026-10-26 20:23:40.287 11574-12600 VideoCache              com.rio.tv.mobile                    D  Accept new socket Socket[address=/127.0.0.1,port=33458,localPort=44453]
+2026-10-26 20:23:40.288 11574-12658 VideoCache              com.rio.tv.mobile                    D  Request to cache proxy:GetRequest{rangeOffset=8908269, partial=true, uri='http%3A%2F%2Fxc.my-one.xyz%3A8880%2Fseries%2FMALAI2026101015%2FRdP3FETNRij6WJ5%2F159651.mp4'}
+2026-10-26 20:23:40.319 11574-11992 RmeSchedManager         com.rio.tv.mobile                    I  SetMarginData, input:3, animation:4, traversal:4, util:600, frameRate:60
+2026-10-26 20:23:40.385 11574-11992 RmeSchedManager         com.rio.tv.mobile                    I  SetMarginData, input:3, animation:4, traversal:4, util:600, frameRate:60
+2026-10-26 20:23:40.452 11574-11992 RmeSchedManager         com.rio.tv.mobile                    I  SetMarginData, input:3, animation:4, traversal:4, util:600, frameRate:60
+2026-10-26 20:23:40.516 11574-11992 RmeSchedManager         com.rio.tv.mobile                    I  SetMarginData, input:3, animation:4, traversal:4, util:600, frameRate:60
+2026-10-26 20:23:40.578 11574-11574 RmeSchedManager         com.rio.tv.mobile                    I  SetMarginData, input:3, animation:4, traversal:4, util:600, frameRate:60
+2026-10-26 20:23:40.586 11574-12663 VideoCache              com.rio.tv.mobile                    D  Shutdown proxy for HttpUrlSource{sourceInfo='SourceInfo{url='http://xc.my-one.xyz:8880/series/MALAI2026101015/RdP3FETNRij6WJ5/159662.mp4', length=13360058, mime='video/mp4'}}
+2026-10-26 20:23:40.586 11574-12663 VideoCache              com.rio.tv.mobile                    D  Closing socket… Socket is closed by client.
+2026-10-26 20:23:40.586 11574-12663 VideoCache              com.rio.tv.mobile                    E  HttpProxyCacheServer error
+2026-10-26 20:23:40.586 11574-12663 VideoCache              com.rio.tv.mobile                    W  Failed to close socket on proxy side: {}. It seems client have already closed connection.
+2026-10-26 20:23:40.587 11574-12663 VideoCache              com.rio.tv.mobile                    D  Opened connections: 2
+2026-10-26 20:23:40.749 11574-12660 VideoCache              com.rio.tv.mobile                    D  Closing socket… Socket is closed by client.
+2026-10-26 20:23:40.749 11574-12660 VideoCache              com.rio.tv.mobile                    E  HttpProxyCacheServer error
+2026-10-26 20:23:40.749 11574-12660 VideoCache              com.rio.tv.mobile                    W  Failed to close socket on proxy side: {}. It seems client have already closed connection.
+2026-10-26 20:23:40.750 11574-12660 VideoCache              com.rio.tv.mobile                    D  Opened connections: 1
+2026-10-26 20:23:43.202 11574-11992 RmeSchedManager         com.rio.tv.mobile                    I  SetMarginData, input:3, animation:4, traversal:4, util:600, frameRate:60
+2026-10-26 20:23:43.267 11574-11992 RmeSchedManager         com.rio.tv.mobile                    I  SetMarginData, input:3, animation:4, traversal:4, util:600, frameRate:60
+2026-10-26 20:23:43.466 11574-11992 chatty                  com.rio.tv.mobile                    I  uid=10411(com.rio.tv.mobile) RenderThread identical 3 lines
+2026-10-26 20:23:43.532 11574-11992 RmeSchedManager         com.rio.tv.mobile                    I  SetMarginData, input:3, animation:4, traversal:4, util:600, frameRate:60
+2026-10-26 20:23:43.596 11574-11992 RmeSchedManager         com.rio.tv.mobile                    I  SetMarginData, input:3, animation:4, traversal:4, util:600, frameRate:60
+2026-10-26 20:23:43.615 11574-12658 VideoCache              com.rio.tv.mobile                    D  Shutdown proxy for HttpUrlSource{sourceInfo='SourceInfo{url='http://xc.my-one.xyz:8880/series/MALAI2026101015/RdP3FETNRij6WJ5/159651.mp4', length=9286133, mime='video/mp4'}}
+2026-10-26 20:23:43.616 11574-12658 VideoCache              com.rio.tv.mobile                    D  Opened connections: 0
+2026-10-26 20:23:43.632 11574-12375 MediaPlayerNative       com.rio.tv.mobile                    D  Message: MEDIA_SET_VIDEO_SIZE(5), ext1=1280, ext2=720
+2026-10-26 20:23:43.662 11574-11992 RmeSchedManager         com.rio.tv.mobile                    I  SetMarginData, input:3, animation:4, traversal:4, util:600, frameRate:60
+2026-10-26 20:23:43.721 11574-12600 VideoCache              com.rio.tv.mobile                    D  Accept new socket Socket[address=/127.0.0.1,port=33464,localPort=44453]
+2026-10-26 20:23:43.722 11574-12673 VideoCache              com.rio.tv.mobile                    D  Request to cache proxy:GetRequest{rangeOffset=0, partial=false, uri='http%3A%2F%2Fxc.my-one.xyz%3A8880%2Fseries%2FMALAI2026101015%2FRdP3FETNRij6WJ5%2F159651.mp4'}
+2026-10-26 20:23:43.727 11574-11992 RmeSchedManager         com.rio.tv.mobile                    I  SetMarginData, input:3, animation:4, traversal:4, util:600, frameRate:60
+2026-10-26 20:23:43.769 11574-12747 MediaPlayerNative       com.rio.tv.mobile                    D  Message: MEDIA_PREPARED(1), ext1=0, ext2=0x0
+2026-10-26 20:23:43.770 11574-11574 MediaPlayer             com.rio.tv.mobile                    I  SetSubtitleAnchorThread start
+2026-10-26 20:23:43.770 11574-12978 MediaPlayer             com.rio.tv.mobile                    I  getSubtitleLooper
+2026-10-26 20:23:43.770 11574-12978 MediaPlayer             com.rio.tv.mobile                    I  SetSubtitleAnchorThread quit begins
+2026-10-26 20:23:43.770 11574-12978 MediaPlayer             com.rio.tv.mobile                    I  SetSubtitleAnchorThread quit ends
+2026-10-26 20:23:43.770 11574-11574 MediaPlayer             com.rio.tv.mobile                    I  setSubtitleAnchor end
+2026-10-26 20:23:43.771 11574-11574 TikTokView              com.rio.tv.mobile                    E  onPlayStateChanged: PlayState{state=2, message='null', throwable=null}
+2026-10-26 20:23:43.771 11574-11574 chatty                  com.rio.tv.mobile                    I  uid=10411(com.rio.tv.mobile) identical 2 lines
+2026-10-26 20:23:43.771 11574-11574 TikTokView              com.rio.tv.mobile                    E  onPlayStateChanged: PlayState{state=2, message='null', throwable=null}
+2026-10-26 20:23:43.771 11574-11574 AudioManager            com.rio.tv.mobile                    I  requestAudioFocus streamType: 3 durationHint: 1
+2026-10-26 20:23:43.771 11574-11574 AudioManager            com.rio.tv.mobile                    W  Use of stream types is deprecated for operations other than volume control
+2026-10-26 20:23:43.771 11574-11574 AudioManager            com.rio.tv.mobile                    W  See the documentation for what to use instead with android.media.AudioAttributes to qualify your playback use case
+2026-10-26 20:23:43.774 11574-11574 PlayerBase              com.rio.tv.mobile                    D  baseStart() piid=3375
+2026-10-26 20:23:43.774 11574-11574 MediaPlayer             com.rio.tv.mobile                    I  [HSM] stayAwake true uid: 10411, pid: 11574
+2026-10-26 20:23:43.776 11574-11574 MediaPlayerNative       com.rio.tv.mobile                    W  Action:start, CurrentState:MEDIA_PLAYER_STARTED
+2026-10-26 20:23:43.795 11574-11992 RmeSchedManager         com.rio.tv.mobile                    I  SetMarginData, input:3, animation:4, traversal:4, util:600, frameRate:60
+2026-10-26 20:23:43.818 11574-12673 VideoCache              com.rio.tv.mobile                    D  Shutdown proxy for HttpUrlSource{sourceInfo='SourceInfo{url='http://xc.my-one.xyz:8880/series/MALAI2026101015/RdP3FETNRij6WJ5/159651.mp4', length=9286133, mime='video/mp4'}}
+2026-10-26 20:23:43.819 11574-12673 VideoCache              com.rio.tv.mobile                    D  Opened connections: 0
+2026-10-26 20:23:43.819 11574-12747 MediaPlayerNative       com.rio.tv.mobile                    D  Message: Unknown MediaEventType(6), ext1=0, ext2=0x0
+2026-10-26 20:23:43.858 11574-11992 RmeSchedManager         com.rio.tv.mobile                    I  SetMarginData, input:3, animation:4, traversal:4, util:600, frameRate:60
+2026-10-26 20:23:43.858 11574-12838 MediaPlayerNative       com.rio.tv.mobile                    D  Message: MEDIA_SET_VIDEO_SIZE(5), ext1=1280, ext2=720
+2026-10-26 20:23:43.858 11574-12838 MediaPlayerNative       com.rio.tv.mobile                    W  info/warning (3, 0)
+2026-10-26 20:23:43.859 11574-11574 TikTokView              com.rio.tv.mobile                    E  onPlayStateChanged: PlayState{state=3, message='null', throwable=null}
+2026-10-26 20:23:43.860 11574-11574 chatty                  com.rio.tv.mobile                    I  uid=10411(com.rio.tv.mobile) identical 2 lines
+2026-10-26 20:23:43.860 11574-11574 TikTokView              com.rio.tv.mobile                    E  onPlayStateChanged: PlayState{state=3, message='null', throwable=null}
+2026-10-26 20:23:43.860 11574-11574 TikTokView              com.rio.tv.mobile                    E  onPlayStateChanged: PlayState{state=7, message='null', throwable=null}
+2026-10-26 20:23:43.860 11574-11574 chatty                  com.rio.tv.mobile                    I  uid=10411(com.rio.tv.mobile) identical 2 lines
+2026-10-26 20:23:43.860 11574-11574 TikTokView              com.rio.tv.mobile                    E  onPlayStateChanged: PlayState{state=7, message='null', throwable=null}
+2026-10-26 20:23:43.871 11574-11574 DecorView[...yActivity] com.rio.tv.mobile                    I  pkgName:com.rio.tv.mobile old windowMode:1 new windoMode:1, isFixedSize:false
+2026-10-26 20:23:43.991 11574-11992 RmeSchedManager         com.rio.tv.mobile                    I  SetMarginData, input:3, animation:4, traversal:4, util:600, frameRate:60
+2026-10-26 20:23:44.139 11574-11992 RmeSchedManager         com.rio.tv.mobile                    I  SetMarginData, input:3, animation:4, traversal:4, util:600, frameRate:60
+2026-10-26 20:23:44.277 11574-11992 RmeSchedManager         com.rio.tv.mobile                    I  SetMarginData, input:3, animation:4, traversal:4, util:600, frameRate:60
+2026-10-26 20:23:44.389 11574-11992 RmeSchedManager         com.rio.tv.mobile                    I  SetMarginData, input:3, animation:4, traversal:4, util:600, frameRate:60
+2026-10-26 20:23:44.503 11574-11992 RmeSchedManager         com.rio.tv.mobile                    I  SetMarginData, input:3, animation:4, traversal:4, util:600, frameRate:60
+2026-10-26 20:23:44.634 11574-11992 RmeSchedManager         com.rio.tv.mobile                    I  SetMarginData, input:3, animation:4, traversal:4, util:600, frameRate:60
+2026-10-26 20:23:44.762 11574-11992 RmeSchedManager         com.rio.tv.mobile                    I  SetMarginData, input:3, animation:4, traversal:4, util:600, frameRate:60
+2026-10-26 20:23:44.895 11574-11992 RmeSchedManager         com.rio.tv.mobile                    I  SetMarginData, input:3, animation:4, traversal:4, util:600, frameRate:60
+2026-10-26 20:23:45.028 11574-11992 RmeSchedManager         com.rio.tv.mobile                    I  SetMarginData, input:3, animation:4, traversal:4, util:600, frameRate:60
+2026-10-26 20:23:45.549 11574-11574 InputTransport          com.rio.tv.mobile                    I  Fun_filterMotionEvent reportMoveEvent!
+2026-10-26 20:23:45.618 11574-11992 RmeSchedManager         com.rio.tv.mobile                    I  SetMarginData, input:3, animation:4, traversal:4, util:600, frameRate:60
+2026-10-26 20:23:45.635 11574-11574 MediaPlayer             com.rio.tv.mobile                    I  [HSM] stayAwake false uid: 10411, pid: 11574
+2026-10-26 20:23:45.636 11574-11574 MediaPlayerNative       com.rio.tv.mobile                    D  Action:stop, CurrentState:MEDIA_PLAYER_STOPPED
+2026-10-26 20:23:45.636 11574-12375 MediaPlayerNative       com.rio.tv.mobile                    D  Message: Unknown MediaEventType(8), ext1=0, ext2=0x0
+2026-10-26 20:23:45.636 11574-11574 PlayerBase              com.rio.tv.mobile                    V  baseStop() piid=3375
+2026-10-26 20:23:45.675 11574-12995 PlayerBase              com.rio.tv.mobile                    V  baseRelease() piid=3375 state=4
+2026-10-26 20:23:45.676 11574-12995 MediaPlayer             com.rio.tv.mobile                    I  [HSM] stayAwake false uid: 10411, pid: 11574
+2026-10-26 20:23:45.676 11574-11574 AudioManager            com.rio.tv.mobile                    I  abandonAudioFocus listener
+2026-10-26 20:23:45.677 11574-12995 MediaPlayer             com.rio.tv.mobile                    V  resetDrmState:  mDrmInfo=null mDrmProvisioningThread=null mPrepareDrmInProgress=false mActiveDrmScheme=false
+2026-10-26 20:23:45.677 11574-12995 MediaPlayer             com.rio.tv.mobile                    V  cleanDrmObj: mDrmObj=null mDrmSessionId=null
+2026-10-26 20:23:45.679 11574-11574 TikTokView              com.rio.tv.mobile                    E  onPlayStateChanged: PlayState{state=0, message='null', throwable=null}
+2026-10-26 20:23:45.679 11574-11574 chatty                  com.rio.tv.mobile                    I  uid=10411(com.rio.tv.mobile) identical 2 lines
+2026-10-26 20:23:45.679 11574-11574 TikTokView              com.rio.tv.mobile                    E  onPlayStateChanged: PlayState{state=0, message='null', throwable=null}
+2026-10-26 20:23:45.681 11574-11574 DecorView[...yActivity] com.rio.tv.mobile                    I  pkgName:com.rio.tv.mobile old windowMode:1 new windoMode:1, isFixedSize:false
+2026-10-26 20:23:45.689 11574-11574 HwViewRootImpl          com.rio.tv.mobile                    I  removeInvalidNode all the node in jank list is out of time
+2026-10-26 20:23:45.689 11574-11574 MediaPlayer             com.rio.tv.mobile                    W  mediaplayer went away with unhandled events
+2026-10-26 20:23:45.689 11574-11574 chatty                  com.rio.tv.mobile                    I  uid=10411(com.rio.tv.mobile) identical 1 line
+2026-10-26 20:23:45.689 11574-11574 MediaPlayer             com.rio.tv.mobile                    W  mediaplayer went away with unhandled events
+2026-10-26 20:23:45.689 11574-11574 MediaPlayer             com.rio.tv.mobile                    W  mediaplayer went away with unhandled events
+2026-10-26 20:23:45.692 11574-12651 VideoCache              com.rio.tv.mobile                    D  Open connection  to http://127.0.0.1:44453/ping
+2026-10-26 20:23:45.695 11574-12600 VideoCache              com.rio.tv.mobile                    D  Accept new socket Socket[address=/127.0.0.1,port=33476,localPort=44453]
+2026-10-26 20:23:45.697 11574-12678 VideoCache              com.rio.tv.mobile                    D  Request to cache proxy:GetRequest{rangeOffset=0, partial=false, uri='ping'}
+2026-10-26 20:23:45.697 11574-12995 MediaPlayerNative       com.rio.tv.mobile                    I  Pid:11574 MediaPlayer destructor MediaPlayer(0x7013906980)
+2026-10-26 20:23:45.697 11574-12678 VideoCache              com.rio.tv.mobile                    D  Opened connections: 0
+2026-10-26 20:23:45.697 11574-12651 VideoCache              com.rio.tv.mobile                    I  Ping response: `ping ok`, pinged? true
+2026-10-26 20:23:45.698 11574-11574 riotv                   com.rio.tv.mobile                    I  <===============  ShortPlayActivity.kt --- Line: 479 --- Method: startPlay$lambda$24$lambda$23  ===============>
+                                                                                                    短剧开始播放 --- http://127.0.0.1:44453/http%3A%2F%2Fxc.my-one.xyz%3A8880%2Fseries%2FMALAI2026101015%2FRdP3FETNRij6WJ5%2F159662.mp4
+2026-10-26 20:23:45.701 11574-11574 MediaPlayer             com.rio.tv.mobile                    W  Use of stream types is deprecated for operations other than volume control
+2026-10-26 20:23:45.701 11574-11574 MediaPlayer             com.rio.tv.mobile                    W  See the documentation for what to use instead with android.media.AudioAttributes to qualify your playback use case
+2026-10-26 20:23:45.702 11574-11574 MediaPlayer             com.rio.tv.mobile                    W  Couldn't open uri in attemptDataSource
+2026-10-26 20:23:45.702 11574-11574 MediaHTTPService        com.rio.tv.mobile                    V  MediaHTTPService(android.media.MediaHTTPService@ca77b67): Cookies: null
+2026-10-26 20:23:45.705 11574-11574 TikTokView              com.rio.tv.mobile                    E  onPlayStateChanged: PlayState{state=1, message='null', throwable=null}
+2026-10-26 20:23:45.705 11574-11574 chatty                  com.rio.tv.mobile                    I  uid=10411(com.rio.tv.mobile) identical 2 lines
+2026-10-26 20:23:45.705 11574-11574 TikTokView              com.rio.tv.mobile                    E  onPlayStateChanged: PlayState{state=1, message='null', throwable=null}
+2026-10-26 20:23:45.706 11574-12839 MediaHTTPService        com.rio.tv.mobile                    V  makeHTTPConnection: CookieHandler (java.net.CookieManager@171f1d4) exists.
+2026-10-26 20:23:45.706 11574-12839 MediaHTTPService        com.rio.tv.mobile                    V  makeHTTPConnection(android.media.MediaHTTPService@ca77b67): cookieHandler: java.net.CookieManager@171f1d4 Cookies: null
+2026-10-26 20:23:45.712 11574-12600 VideoCache              com.rio.tv.mobile                    D  Accept new socket Socket[address=/127.0.0.1,port=33480,localPort=44453]
+2026-10-26 20:23:45.713 11574-12654 VideoCache              com.rio.tv.mobile                    D  Request to cache proxy:GetRequest{rangeOffset=0, partial=false, uri='http%3A%2F%2Fxc.my-one.xyz%3A8880%2Fseries%2FMALAI2026101015%2FRdP3FETNRij6WJ5%2F159662.mp4'}
+2026-10-26 20:23:45.745 11574-11992 RmeSchedManager         com.rio.tv.mobile                    I  SetMarginData, input:3, animation:4, traversal:4, util:600, frameRate:60
+2026-10-26 20:23:45.746 11574-13002 VideoCache              com.rio.tv.mobile                    D  Open connection  with offset 5980308 to http://xc.my-one.xyz:8880/series/MALAI2026101015/RdP3FETNRij6WJ5/159662.mp4
+2026-10-26 20:23:45.786 11574-11934 PlayerBase              com.rio.tv.mobile                    V  baseRelease() piid=3367 state=0
+2026-10-26 20:23:45.786 11574-11934 System                  com.rio.tv.mobile                    W  A resource failed to call end.
+2026-10-26 20:23:45.810 11574-11992 RmeSchedManager         com.rio.tv.mobile                    I  SetMarginData, input:3, animation:4, traversal:4, util:600, frameRate:60
+2026-10-26 20:23:45.833 11574-12600 VideoCache              com.rio.tv.mobile                    D  Accept new socket Socket[address=/127.0.0.1,port=33488,localPort=44453]
+2026-10-26 20:23:45.834 11574-12659 VideoCache              com.rio.tv.mobile                    D  Request to cache proxy:GetRequest{rangeOffset=13002759, partial=true, uri='http%3A%2F%2Fxc.my-one.xyz%3A8880%2Fseries%2FMALAI2026101015%2FRdP3FETNRij6WJ5%2F159662.mp4'}
+2026-10-26 20:23:45.877 11574-11992 RmeSchedManager         com.rio.tv.mobile                    I  SetMarginData, input:3, animation:4, traversal:4, util:600, frameRate:60
+2026-10-26 20:23:45.943 11574-11992 RmeSchedManager         com.rio.tv.mobile                    I  SetMarginData, input:3, animation:4, traversal:4, util:600, frameRate:60
+2026-10-26 20:23:46.004 11574-11574 RmeSchedManager         com.rio.tv.mobile                    I  SetMarginData, input:3, animation:4, traversal:4, util:600, frameRate:60
+2026-10-26 20:23:46.108 11574-12654 VideoCache              com.rio.tv.mobile                    D  Closing socket… Socket is closed by client.
+2026-10-26 20:23:46.109 11574-12654 VideoCache              com.rio.tv.mobile                    E  HttpProxyCacheServer error
+2026-10-26 20:23:46.109 11574-12654 VideoCache              com.rio.tv.mobile                    W  Failed to close socket on proxy side: {}. It seems client have already closed connection.
+2026-10-26 20:23:46.109 11574-12654 VideoCache              com.rio.tv.mobile                    D  Opened connections: 1
+2026-10-26 20:23:46.828 11574-11574 InputTransport          com.rio.tv.mobile                    I  Fun_filterMotionEvent reportMoveEvent!
+2026-10-26 20:23:46.895 11574-11574 MediaPlayer             com.rio.tv.mobile                    I  [HSM] stayAwake false uid: 10411, pid: 11574
+2026-10-26 20:23:46.895 11574-11574 MediaPlayerNative       com.rio.tv.mobile                    E  stop called in state 4, mPlayer(0x7005214940)
+2026-10-26 20:23:46.895 11574-11574 MediaPlayerNative       com.rio.tv.mobile                    D  Message: MEDIA_ERROR(100), ext1=Unknown MediaErrorType(-38), ext2=0x0
+2026-10-26 20:23:46.895 11574-11574 MediaPlayerNative       com.rio.tv.mobile                    E  error (-38, 0)
+2026-10-26 20:23:46.895 11574-11574 PlayerBase              com.rio.tv.mobile                    V  baseStop() piid=3383
+2026-10-26 20:23:46.897 11574-13003 PlayerBase              com.rio.tv.mobile                    V  baseRelease() piid=3383 state=4
+2026-10-26 20:23:46.897 11574-11574 AudioManager            com.rio.tv.mobile                    I  abandonAudioFocus listener
+2026-10-26 20:23:46.897 11574-13003 MediaPlayer             com.rio.tv.mobile                    I  [HSM] stayAwake false uid: 10411, pid: 11574
+2026-10-26 20:23:46.898 11574-11574 TikTokView              com.rio.tv.mobile                    E  onPlayStateChanged: PlayState{state=0, message='null', throwable=null}
+2026-10-26 20:23:46.898 11574-11574 chatty                  com.rio.tv.mobile                    I  uid=10411(com.rio.tv.mobile) identical 2 lines
+2026-10-26 20:23:46.898 11574-11574 TikTokView              com.rio.tv.mobile                    E  onPlayStateChanged: PlayState{state=0, message='null', throwable=null}
+2026-10-26 20:23:46.899 11574-11574 MediaPlayer             com.rio.tv.mobile                    E  Error (-38,0)
+2026-10-26 20:23:46.899 11574-11574 PlayerBase              com.rio.tv.mobile                    V  baseStop() piid=3383
+2026-10-26 20:23:46.899 11574-11574 MediaPlayer             com.rio.tv.mobile                    I  [HSM] stayAwake false uid: 10411, pid: 11574
+2026-10-26 20:23:46.899 11574-13003 MediaPlayer             com.rio.tv.mobile                    V  resetDrmState:  mDrmInfo=null mDrmProvisioningThread=null mPrepareDrmInProgress=false mActiveDrmScheme=false
+2026-10-26 20:23:46.899 11574-13003 MediaPlayer             com.rio.tv.mobile                    V  cleanDrmObj: mDrmObj=null mDrmSessionId=null
+2026-10-26 20:23:46.899 11574-11574 RmeSchedManager         com.rio.tv.mobile                    I  SetMarginData, input:3, animation:4, traversal:4, util:600, frameRate:60
+2026-10-26 20:23:46.902 11574-12651 VideoCache              com.rio.tv.mobile                    D  Open connection  to http://127.0.0.1:44453/ping
+2026-10-26 20:23:46.905 11574-12600 VideoCache              com.rio.tv.mobile                    D  Accept new socket Socket[address=/127.0.0.1,port=34298,localPort=44453]
+2026-10-26 20:23:46.906 11574-13003 MediaPlayerNative       com.rio.tv.mobile                    I  Pid:11574 MediaPlayer destructor MediaPlayer(0x6fdee58a40)
+2026-10-26 20:23:46.907 11574-12657 VideoCache              com.rio.tv.mobile                    D  Request to cache proxy:GetRequest{rangeOffset=0, partial=false, uri='ping'}
+2026-10-26 20:23:46.908 11574-12657 VideoCache              com.rio.tv.mobile                    D  Opened connections: 1
+2026-10-26 20:23:46.908 11574-12651 VideoCache              com.rio.tv.mobile                    I  Ping response: `ping ok`, pinged? true
+2026-10-26 20:23:46.909 11574-11574 riotv                   com.rio.tv.mobile                    I  <===============  ShortPlayActivity.kt --- Line: 479 --- Method: startPlay$lambda$24$lambda$23  ===============>
+                                                                                                    短剧开始播放 --- http://127.0.0.1:44453/http%3A%2F%2Fxc.my-one.xyz%3A8880%2Fseries%2FMALAI2026101015%2FRdP3FETNRij6WJ5%2F159673.mp4
+2026-10-26 20:23:46.911 11574-11574 MediaPlayer             com.rio.tv.mobile                    W  Use of stream types is deprecated for operations other than volume control
+2026-10-26 20:23:46.911 11574-11574 MediaPlayer             com.rio.tv.mobile                    W  See the documentation for what to use instead with android.media.AudioAttributes to qualify your playback use case
+2026-10-26 20:23:46.912 11574-11574 MediaPlayer             com.rio.tv.mobile                    W  Couldn't open uri in attemptDataSource
+2026-10-26 20:23:46.912 11574-11574 MediaHTTPService        com.rio.tv.mobile                    V  MediaHTTPService(android.media.MediaHTTPService@a63b37b): Cookies: null
+2026-10-26 20:23:46.916 11574-11574 TikTokView              com.rio.tv.mobile                    E  onPlayStateChanged: PlayState{state=1, message='null', throwable=null}
+2026-10-26 20:23:46.916 11574-11574 chatty                  com.rio.tv.mobile                    I  uid=10411(com.rio.tv.mobile) identical 4 lines
+2026-10-26 20:23:46.916 11574-11574 TikTokView              com.rio.tv.mobile                    E  onPlayStateChanged: PlayState{state=1, message='null', throwable=null}
+2026-10-26 20:23:46.916 11574-12839 MediaHTTPService        com.rio.tv.mobile                    V  makeHTTPConnection: CookieHandler (java.net.CookieManager@171f1d4) exists.
+2026-10-26 20:23:46.916 11574-12839 MediaHTTPService        com.rio.tv.mobile                    V  makeHTTPConnection(android.media.MediaHTTPService@a63b37b): cookieHandler: java.net.CookieManager@171f1d4 Cookies: null
+2026-10-26 20:23:46.919 11574-12600 VideoCache              com.rio.tv.mobile                    D  Accept new socket Socket[address=/127.0.0.1,port=34306,localPort=44453]
+2026-10-26 20:23:46.921 11574-12663 VideoCache              com.rio.tv.mobile                    D  Request to cache proxy:GetRequest{rangeOffset=0, partial=false, uri='http%3A%2F%2Fxc.my-one.xyz%3A8880%2Fseries%2FMALAI2026101015%2FRdP3FETNRij6WJ5%2F159673.mp4'}
+2026-10-26 20:23:46.924 11574-13007 VideoCache              com.rio.tv.mobile                    D  Open connection  to http://xc.my-one.xyz:8880/series/MALAI2026101015/RdP3FETNRij6WJ5/159673.mp4
+2026-10-26 20:23:46.963 11574-11992 RmeSchedManager         com.rio.tv.mobile                    I  SetMarginData, input:3, animation:4, traversal:4, util:600, frameRate:60
+2026-10-26 20:23:47.030 11574-11992 RmeSchedManager         com.rio.tv.mobile                    I  SetMarginData, input:3, animation:4, traversal:4, util:600, frameRate:60
+2026-10-26 20:23:47.096 11574-11992 chatty                  com.rio.tv.mobile                    I  uid=10411(com.rio.tv.mobile) RenderThread identical 1 line
+2026-10-26 20:23:47.159 11574-11992 RmeSchedManager         com.rio.tv.mobile                    I  SetMarginData, input:3, animation:4, traversal:4, util:600, frameRate:60
+2026-10-26 20:23:47.224 11574-11992 RmeSchedManager         com.rio.tv.mobile                    I  SetMarginData, input:3, animation:4, traversal:4, util:600, frameRate:60
+2026-10-26 20:23:48.465 11574-12600 VideoCache              com.rio.tv.mobile                    D  Accept new socket Socket[address=/127.0.0.1,port=34318,localPort=44453]
+2026-10-26 20:23:48.468 11574-12660 VideoCache              com.rio.tv.mobile                    D  Request to cache proxy:GetRequest{rangeOffset=12557286, partial=true, uri='http%3A%2F%2Fxc.my-one.xyz%3A8880%2Fseries%2FMALAI2026101015%2FRdP3FETNRij6WJ5%2F159673.mp4'}
+2026-10-26 20:23:48.469 11574-12660 VideoCache              com.rio.tv.mobile                    D  Open connection  with offset 12557286 to http://xc.my-one.xyz:8880/series/MALAI2026101015/RdP3FETNRij6WJ5/159673.mp4
+2026-10-26 20:23:48.555 11574-12659 VideoCache              com.rio.tv.mobile                    D  Shutdown proxy for HttpUrlSource{sourceInfo='SourceInfo{url='http://xc.my-one.xyz:8880/series/MALAI2026101015/RdP3FETNRij6WJ5/159662.mp4', length=13360058, mime='video/mp4'}}
+2026-10-26 20:23:48.555 11574-12659 VideoCache              com.rio.tv.mobile                    D  Closing socket… Socket is closed by client.
+2026-10-26 20:23:48.555 11574-12659 VideoCache              com.rio.tv.mobile                    E  HttpProxyCacheServer error
+2026-10-26 20:23:48.555 11574-12659 VideoCache              com.rio.tv.mobile                    W  Failed to close socket on proxy side: {}. It seems client have already closed connection.
+2026-10-26 20:23:48.556 11574-12659 VideoCache              com.rio.tv.mobile                    D  Opened connections: 2
+2026-10-26 20:23:49.060 11574-12663 VideoCache              com.rio.tv.mobile                    D  Closing socket… Socket is closed by client.
+2026-10-26 20:23:49.061 11574-12663 VideoCache              com.rio.tv.mobile                    E  HttpProxyCacheServer error
+2026-10-26 20:23:49.061 11574-12663 VideoCache              com.rio.tv.mobile                    W  Failed to close socket on proxy side: {}. It seems client have already closed connection.
+2026-10-26 20:23:49.063 11574-12663 VideoCache              com.rio.tv.mobile                    D  Opened connections: 1
+2026-10-26 20:23:50.145 11574-12660 VideoCache              com.rio.tv.mobile                    D  Shutdown proxy for HttpUrlSource{sourceInfo='SourceInfo{url='http://xc.my-one.xyz:8880/series/MALAI2026101015/RdP3FETNRij6WJ5/159673.mp4', length=12913381, mime='video/mp4'}}
+2026-10-26 20:23:50.148 11574-12660 VideoCache              com.rio.tv.mobile                    D  Opened connections: 0
+2026-10-26 20:23:50.211 11574-12839 MediaPlayerNative       com.rio.tv.mobile                    D  Message: MEDIA_SET_VIDEO_SIZE(5), ext1=1920, ext2=1080
+2026-10-26 20:23:50.215 11574-11574 RmeSchedManager         com.rio.tv.mobile                    I  SetMarginData, input:3, animation:4, traversal:4, util:600, frameRate:60
+2026-10-26 20:23:50.255 11574-12600 VideoCache              com.rio.tv.mobile                    D  Accept new socket Socket[address=/127.0.0.1,port=34332,localPort=44453]
+2026-10-26 20:23:50.257 11574-12658 VideoCache              com.rio.tv.mobile                    D  Request to cache proxy:GetRequest{rangeOffset=0, partial=false, uri='http%3A%2F%2Fxc.my-one.xyz%3A8880%2Fseries%2FMALAI2026101015%2FRdP3FETNRij6WJ5%2F159673.mp4'}
+2026-10-26 20:23:50.271 11574-13011 VideoCache              com.rio.tv.mobile                    D  Open connection  with offset 1365397 to http://xc.my-one.xyz:8880/series/MALAI2026101015/RdP3FETNRij6WJ5/159673.mp4
+2026-10-26 20:23:50.281 11574-11574 RmeSchedManager         com.rio.tv.mobile                    I  SetMarginData, input:3, animation:4, traversal:4, util:600, frameRate:60
+2026-10-26 20:23:50.297 11574-12375 MediaPlayerNative       com.rio.tv.mobile                    D  Message: MEDIA_PREPARED(1), ext1=0, ext2=0x0
+2026-10-26 20:23:50.298 11574-11574 MediaPlayer             com.rio.tv.mobile                    I  SetSubtitleAnchorThread start
+2026-10-26 20:23:50.299 11574-13012 MediaPlayer             com.rio.tv.mobile                    I  getSubtitleLooper
+2026-10-26 20:23:50.299 11574-13012 MediaPlayer             com.rio.tv.mobile                    I  SetSubtitleAnchorThread quit begins
+2026-10-26 20:23:50.299 11574-13012 MediaPlayer             com.rio.tv.mobile                    I  SetSubtitleAnchorThread quit ends
+2026-10-26 20:23:50.299 11574-11574 MediaPlayer             com.rio.tv.mobile                    I  setSubtitleAnchor end
+2026-10-26 20:23:50.301 11574-11574 TikTokView              com.rio.tv.mobile                    E  onPlayStateChanged: PlayState{state=2, message='null', throwable=null}
+2026-10-26 20:23:50.301 11574-11574 chatty                  com.rio.tv.mobile                    I  uid=10411(com.rio.tv.mobile) identical 4 lines
+2026-10-26 20:23:50.301 11574-11574 TikTokView              com.rio.tv.mobile                    E  onPlayStateChanged: PlayState{state=2, message='null', throwable=null}
+2026-10-26 20:23:50.301 11574-11574 AudioManager            com.rio.tv.mobile                    I  requestAudioFocus streamType: 3 durationHint: 1
+2026-10-26 20:23:50.301 11574-11574 AudioManager            com.rio.tv.mobile                    W  Use of stream types is deprecated for operations other than volume control
+2026-10-26 20:23:50.302 11574-11574 AudioManager            com.rio.tv.mobile                    W  See the documentation for what to use instead with android.media.AudioAttributes to qualify your playback use case
+2026-10-26 20:23:50.305 11574-11574 PlayerBase              com.rio.tv.mobile                    D  baseStart() piid=3391
+2026-10-26 20:23:50.305 11574-11574 MediaPlayer             com.rio.tv.mobile                    I  [HSM] stayAwake true uid: 10411, pid: 11574
+2026-10-26 20:23:50.307 11574-11574 MediaPlayerNative       com.rio.tv.mobile                    W  Action:start, CurrentState:MEDIA_PLAYER_STARTED
+2026-10-26 20:23:50.346 11574-11574 RmeSchedManager         com.rio.tv.mobile                    I  SetMarginData, input:3, animation:4, traversal:4, util:600, frameRate:60
+2026-10-26 20:23:50.350 11574-12375 MediaPlayerNative       com.rio.tv.mobile                    D  Message: Unknown MediaEventType(6), ext1=0, ext2=0x0
+2026-10-26 20:23:50.391 11574-12839 MediaPlayerNative       com.rio.tv.mobile                    D  Message: MEDIA_SET_VIDEO_SIZE(5), ext1=1920, ext2=1080
+2026-10-26 20:23:50.391 11574-12839 MediaPlayerNative       com.rio.tv.mobile                    W  info/warning (3, 0)
+2026-10-26 20:23:50.406 11574-11574 TikTokView              com.rio.tv.mobile                    E  onPlayStateChanged: PlayState{state=3, message='null', throwable=null}
+2026-10-26 20:23:50.407 11574-11574 chatty                  com.rio.tv.mobile                    I  uid=10411(com.rio.tv.mobile) identical 3 lines
+2026-10-26 20:23:50.407 11574-11574 TikTokView              com.rio.tv.mobile                    E  onPlayStateChanged: PlayState{state=3, message='null', throwable=null}
+2026-10-26 20:23:50.407 11574-11574 TikTokView              com.rio.tv.mobile                    E  onPlayStateChanged: PlayState{state=3, message='null', throwable=null}
+2026-10-26 20:23:50.407 11574-11574 TikTokView              com.rio.tv.mobile                    E  onPlayStateChanged: PlayState{state=7, message='null', throwable=null}
+2026-10-26 20:23:50.407 11574-11574 chatty                  com.rio.tv.mobile                    I  uid=10411(com.rio.tv.mobile) identical 4 lines
+2026-10-26 20:23:50.407 11574-11574 TikTokView              com.rio.tv.mobile                    E  onPlayStateChanged: PlayState{state=7, message='null', throwable=null}
+2026-10-26 20:23:50.412 11574-11574 RmeSchedManager         com.rio.tv.mobile                    I  SetMarginData, input:3, animation:4, traversal:4, util:600, frameRate:60
+2026-10-26 20:23:50.414 11574-11574 DecorView[...yActivity] com.rio.tv.mobile                    I  pkgName:com.rio.tv.mobile old windowMode:1 new windoMode:1, isFixedSize:false
+2026-10-26 20:23:50.582 11574-11992 RmeSchedManager         com.rio.tv.mobile                    I  SetMarginData, input:3, animation:4, traversal:4, util:600, frameRate:60
