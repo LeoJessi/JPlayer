@@ -4,7 +4,7 @@ import top.jessi.videoplayer.cache.HttpProxyCacheServer;
 import top.jessi.player.R;
 import top.jessi.player.activity.BaseActivity;
 import top.jessi.player.util.DataUtil;
-import top.jessi.videoplayer.cache.preload.ProxyVideoCacheManager;
+import top.jessi.videoplayer.cache.preload.PreloadManager;
 import top.jessi.videoplayer.controller.StandardVideoController;
 import top.jessi.videoplayer.player.VideoView;
 
@@ -24,7 +24,7 @@ public class CacheActivity extends BaseActivity<VideoView> {
     protected void initView() {
         super.initView();
         mVideoView = findViewById(R.id.video_view);
-        HttpProxyCacheServer cacheServer = ProxyVideoCacheManager.getProxy(this);
+        HttpProxyCacheServer cacheServer = HttpProxyCacheServer.getInstance(this);
         String proxyUrl = cacheServer.getProxyUrl(DataUtil.SAMPLE_URL);
         mVideoView.setUrl(proxyUrl);
         StandardVideoController controller = new StandardVideoController(this);
@@ -33,8 +33,8 @@ public class CacheActivity extends BaseActivity<VideoView> {
         mVideoView.start();
 
         //删除url对应默认缓存文件
-//        ProxyVideoCacheManager.clearDefaultCache(this, URL);
+//        PreloadManager.getInstance(this).deleteCacheFile(URL);
         //清除缓存文件中的所有缓存
-//        ProxyVideoCacheManager.clearAllCache(this);
+//        PreloadManager.getInstance(this).clearAllCache();
     }
 }

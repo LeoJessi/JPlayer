@@ -210,7 +210,7 @@ public class PreloadManager {
     private long mLastPauseAt;
 
     private PreloadManager(Context context) {
-        mHttpProxyCacheServer = ProxyVideoCacheManager.getProxy(context);
+        mHttpProxyCacheServer = HttpProxyCacheServer.getInstance(context);
         mScheduler = Executors.newSingleThreadExecutor(r -> new Thread(r, "preload-scheduler"));
         mWorkerPool = new ThreadPoolExecutor(
                 mWorkerCount,
@@ -617,15 +617,23 @@ public class PreloadManager {
             mInFlight.remove(rawUrl);
             mPositions.remove(rawUrl);
         }
-        try {
-            File file = mHttpProxyCacheServer.getCacheFile(rawUrl);
-            if (file.exists()) {
-                return file.delete();
-            }
-        } catch (Exception e) {
-            return false;
-        }
-        return true;
+        return mHttpProxyCacheServer.clearCacheFile(rawUrl);
+    }
+
+    /**
+     * 清空所有缓存文件，并取消所有在飞的预加载任务。
+     * <p>文件删除由 {@link HttpProxyCacheServer#clearAllCache()} 负责；这里额外调用
+     * {@link #cancelAllTasks()} 与 {@link #clearPreloadState()}，否则仍在执行的任务会继续
+     * 把数据写进刚被删掉的 {@code .download} 文件，缓存清完立刻又被填回来，"清除缓存"等于没做。
+     * <p>不主动触发窗口重算，等下次窗口变化（滑动、前后台切换）时才会按需重新预加载。
+     *
+     * @return 是否全部删除成功
+     */
+    public boolean clearAllCache() {
+        boolean deleted = mHttpProxyCacheServer.clearAllCache();
+        cancelAllTasks();
+        clearPreloadState();
+        return deleted;
     }
 
     /**

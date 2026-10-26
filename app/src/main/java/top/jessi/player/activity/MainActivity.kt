@@ -18,7 +18,7 @@ import top.jessi.player.fragment.main.PipFragment
 import top.jessi.player.util.PIPManager
 import top.jessi.player.util.Tag
 import top.jessi.player.util.Utils
-import top.jessi.videoplayer.cache.preload.ProxyVideoCacheManager
+import top.jessi.videoplayer.cache.preload.PreloadManager
 import top.jessi.videoplayer.exo.ExoMediaPlayerFactory
 import top.jessi.videoplayer.ijk.IjkPlayerFactory
 import top.jessi.videoplayer.media.SystemPlayerFactory
@@ -87,7 +87,7 @@ class MainActivity : BaseActivity<VideoView>(), NavigationBarView.OnItemSelected
                 PIPManager.getInstance().reset()
             }
 
-            R.id.clear_cache -> if (ProxyVideoCacheManager.clearAllCache(this)) {
+            R.id.clear_cache -> if (PreloadManager.getInstance(this).clearAllCache()) {
                 Toast.makeText(this, "清除缓存成功", Toast.LENGTH_SHORT).show()
             }
 

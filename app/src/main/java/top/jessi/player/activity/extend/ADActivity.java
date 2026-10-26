@@ -6,7 +6,6 @@ import top.jessi.videoplayer.cache.HttpProxyCacheServer;
 import top.jessi.player.R;
 import top.jessi.player.activity.BaseActivity;
 import top.jessi.player.util.DataUtil;
-import top.jessi.videoplayer.cache.preload.ProxyVideoCacheManager;
 import top.jessi.player.widget.component.AdControlView;
 import top.jessi.videoplayer.controller.StandardVideoController;
 import top.jessi.videoplayer.player.PlayState;
@@ -52,7 +51,7 @@ public class ADActivity extends BaseActivity<VideoView> {
         });
         mController.addControlComponent(adControlView);
 
-        HttpProxyCacheServer cacheServer = ProxyVideoCacheManager.getProxy(this);
+        HttpProxyCacheServer cacheServer = HttpProxyCacheServer.getInstance(this);
         String proxyUrl = cacheServer.getProxyUrl(URL_AD);
         mVideoView.setUrl(proxyUrl);
         mVideoView.setVideoController(mController);

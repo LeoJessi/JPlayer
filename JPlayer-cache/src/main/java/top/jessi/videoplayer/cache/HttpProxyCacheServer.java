@@ -2,6 +2,7 @@ package top.jessi.videoplayer.cache;
 
 import android.content.Context;
 import android.net.Uri;
+import android.os.Looper;
 
 import top.jessi.videoplayer.cache.file.DiskUsage;
 import top.jessi.videoplayer.cache.file.FileNameGenerator;
@@ -66,6 +67,8 @@ public class HttpProxyCacheServer {
 
     private static final String PROXY_HOST = "127.0.0.1";
 
+    private static volatile HttpProxyCacheServer sInstance;
+
     private final Object clientsLock = new Object();
     private final ExecutorService socketProcessor = Executors.newFixedThreadPool(8);
     private final Map<String, HttpProxyCacheServerClients> clientsMap = new ConcurrentHashMap<>();
@@ -77,6 +80,27 @@ public class HttpProxyCacheServer {
 
     public HttpProxyCacheServer(Context context) {
         this(new Builder(context).buildConfig());
+    }
+
+    /**
+     * Returns the process-wide shared instance, creating it on first call.
+     * <p>
+     * Use this instead of building multiple {@link HttpProxyCacheServer} instances:
+     * each instance opens its own local port and may use a different cache directory,
+     * which makes preload and playback hit different caches.
+     *
+     * @param context any context; its application context is used.
+     * @return the shared {@link HttpProxyCacheServer} instance.
+     */
+    public static HttpProxyCacheServer getInstance(Context context) {
+        if (sInstance == null) {
+            synchronized (HttpProxyCacheServer.class) {
+                if (sInstance == null) {
+                    sInstance = new Builder(context.getApplicationContext()).build();
+                }
+            }
+        }
+        return sInstance;
     }
 
     private HttpProxyCacheServer(Config config) {
@@ -212,6 +236,70 @@ public class HttpProxyCacheServer {
 
     public File getCacheRoot() {
         return config.cacheRoot;
+    }
+
+    /**
+     * Returns total disk space (in bytes) currently occupied by cache.
+     * <p>
+     * Both completed cache files and unfinished {@code .download} temp files are counted.
+     * The result is a real-time snapshot.
+     *
+     * @return total size in bytes of all cache files, or {@code 0} if the cache directory is missing.
+     * @throws IllegalStateException if called on the main thread, because this method performs disk IO.
+     */
+    public long getCacheSize() {
+        checkNotMainThread();
+        return countDirSize(config.cacheRoot);
+    }
+
+    /**
+     * Deletes all cache files, including unfinished {@code .download} temp files.
+     * <p>
+     * <b>Note:</b> this only removes files from the cache directory. It does not stop
+     * any in-flight download. When preload is in use, callers should also cancel
+     * preload tasks (see {@code PreloadManager#clearAllCache()}), otherwise those
+     * tasks keep writing into the deleted {@code .download} files.
+     *
+     * @return {@code true} if all cache files were deleted successfully.
+     */
+    public boolean clearAllCache() {
+        return StorageUtils.deleteFiles(config.cacheRoot);
+    }
+
+    /**
+     * Deletes both the completed cache file and the unfinished {@code .download}
+     * temp file for the given url.
+     *
+     * @param url the original video url.
+     * @return {@code true} if all related files were deleted successfully.
+     */
+    public boolean clearCacheFile(String url) {
+        File tempFile = getTempCacheFile(url);
+        File cacheFile = getCacheFile(url);
+        // 两个文件都尝试删除，避免因其中一个失败而漏删另一个
+        boolean deletedTemp = StorageUtils.deleteFile(tempFile.getAbsolutePath());
+        boolean deletedCache = StorageUtils.deleteFile(cacheFile.getAbsolutePath());
+        return deletedTemp && deletedCache;
+    }
+
+    private static void checkNotMainThread() {
+        if (Looper.myLooper() == Looper.getMainLooper()) {
+            throw new IllegalStateException("getCacheSize() performs disk IO and must not be called on the main thread");
+        }
+    }
+
+    private static long countDirSize(File dir) {
+        File[] files = dir.listFiles();
+        if (files == null) {
+            return 0L;
+        }
+        long total = 0;
+        for (File file : files) {
+            if (file.isFile()) {
+                total += file.length();
+            }
+        }
+        return total;
     }
 
     private void touchFileSafely(File cacheFile) {

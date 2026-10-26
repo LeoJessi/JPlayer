@@ -190,7 +190,7 @@ public class RecyclerViewFragment extends BaseFragment implements OnItemChildCli
         }
         VideoBean videoBean = mVideos.get(position);
         //边播边存
-//        String proxyUrl = ProxyVideoCacheManager.getProxy(getActivity()).getProxyUrl(videoBean.getUrl());
+//        String proxyUrl = HttpProxyCacheServer.getInstance(getActivity()).getProxyUrl(videoBean.getUrl());
 //        mVideoView.setUrl(proxyUrl);
 
         mVideoView.setUrl(videoBean.getUrl());
