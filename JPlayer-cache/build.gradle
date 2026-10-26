@@ -17,7 +17,7 @@ android {
 dependencies {
     // Optional data source used via HttpProxyCacheServer.Builder#sourceFactory(SourceFactory).
     // Declared as api so consumers that opt into OkHttpSourceFactory get it transitively.
-    implementation 'com.squareup.okhttp3:okhttp:3.12.11'
+    implementation 'com.squareup.okhttp3:okhttp:3.12.10'
 
     // PreloadSession implements DefaultLifecycleObserver, so consumers compiling against it
     // need the type on their classpath. Version aligned with what appcompat 1.6.1 pulls in.

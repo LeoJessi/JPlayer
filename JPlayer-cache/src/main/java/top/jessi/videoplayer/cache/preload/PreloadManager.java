@@ -189,13 +189,6 @@ public class PreloadManager {
     private static final int REPORT_INTERVAL = 10;
 
     /**
-     * 默认网络策略（基于 ConnectivityManager），网络变化时触发预加载跨度重算
-     */
-    private final ConnectivityNetworkPolicy mDefaultNetworkPolicy;
-
-    private volatile NetworkPolicy mNetworkPolicy;
-
-    /**
      * 引擎是否已关闭
      */
     private volatile boolean mShutdown;
@@ -218,10 +211,6 @@ public class PreloadManager {
 
     private PreloadManager(Context context) {
         mHttpProxyCacheServer = ProxyVideoCacheManager.getProxy(context);
-        // 默认策略：任何网络下都允许预加载（包含移动网络），但无网络时不发起请求
-        mDefaultNetworkPolicy = new ConnectivityNetworkPolicy(context);
-        mDefaultNetworkPolicy.setOnNetworkChangedListener(this::scheduleCompute);
-        mNetworkPolicy = mDefaultNetworkPolicy;
         mScheduler = Executors.newSingleThreadExecutor(r -> new Thread(r, "preload-scheduler"));
         mWorkerPool = new ThreadPoolExecutor(
                 mWorkerCount,
@@ -404,35 +393,6 @@ public class PreloadManager {
         mPositions.put(url, position);
     }
 
-    /**
-     * 设置网络策略。
-     * <p>默认使用 {@link ConnectivityNetworkPolicy}：任何网络下都允许预加载（包含移动网络），
-     * 但无可用网络时不发起请求。如需"仅 WiFi 预加载"，可调用
-     * {@link #setCanPreLoadOnMobile(boolean) setCanPreLoadOnMobile(false)} 或传入自定义策略。
-     */
-    public PreloadManager setNetworkPolicy(NetworkPolicy policy) {
-        if (policy == null || policy == mNetworkPolicy) return this;
-        NetworkPolicy old = mNetworkPolicy;
-        mNetworkPolicy = policy;
-        if (old instanceof ConnectivityNetworkPolicy) {
-            ((ConnectivityNetworkPolicy) old).release();
-        }
-        if (policy instanceof ConnectivityNetworkPolicy) {
-            ((ConnectivityNetworkPolicy) policy).setOnNetworkChangedListener(this::scheduleCompute);
-        }
-        scheduleCompute();
-        return this;
-    }
-
-    /**
-     * 是否允许在移动网络下预加载，默认 {@code true}（不省流量）。
-     * <p>仅在当前网络策略为默认的 {@link ConnectivityNetworkPolicy} 时生效。
-     */
-    public PreloadManager setCanPreLoadOnMobile(boolean canPreLoadOnMobile) {
-        mDefaultNetworkPolicy.setCanPreLoadOnMobile(canPreLoadOnMobile);
-        return this;
-    }
-
     // ---------- 会话 ----------
 
     /**
@@ -491,7 +451,7 @@ public class PreloadManager {
         }
 
         // 当前视频正在缓冲时不提交新任务：带宽要让给播放器
-        if (!canPreloadNow() || mPlaybackBuffering || desired.isEmpty()) return;
+        if (mPlaybackBuffering || desired.isEmpty()) return;
 
         // 按"离当前下标的距离"从近到远提交。
         // 执行池只有 DEFAULT_WORKER_COUNT 个线程，队列满时会丢弃队尾任务，
@@ -552,10 +512,6 @@ public class PreloadManager {
             }
         };
         return task;
-    }
-
-    private boolean canPreloadNow() {
-        return mNetworkPolicy.canPreload();
     }
 
     /**
@@ -815,8 +771,5 @@ public class PreloadManager {
         mPreloadListener = null;
         mWorkerPool.shutdownNow();
         mScheduler.shutdownNow();
-        if (mNetworkPolicy instanceof ConnectivityNetworkPolicy) {
-            ((ConnectivityNetworkPolicy) mNetworkPolicy).release();
-        }
     }
 }
