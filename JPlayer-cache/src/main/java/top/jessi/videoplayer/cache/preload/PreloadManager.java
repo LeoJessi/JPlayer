@@ -59,32 +59,31 @@ public class PreloadManager {
      */
 
     /**
-     * 默认预加载大小：1MB
-     * <p>1MB 足够播放器获取元数据和首帧，配合元数据缓存优化可实现秒播。
+     * 默认预加载大小：2MB
+     * <p>2MB 足够播放器获取元数据和首帧，配合元数据缓存优化可实现秒播。
      */
-    static final int DEFAULT_PRELOAD_LENGTH = 1024 * 1024;
+    static final int DEFAULT_PRELOAD_LENGTH = 1024 * 1024 * 2;
 
     /**
      * 默认向后（未播方向）预加载条数：5。
      * <p>短视频/短剧流里"下一个"几乎必然会被播放，向后的收益远高于向前。
      * <p>跨度越小，单次滑动消耗的带宽越少。
      */
-    static final int DEFAULT_PRELOAD_FORWARD = 5;
+    static final int DEFAULT_PRELOAD_FORWARD = 6;
 
     /**
      * 默认向前（已播方向）预加载条数：2。
      * <p>回滑后往往能命中播放器写下的缓存，但留少量余量可以让回滑起播更快。
      */
-    static final int DEFAULT_PRELOAD_BACKWARD = 2;
+    static final int DEFAULT_PRELOAD_BACKWARD = 1;
 
     /**
-     * 默认执行线程数：2。
+     * 默认执行线程数：3。
      * <p>多一个线程就多一份与播放器抢带宽的力气，按网络条件调整。
      * <p><b>上界受代理侧限制</b>：{@code HttpProxyCacheServer} 的 socket 线程池固定 8 个线程，
      * 每路预加载连接会独占一个线程直到读完 {@code mPreloadLength}。因此线程数 + 1（播放器）
      * 必须小于 8，否则播放器的 socket 会排到预加载队列后面，反而把起播拖卡。
-     * <p><b>XC 单连接限制</b>：后台只允许 1 路并发连接，多线程会在代理层排队等待 XC 响应。
-     * 但预加载层保持 2 个线程可以让多个视频同时排队，避免单线程阻塞整个预加载队列。
+     * <p>实测 3 个线程可以让预加载窗口覆盖更快，且不会明显拖慢单任务速度。
      */
     static final int DEFAULT_WORKER_COUNT = 3;
 
@@ -145,8 +144,8 @@ public class PreloadManager {
 
     /**
      * 尾部（moov）预加载执行器：单线程串行，优先级最低。
-     * <p>尾部请求只在头部就绪后发一次，且 XC 只允许 1 路并发连接——若多个尾部请求
-     * 并发，会互相抢连接导致全部超时（实测均为 5s 整）。串行后每个尾部请求都能独占连接。
+     * <p>尾部请求只在头部就绪后发一次。串行执行可以避免多个尾部请求并发时互相竞争，
+     * 确保每个尾部请求都能顺利完成。
      */
     private final ExecutorService mTailExecutor;
 

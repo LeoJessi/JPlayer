@@ -50,8 +50,7 @@ class PreloadTask implements Runnable {
 
     /**
      * 尾部（moov）预加载执行器，由 {@link PreloadManager} 注入（单线程串行）。
-     * <p>与头部预加载分开：头部多路并发，尾部排队串行，避免多个尾部请求同时抢
-     * XC 的单连接。
+     * <p>与头部预加载分开：头部多路并发，尾部排队串行，避免多个尾部请求并发时互相竞争。
      */
     ExecutorService mTailExecutor;
 
@@ -104,9 +103,9 @@ class PreloadTask implements Runnable {
      * 预加载文件末尾的大小（字节），用于缓存 MP4 的 moov。
      * <p>实测 moov atom 大小取决于音轨/字幕数量，本台源上 64KB ~ 370KB 不等
      * （159651.mp4 的 moov 起点在 total-377864，159662.mp4 在 total-357299），
-     * 64KB 只够覆盖最小的一批，其余仍会回源。取 512KB 留足余量。
+     * 64KB 只够覆盖最小的一批，其余仍会回源。取 1M 留足余量。
      */
-    private static final int TAIL_SIZE = 512 * 1024;
+    private static final int TAIL_SIZE = 1024 * 1024 * 1;
 
     /**
      * 小黑屋条目有效期：10 分钟。
@@ -229,8 +228,7 @@ class PreloadTask implements Runnable {
                     // 否则播放器起播时必须回源请求 moov（文件末尾 95%+ 处），导致 3-4 秒延迟。
                     final Long total = parseContentLength(connection);
                     if (!mIsCanceled && total != null && total > mPreloadLength) {
-                        // 提交到串行执行器：尾部请求排队执行，避免多个尾部请求
-                        // 同时抢 XC 的单连接（实测并发时全部 5s 超时）
+                        // 提交到串行执行器：尾部请求排队执行，避免多个尾部请求并发时互相竞争
                         if (mTailExecutor != null) {
                             mTailExecutor.execute(() -> preloadTail(proxyUrl, total));
                         } else {
@@ -290,8 +288,8 @@ class PreloadTask implements Runnable {
             long tailStart = Math.max(mPreloadLength, total - TAIL_SIZE);
             URL url = new URL(proxyUrl);
             connection = (HttpURLConnection) url.openConnection();
-            // XC 后台只允许 1 路并发连接，尾部请求常要排队等头部/播放器释放，
-            // 5s 必然超时（实测三次均为 5.016s 整）。放宽到 15s 以覆盖排队时间。
+            // 尾部请求可能需要排队等待头部/播放器释放连接，
+            // 放宽超时到 15s 以覆盖排队时间。
             connection.setConnectTimeout(15_000);
             connection.setReadTimeout(15_000);
             connection.setRequestProperty("Range", "bytes=" + tailStart + "-");
