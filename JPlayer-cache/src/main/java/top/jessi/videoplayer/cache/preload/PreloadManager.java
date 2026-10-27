@@ -600,12 +600,23 @@ public class PreloadManager {
 
     /**
      * 查询磁盘上的缓存状态。
+     * <p>优化：完整缓存文件必须至少有 {@link #mPreloadLength} 字节才算"已预加载完成"，
+     * 避免旧的小缓存文件（如只有1KB）被误判为已完成，导致跳过预加载。
      */
     private int cacheState(String rawUrl) {
         try {
             File cacheFile = mHttpProxyCacheServer.getCacheFile(rawUrl);
-            if (cacheFile.exists() && cacheFile.length() >= MIN_CACHED_BYTES) {
-                return CACHE_STATE_COMPLETE;
+            if (cacheFile.exists()) {
+                long length = cacheFile.length();
+                // 完整缓存文件（已complete的）必须至少有 mPreloadLength 大小才算真正完成
+                // 否则即使有缓存文件，如果太小（如旧版本的1KB残留），也应该继续预加载
+                if (length >= mPreloadLength) {
+                    return CACHE_STATE_COMPLETE;
+                }
+                // 有数据但不够预加载目标，算部分缓存
+                if (length >= MIN_CACHED_BYTES) {
+                    return CACHE_STATE_PARTIAL;
+                }
             }
             File tempCacheFile = mHttpProxyCacheServer.getTempCacheFile(rawUrl);
             if (tempCacheFile.exists()) {

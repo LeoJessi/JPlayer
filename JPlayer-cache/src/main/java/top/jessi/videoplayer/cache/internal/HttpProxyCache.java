@@ -79,17 +79,19 @@ class HttpProxyCache extends ProxyCache {
         long cacheAvailable = cache.available();
         boolean cacheCompleted = cache.isCompleted();
 
-        // 优化：只要有缓存或已完成，优先使用数据库元数据，避免调用 source 方法
-        if ((cacheCompleted || cacheAvailable > 0) && source instanceof HttpUrlSource) {
+        // 优化：优先从数据库读取元数据，即使完全没有缓存也先尝试，避免额外网络请求
+        // 只要数据库有完整的元数据（length > 0 且 mime 不为空），就直接使用
+        if (source instanceof HttpUrlSource) {
             SourceInfo info = ((HttpUrlSource) source).getSourceInfoDirect();
-            if (info != null && info.length > 0) {
+            if (info != null && info.length > 0 && !android.text.TextUtils.isEmpty(info.mime)) {
                 // 数据库有完整元数据，直接使用，完全不调用 source.getMime() 或 source.length()
+                // 这样即使是首播（cacheAvailable == 0），只要之前预加载过或播放过，就能避免额外连接
                 long length = cacheCompleted ? cacheAvailable : info.length;
                 return buildResponseHeaders(request, info.mime, length);
             }
         }
 
-        // 正常流程：调用 source 获取元数据（可能触发连接）
+        // 只有数据库真的没有元数据时才连源站获取
         String mime = source.getMime();
         long length = cacheCompleted ? cacheAvailable : source.length();
         return buildResponseHeaders(request, mime, length);
