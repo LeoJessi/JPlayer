@@ -4,6 +4,7 @@ import android.os.SystemClock;
 
 import top.jessi.videoplayer.cache.HttpProxyCacheServer;
 import top.jessi.videoplayer.cache.internal.Logger;
+import top.jessi.videoplayer.cache.internal.ProxyCacheUtils;
 
 import java.io.BufferedInputStream;
 import java.io.InputStream;
@@ -11,6 +12,8 @@ import java.net.HttpURLConnection;
 import java.net.URL;
 import java.util.Map;
 import java.util.concurrent.ExecutorService;
+
+import static top.jessi.videoplayer.cache.internal.ProxyCacheUtils.DEFAULT_BUFFER_SIZE;
 
 /**
  * 原理：主动去请求 VideoCache 生成的代理地址，触发 VideoCache 缓存机制
@@ -103,9 +106,9 @@ class PreloadTask implements Runnable {
      * 预加载文件末尾的大小（字节），用于缓存 MP4 的 moov。
      * <p>实测 moov atom 大小取决于音轨/字幕数量，本台源上 64KB ~ 370KB 不等
      * （159651.mp4 的 moov 起点在 total-377864，159662.mp4 在 total-357299），
-     * 64KB 只够覆盖最小的一批，其余仍会回源。取 1M 留足余量。
+     * 64KB 只够覆盖最小的一批，其余仍会回源。取 512KB 留足余量。
      */
-    private static final int TAIL_SIZE = 1024 * 1024 * 1;
+    private static final int TAIL_SIZE = 512 * 1024;
 
     /**
      * 小黑屋条目有效期：10 分钟。
@@ -213,7 +216,7 @@ class PreloadTask implements Runnable {
             }
             InputStream in = new BufferedInputStream(connection.getInputStream());
             int length;
-            byte[] buffer = new byte[8 * 1024];
+            byte[] buffer = new byte[DEFAULT_BUFFER_SIZE];
             while ((length = in.read(buffer)) != -1) {
                 read += length;
                 //被取消
@@ -300,7 +303,7 @@ class PreloadTask implements Runnable {
                 return;
             }
             InputStream in = new BufferedInputStream(connection.getInputStream());
-            byte[] buffer = new byte[8 * 1024];
+            byte[] buffer = new byte[DEFAULT_BUFFER_SIZE];
             int length;
             while ((length = in.read(buffer)) != -1) {
                 tailRead += length;

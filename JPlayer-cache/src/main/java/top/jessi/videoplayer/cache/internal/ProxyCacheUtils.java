@@ -22,7 +22,13 @@ import static top.jessi.videoplayer.cache.internal.Preconditions.checkNotNull;
  */
 public class ProxyCacheUtils {
 
-    public static final int DEFAULT_BUFFER_SIZE = 8 * 1024;
+    /**
+     * 默认缓冲区大小：128KB。
+     * <p>用于代理层读取缓存文件和网络数据的缓冲。增大缓冲区可以减少系统调用次数，
+     * 提升 I/O 性能，尤其是在本地缓存命中的场景下。128KB 可最大化减少系统调用，
+     * 同时避免过大缓冲区超出 CPU 缓存导致性能下降。
+     */
+    public static final int DEFAULT_BUFFER_SIZE = 128 * 1024;
     static final int MAX_ARRAY_PREVIEW = 16;
 
     public static String getSupposablyMime(String url) {

@@ -96,7 +96,7 @@ public class PreloadManager {
      * 执行队列容量。超出后丢弃新任务（窗口会重新计算，丢弃是安全的），
      * 避免滚动时任务无限堆积。
      * <p>预加载跨度最多 {@code DEFAULT_PRELOAD_BACKWARD + DEFAULT_PRELOAD_FORWARD} 条（当前 7 条），
-     * 执行池为 {@code DEFAULT_WORKER_COUNT}（2）个线程，队列 4 刚好装下跨度内剩余的任务。
+     * 执行池为 {@code DEFAULT_WORKER_COUNT}（3）个线程，队列 4 刚好装下跨度内剩余的任务。
      * <p><b>改大跨度或 worker 数时必须同步调整本值</b>，否则超出的任务会被静默丢弃
      * （表现为"某些集一直预加载不上"，日志里能看到"预加载任务被丢弃"）。
      */
@@ -473,6 +473,10 @@ public class PreloadManager {
         // 而不是听任 HashMap 的随机顺序。
         List<Map.Entry<String, Integer>> sorted = new ArrayList<>(desired.entrySet());
         Collections.sort(sorted, (a, b) -> {
+            // 距离为 0（当前项）绝对优先，确保当前项永远第一个执行
+            if (a.getValue() == 0) return -1;
+            if (b.getValue() == 0) return 1;
+
             int cmp = a.getValue() - b.getValue();
             // 距离相同时按 url 固定顺序，保证多次重算结果稳定，便于对比日志
             return cmp != 0 ? cmp : a.getKey().compareTo(b.getKey());

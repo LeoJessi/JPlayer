@@ -79,8 +79,8 @@ class HttpProxyCache extends ProxyCache {
         long cacheAvailable = cache.available();
         boolean cacheCompleted = cache.isCompleted();
 
-        // 优化：如果缓存足够（完整或 ≥ 1MB），优先使用数据库元数据，避免调用 source 方法
-        if ((cacheCompleted || cacheAvailable >= 1024 * 1024) && source instanceof HttpUrlSource) {
+        // 优化：只要有缓存或已完成，优先使用数据库元数据，避免调用 source 方法
+        if ((cacheCompleted || cacheAvailable > 0) && source instanceof HttpUrlSource) {
             SourceInfo info = ((HttpUrlSource) source).getSourceInfoDirect();
             if (info != null && info.length > 0) {
                 // 数据库有完整元数据，直接使用，完全不调用 source.getMime() 或 source.length()
