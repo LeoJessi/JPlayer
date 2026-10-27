@@ -83,10 +83,10 @@ public class PreloadManager {
      * <p><b>上界受代理侧限制</b>：{@code HttpProxyCacheServer} 的 socket 线程池固定 8 个线程，
      * 每路预加载连接会独占一个线程直到读完 {@code mPreloadLength}。因此线程数 + 1（播放器）
      * 必须小于 8，否则播放器的 socket 会排到预加载队列后面，反而把起播拖卡。
-     * <p><b>XC 单连接限制</b>：后台只允许 1 路并发连接，线程数再多也是在排队，
-     * 反而放大尾部请求的等待。实测 3 线程时尾部请求全部超时，故降为 2。
+     * <p><b>XC 单连接限制</b>：后台只允许 1 路并发连接，多线程会在代理层排队等待 XC 响应。
+     * 但预加载层保持 2 个线程可以让多个视频同时排队，避免单线程阻塞整个预加载队列。
      */
-    static final int DEFAULT_WORKER_COUNT = 2;
+    static final int DEFAULT_WORKER_COUNT = 3;
 
     /**
      * 执行线程数的硬上界：代理侧 socket 线程池固定 8 个，为播放器留一个。
@@ -97,7 +97,7 @@ public class PreloadManager {
      * 执行队列容量。超出后丢弃新任务（窗口会重新计算，丢弃是安全的），
      * 避免滚动时任务无限堆积。
      * <p>预加载跨度最多 {@code DEFAULT_PRELOAD_BACKWARD + DEFAULT_PRELOAD_FORWARD} 条（当前 7 条），
-     * 执行池为 {@code DEFAULT_WORKER_COUNT}（3）个线程，队列 4 刚好装下跨度内剩余的任务。
+     * 执行池为 {@code DEFAULT_WORKER_COUNT}（2）个线程，队列 4 刚好装下跨度内剩余的任务。
      * <p><b>改大跨度或 worker 数时必须同步调整本值</b>，否则超出的任务会被静默丢弃
      * （表现为"某些集一直预加载不上"，日志里能看到"预加载任务被丢弃"）。
      */

@@ -102,18 +102,6 @@ public class TikTok2Activity extends BaseActivity<VideoView> {
 
         mController = new TikTokController(this);
         mVideoView.setVideoController(mController);
-
-        // 播放器准备/缓冲时暂停预加载，把 XC 的单连接让给播放器；播放中自动恢复。
-        // XC 后台只允许 1 路并发连接，播放器与预加载同时请求会互相排队，拖慢起播。
-        mVideoView.addOnStateChangeListener(new BaseVideoView.SimpleOnStateChangeListener() {
-            @Override
-            public void onPlayStateChanged(PlayState playState) {
-                int state = playState.getState();
-                boolean occupying = state == BaseVideoView.STATE_PREPARING
-                        || state == BaseVideoView.STATE_BUFFERING;
-                mPreloadManager.setPlaybackBuffering(occupying);
-            }
-        });
     }
 
     private void initViewPager() {
@@ -148,10 +136,10 @@ public class TikTok2Activity extends BaseActivity<VideoView> {
                 //请点进去看isDissociate的解释
                 mController.addControlComponent(viewHolder.mTikTokView, true);
                 viewHolder.mPlayerContainer.addView(mVideoView, 0);
-                mVideoView.start();
                 mCurPos = position;
-                // 预加载窗口跟随当前下标
+                // 预加载窗口跟随当前下标（在 start() 之前调用，让窗口先就位）
                 mPreloadSession.setCurrentIndex(position);
+                mVideoView.start();
                 break;
             }
         }

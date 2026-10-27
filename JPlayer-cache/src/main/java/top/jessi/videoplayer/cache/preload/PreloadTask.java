@@ -102,9 +102,11 @@ class PreloadTask implements Runnable {
 
     /**
      * 预加载文件末尾的大小（字节），用于缓存 MP4 的 moov。
-     * <p>moov 通常只有几 KB ~ 几十 KB，64KB 足够容纳，又能避免预加载整个文件。
+     * <p>实测 moov atom 大小取决于音轨/字幕数量，本台源上 64KB ~ 370KB 不等
+     * （159651.mp4 的 moov 起点在 total-377864，159662.mp4 在 total-357299），
+     * 64KB 只够覆盖最小的一批，其余仍会回源。取 512KB 留足余量。
      */
-    private static final int TAIL_SIZE = 64 * 1024;
+    private static final int TAIL_SIZE = 512 * 1024;
 
     /**
      * 小黑屋条目有效期：10 分钟。
