@@ -4,6 +4,10 @@
 
 再次感谢Doikki开源的好项目！感谢
 
+#### 2026.10.29 - 1.4.1
+1. 优化完善预加载逻辑
+2. 调整vlc版本
+
 #### 2026.10.22 - 1.4.0
 1. 优化整理适配缓存与预加载逻辑
 2. 鸣谢[AndroidVideoCache](https://github.com/danikula/AndroidVideoCache)
