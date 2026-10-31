@@ -12,4 +12,11 @@ public interface DiskUsage {
 
     void touch(File file) throws IOException;
 
+    /**
+     * Releases resources owned by this policy. Implementations without background resources can
+     * keep the default no-op behavior.
+     */
+    default void shutdown() {
+    }
+
 }

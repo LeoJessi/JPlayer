@@ -141,15 +141,15 @@ public class TikTok3Activity extends BaseActivity<VideoView> {
                 mVideoView.release();
                 Utils.removeViewFormParent(mVideoView);
                 TiktokBean tiktokBean = mVideoList.get(position);
+                mCurPos = position;
+                // 先更新预加载窗口，避免 URL 交接时调度器仍按上一页窗口处理当前任务。
+                mPreloadSession.setCurrentIndex(position);
                 String playUrl = mPreloadManager.getPlayUrl(tiktokBean.videoDownloadUrl);
                 L.i("startPlay: " + "position: " + position + "  url: " + playUrl);
                 mVideoView.setUrl(playUrl);
                 //请点进去看isDissociate的解释
                 mController.addControlComponent(viewHolder.mTikTokView, true);
                 viewHolder.mPlayerContainer.addView(mVideoView, 0);
-                mCurPos = position;
-                // 预加载窗口跟随当前下标（在 start() 之前调用，让窗口先就位）
-                mPreloadSession.setCurrentIndex(position);
                 mVideoView.start();
                 break;
             }

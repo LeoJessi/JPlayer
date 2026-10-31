@@ -26,6 +26,7 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 import javax.net.ssl.HostnameVerifier;
 import javax.net.ssl.TrustManager;
@@ -77,6 +78,7 @@ public class HttpProxyCacheServer {
     private final Thread waitConnectionThread;
     private final Config config;
     private final Pinger pinger;
+    private volatile boolean mShutdown;
 
     public HttpProxyCacheServer(Context context) {
         this(new Builder(context).buildConfig());
@@ -152,7 +154,8 @@ public class HttpProxyCacheServer {
             touchFileSafely(cacheFile);
             return Uri.fromFile(cacheFile).toString();
         }
-        return isAlive() ? appendToProxyUrl(url) : url;
+        // 服务端构造完成后已经监听本地端口，避免每次获取播放地址都同步 Ping。
+        return !mShutdown && !serverSocket.isClosed() ? appendToProxyUrl(url) : url;
     }
 
     public void registerCacheListener(CacheListener cacheListener, String url) {
@@ -198,6 +201,10 @@ public class HttpProxyCacheServer {
     }
 
     public void shutdown() {
+        if (mShutdown) {
+            return;
+        }
+        mShutdown = true;
         Logger.info("Shutdown proxy server");
 
         shutdownClients();
@@ -211,11 +218,16 @@ public class HttpProxyCacheServer {
             }
         } catch (IOException e) {
             onError(new ProxyCacheException("Error shutting down proxy server", e));
+        } finally {
+            // 关闭尚未开始处理的 accepted socket，避免 shutdownNow 丢弃任务时泄漏 socket。
+            for (Runnable pending : socketProcessor.shutdownNow()) {
+                if (pending instanceof SocketProcessorRunnable) {
+                    releaseSocket(((SocketProcessorRunnable) pending).socket);
+                }
+            }
+            config.diskUsage.shutdown();
+            pinger.shutdown();
         }
-    }
-
-    private boolean isAlive() {
-        return pinger.ping(3, 70); // 70+140+280=max~500ms
     }
 
     private String appendToProxyUrl(String url) {
@@ -236,6 +248,33 @@ public class HttpProxyCacheServer {
 
     public File getCacheRoot() {
         return config.cacheRoot;
+    }
+
+    /**
+     * 直接从源站读取指定 Range 并写入该 URL 的共享稀疏缓存。
+     * <p>与代理播放的顺序 SourceReader 分开，避免尾部 moov Range 排在头部下载之后。
+     */
+    public long preloadRange(String url, long offset, long maxBytes, AtomicBoolean canceled)
+            throws ProxyCacheException {
+        checkNotNull(url);
+        checkNotNull(canceled);
+        if (offset < 0 || maxBytes <= 0 || mShutdown || canceled.get()) {
+            return 0;
+        }
+        return getClients(url).preloadRange(offset, maxBytes, canceled);
+    }
+
+    /**
+     * 取消指定 URL 正在执行的独立 Range 缓存任务。
+     */
+    public void cancelRangePreload(String url) {
+        if (url == null) {
+            return;
+        }
+        HttpProxyCacheServerClients clients = clientsMap.get(url);
+        if (clients != null) {
+            clients.cancelRangePreload();
+        }
     }
 
     /**
@@ -276,10 +315,14 @@ public class HttpProxyCacheServer {
     public boolean clearCacheFile(String url) {
         File tempFile = getTempCacheFile(url);
         File cacheFile = getCacheFile(url);
+        File tempMetaFile = new File(tempFile.getParentFile(), tempFile.getName() + ".meta");
+        File cacheMetaFile = new File(cacheFile.getParentFile(), cacheFile.getName() + ".meta");
         // 两个文件都尝试删除，避免因其中一个失败而漏删另一个
         boolean deletedTemp = StorageUtils.deleteFile(tempFile.getAbsolutePath());
         boolean deletedCache = StorageUtils.deleteFile(cacheFile.getAbsolutePath());
-        return deletedTemp && deletedCache;
+        boolean deletedTempMeta = StorageUtils.deleteFile(tempMetaFile.getAbsolutePath());
+        boolean deletedCacheMeta = StorageUtils.deleteFile(cacheMetaFile.getAbsolutePath());
+        return deletedTemp && deletedCache && deletedTempMeta && deletedCacheMeta;
     }
 
     private static void checkNotMainThread() {

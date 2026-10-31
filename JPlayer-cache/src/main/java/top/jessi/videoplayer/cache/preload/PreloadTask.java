@@ -12,6 +12,8 @@ import java.net.HttpURLConnection;
 import java.net.URL;
 import java.util.Map;
 import java.util.concurrent.ExecutorService;
+import java.util.concurrent.RejectedExecutionException;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 import static top.jessi.videoplayer.cache.internal.ProxyCacheUtils.DEFAULT_BUFFER_SIZE;
 
@@ -53,15 +55,15 @@ class PreloadTask implements Runnable {
 
     /**
      * 尾部（moov）预加载执行器，由 {@link PreloadManager} 注入（单线程串行）。
-     * <p>与头部预加载分开：头部多路并发，尾部排队串行，避免多个尾部请求并发时互相竞争。
+     * <p>尾部 Range 在总长度可用后尽早排队，并通过独立 Source 写入共享稀疏缓存。
      */
     ExecutorService mTailExecutor;
 
-    /**
-     * 当前尾部预加载连接。{@link #cancel()} 时 disconnect 打断阻塞的 read。
-     * <p>与头部连接 {@link #mConnection} 分开，避免尾部覆盖头部导致 cancel 失效。
-     */
-    private volatile HttpURLConnection mTailConnection;
+    /** 当前尾部范围请求的线程，用于及时响应取消。 */
+    private volatile Thread mTailThread;
+
+    /** 独立令牌：重试时旧的排队尾部请求不会被重新激活。 */
+    private volatile AtomicBoolean mTailCanceled = new AtomicBoolean();
 
     /**
      * 预加载结果回调。
@@ -161,15 +163,22 @@ class PreloadTask implements Runnable {
         try {
             if (!mIsCanceled) {
                 bytes = start();
-                preloaded = bytes >= mPreloadLength;
+                // 视频本身小于预加载目标时，正式缓存文件存在也代表已完整缓存。
+                preloaded = bytes >= mPreloadLength
+                        || (mCacheServer != null && mCacheServer.isCached(mRawUrl));
             }
         } finally {
+            long costMs = SystemClock.elapsedRealtime() - startedAt;
+            Logger.info("预加载结果：position=" + mPosition
+                    + " ready=" + preloaded
+                    + " bytes=" + bytes
+                    + " costMs=" + costMs
+                    + " canceled=" + mIsCanceled);
             // 回调必须放在 finally：start() 只 catch 了 Exception，一旦抛 Error
             // （OOM、NoClassDefFoundError 等），回调仍是清理 mInFlight 的唯一入口。
             // 跳过它会让该 url 在进程剩余生命周期内永久失去预加载机会，且没有任何日志。
             if (mListener != null) {
-                mListener.onPreloadFinished(mRawUrl, preloaded, bytes,
-                        SystemClock.elapsedRealtime() - startedAt);
+                mListener.onPreloadFinished(mRawUrl, preloaded, bytes, costMs);
             }
         }
     }
@@ -214,31 +223,27 @@ class PreloadTask implements Runnable {
                 connection.disconnect();
                 return 0;
             }
-            InputStream in = new BufferedInputStream(connection.getInputStream());
-            int length;
-            byte[] buffer = new byte[DEFAULT_BUFFER_SIZE];
-            while ((length = in.read(buffer)) != -1) {
-                read += length;
-                //被取消
-                if (mIsCanceled) {
-                    Logger.info("预加载取消：" + mPosition + " 读取数据：" + read + " Byte");
-                    return read;
+            try (InputStream in = new BufferedInputStream(connection.getInputStream())) {
+                // The initial 200 response already exposes the total length. Start the tail
+                // Range while the head is still downloading instead of waiting for 2 MB.
+                Long total = parseContentLength(connection);
+                if (total != null && total > mPreloadLength) {
+                    scheduleTailPreload(total);
                 }
-                //预加载完成
-                if (read >= mPreloadLength) {
-                    Logger.info("预加载成功：" + mPosition + " 读取数据：" + read + " Byte");
-                    // 头部已就绪后，再把文件末尾的 moov 缓存下来，
-                    // 否则播放器起播时必须回源请求 moov（文件末尾 95%+ 处），导致 3-4 秒延迟。
-                    final Long total = parseContentLength(connection);
-                    if (!mIsCanceled && total != null && total > mPreloadLength) {
-                        // 提交到串行执行器：尾部请求排队执行，避免多个尾部请求并发时互相竞争
-                        if (mTailExecutor != null) {
-                            mTailExecutor.execute(() -> preloadTail(proxyUrl, total));
-                        } else {
-                            preloadTail(proxyUrl, total);
-                        }
+                int length;
+                byte[] buffer = new byte[DEFAULT_BUFFER_SIZE];
+                while ((length = in.read(buffer)) != -1) {
+                    read += length;
+                    //被取消
+                    if (mIsCanceled) {
+                        Logger.info("预加载取消：" + mPosition + " 读取数据：" + read + " Byte");
+                        return read;
                     }
-                    return read;
+                    //预加载完成
+                    if (read >= mPreloadLength) {
+                        Logger.info("预加载成功：" + mPosition + " 读取数据：" + read + " Byte");
+                        return read;
+                    }
                 }
             }
         } catch (Exception e) {
@@ -279,50 +284,57 @@ class PreloadTask implements Runnable {
         }
     }
 
+    private void scheduleTailPreload(final long total) {
+        if (mIsCanceled) {
+            return;
+        }
+        final AtomicBoolean canceled = mTailCanceled;
+        if (canceled.get()) {
+            return;
+        }
+        Runnable tailJob = () -> preloadTail(total, canceled);
+        if (mTailExecutor == null) {
+            tailJob.run();
+            return;
+        }
+        try {
+            mTailExecutor.execute(tailJob);
+        } catch (RejectedExecutionException e) {
+            Logger.info("尾部 Range 排队跳过：position=" + mPosition + " reason=queue-full-or-shutdown");
+        }
+    }
+
     /**
      * 预加载文件末尾的 moov 区间。
-     * <p>用 {@code Range} 请求末尾 {@value #TAIL_SIZE} 字节，代理会把它写入缓存的离散区间。
-     * 播放器起播请求 moov 时即可命中缓存，不再回源。
+     * <p>直接对源站发 Range 请求并写入缓存文件的离散区间，不等待代理的顺序读取器。
      */
-    private void preloadTail(String proxyUrl, long total) {
-        HttpURLConnection connection = null;
+    private void preloadTail(long total, AtomicBoolean canceled) {
         long tailRead = 0;
+        long tailStart = -1;
+        long expectedTailBytes = 0;
+        long tailStartedAt = SystemClock.elapsedRealtime();
+        mTailThread = Thread.currentThread();
         try {
-            long tailStart = Math.max(mPreloadLength, total - TAIL_SIZE);
-            URL url = new URL(proxyUrl);
-            connection = (HttpURLConnection) url.openConnection();
-            // 尾部请求可能需要排队等待头部/播放器释放连接，
-            // 放宽超时到 15s 以覆盖排队时间。
-            connection.setConnectTimeout(15_000);
-            connection.setReadTimeout(15_000);
-            connection.setRequestProperty("Range", "bytes=" + tailStart + "-");
-            // 记录尾部连接，使 cancel() 能打断本次阻塞的 read（不覆盖头部连接）
-            mTailConnection = connection;
-            if (mIsCanceled) {
-                connection.disconnect();
+            tailStart = Math.max(mPreloadLength, total - TAIL_SIZE);
+            expectedTailBytes = total - tailStart;
+            if (mIsCanceled || canceled.get() || Thread.currentThread().isInterrupted()) {
                 return;
             }
-            InputStream in = new BufferedInputStream(connection.getInputStream());
-            byte[] buffer = new byte[DEFAULT_BUFFER_SIZE];
-            int length;
-            while ((length = in.read(buffer)) != -1) {
-                tailRead += length;
-                if (mIsCanceled) {
-                    break;
-                }
-                if (tailRead >= TAIL_SIZE) {
-                    break;
-                }
-            }
-            Logger.info("预加载末尾 moov：" + mPosition + " 读取数据：" + tailRead + " Byte");
+            // 直接读取独立源站 Range，并写入同一 FileCache 的稀疏区间。
+            tailRead = mCacheServer.preloadRange(mRawUrl, tailStart, expectedTailBytes, canceled);
+            Logger.info("预加载末尾 Range：position=" + mPosition
+                    + " offset=" + tailStart
+                    + " bytes=" + tailRead + "/" + expectedTailBytes
+                    + " costMs=" + (SystemClock.elapsedRealtime() - tailStartedAt));
         } catch (Exception e) {
             // 末尾预加载失败不影响头部缓存的可用性，只记录
-            Logger.info("预加载末尾 moov 失败：" + mPosition + " 异常信息：" + e.getMessage());
+            Logger.info("预加载末尾 Range 失败：position=" + mPosition
+                    + " offset=" + tailStart
+                    + " bytes=" + tailRead + "/" + expectedTailBytes
+                    + " costMs=" + (SystemClock.elapsedRealtime() - tailStartedAt)
+                    + " error=" + e.getMessage());
         } finally {
-            if (connection != null) {
-                connection.disconnect();
-            }
-            mTailConnection = null;
+            mTailThread = null;
         }
     }
 
@@ -330,12 +342,14 @@ class PreloadTask implements Runnable {
      * 将预加载任务提交到线程池，准备执行。
      * <p>重新提交时会清除取消标记，保证任务不会因为上一次被取消而永远无法执行。
      * <p>不去重：调用方（{@link PreloadManager} 的调度线程）通过 {@code mInFlight}
-     * 保证同一 url 不会被重复提交。这里若再加一层基于任务状态的守卫，
-     * 一旦线程池因队列已满而丢弃任务，标记将无法复位，导致该 url 之后永久不再预加载。
+     * 保证同一 url 不会被重复提交。线程池拒绝时由调度器移除对应标记，
+     * 后续窗口重算会再次提交。
      */
     void executeOn(ExecutorService executorService) {
         mIsCanceled = false;
-        executorService.submit(this);
+        mTailCanceled = new AtomicBoolean();
+        // 使用 execute 保留原始 Runnable，便于拒绝处理器清理对应 URL 的 in-flight 标记。
+        executorService.execute(this);
     }
 
     /**
@@ -345,14 +359,19 @@ class PreloadTask implements Runnable {
      */
     void cancel() {
         mIsCanceled = true;
+        AtomicBoolean canceled = mTailCanceled;
+        canceled.set(true);
         HttpURLConnection connection = mConnection;
         if (connection != null) {
             connection.disconnect();
         }
-        // 尾部请求在独立线程执行，也要能被打断
-        HttpURLConnection tailConnection = mTailConnection;
-        if (tailConnection != null) {
-            tailConnection.disconnect();
+        if (mCacheServer != null) {
+            mCacheServer.cancelRangePreload(mRawUrl);
+        }
+        // 让尾部线程尽快观察取消令牌。
+        Thread tailThread = mTailThread;
+        if (tailThread != null) {
+            tailThread.interrupt();
         }
     }
 }

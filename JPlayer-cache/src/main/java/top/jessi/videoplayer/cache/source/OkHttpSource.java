@@ -24,6 +24,7 @@ import javax.net.ssl.TrustManager;
 import javax.net.ssl.X509TrustManager;
 
 import okhttp3.MediaType;
+import okhttp3.Call;
 import okhttp3.OkHttpClient;
 import okhttp3.Request;
 import okhttp3.Response;
@@ -56,6 +57,7 @@ public class OkHttpSource implements Source {
     private final TrustManager[] trustAllCerts;
     private SourceInfo sourceInfo;
     private InputStream inputStream;
+    private volatile Call activeCall;
 
     public OkHttpSource(String url) {
         this(url, SourceInfoStorageFactory.newEmptySourceInfoStorage());
@@ -132,6 +134,15 @@ public class OkHttpSource implements Source {
     public void close() throws ProxyCacheException {
         ProxyCacheUtils.close(inputStream);
         inputStream = null;
+        activeCall = null;
+    }
+
+    @Override
+    public void cancel() {
+        Call call = activeCall;
+        if (call != null) {
+            call.cancel();
+        }
     }
 
     @Override
@@ -181,6 +192,7 @@ public class OkHttpSource implements Source {
             if (response != null) {
                 response.close();
             }
+            activeCall = null;
         }
     }
 
@@ -198,11 +210,14 @@ public class OkHttpSource implements Source {
             if (offset > 0) {
                 requestBuilder.addHeader("Range", "bytes=" + offset + "-");
             }
-            response = createClient(timeout).newCall(requestBuilder.build()).execute();
+            Call call = createClient(timeout).newCall(requestBuilder.build());
+            activeCall = call;
+            response = call.execute();
             redirected = response.isRedirect();
             if (redirected) {
                 String newUrl = response.header("Location");
                 response.close();
+                activeCall = null;
                 url = newUrl;
                 redirectCount++;
             }

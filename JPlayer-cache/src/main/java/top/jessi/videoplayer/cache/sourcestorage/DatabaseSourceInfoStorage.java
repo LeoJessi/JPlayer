@@ -21,6 +21,7 @@ class DatabaseSourceInfoStorage extends SQLiteOpenHelper implements SourceInfoSt
     private static final String COLUMN_URL = "url";
     private static final String COLUMN_LENGTH = "length";
     private static final String COLUMN_MIME = "mime";
+    private static final String URL_INDEX = "index_SourceInfo_url";
     private static final String[] ALL_COLUMNS = new String[]{COLUMN_ID, COLUMN_URL, COLUMN_LENGTH, COLUMN_MIME};
     private static final String CREATE_SQL =
             "CREATE TABLE " + TABLE + " (" +
@@ -31,7 +32,7 @@ class DatabaseSourceInfoStorage extends SQLiteOpenHelper implements SourceInfoSt
                     ");";
 
     DatabaseSourceInfoStorage(Context context) {
-        super(context, "AndroidVideoCache.db", null, 1);
+        super(context, "AndroidVideoCache.db", null, 2);
         checkNotNull(context);
     }
 
@@ -39,11 +40,17 @@ class DatabaseSourceInfoStorage extends SQLiteOpenHelper implements SourceInfoSt
     public void onCreate(SQLiteDatabase db) {
         checkNotNull(db);
         db.execSQL(CREATE_SQL);
+        createUrlIndex(db);
     }
 
     @Override
     public void onUpgrade(SQLiteDatabase db, int oldVersion, int newVersion) {
-        throw new IllegalStateException("Should not be called. There is no any migration");
+        if (oldVersion < 2) {
+            // 旧版本没有 URL 唯一约束；保留每个 URL 最近一次写入的元数据。
+            db.execSQL("DELETE FROM " + TABLE + " WHERE " + COLUMN_ID + " NOT IN (SELECT MAX("
+                    + COLUMN_ID + ") FROM " + TABLE + " GROUP BY " + COLUMN_URL + ")");
+            createUrlIndex(db);
+        }
     }
 
     @Override
@@ -57,14 +64,10 @@ class DatabaseSourceInfoStorage extends SQLiteOpenHelper implements SourceInfoSt
     @Override
     public void put(String url, SourceInfo sourceInfo) {
         checkAllNotNull(url, sourceInfo);
-        SourceInfo sourceInfoFromDb = get(url);
-        boolean exist = sourceInfoFromDb != null;
         ContentValues contentValues = convert(sourceInfo);
-        if (exist) {
-            getWritableDatabase().update(TABLE, contentValues, COLUMN_URL + "=?", new String[]{url});
-        } else {
-            getWritableDatabase().insert(TABLE, null, contentValues);
-        }
+        contentValues.put(COLUMN_URL, url);
+        getWritableDatabase().insertWithOnConflict(
+                TABLE, null, contentValues, SQLiteDatabase.CONFLICT_REPLACE);
     }
 
     @Override
@@ -86,5 +89,10 @@ class DatabaseSourceInfoStorage extends SQLiteOpenHelper implements SourceInfoSt
         values.put(COLUMN_LENGTH, sourceInfo.length);
         values.put(COLUMN_MIME, sourceInfo.mime);
         return values;
+    }
+
+    private void createUrlIndex(SQLiteDatabase db) {
+        db.execSQL("CREATE UNIQUE INDEX IF NOT EXISTS " + URL_INDEX
+                + " ON " + TABLE + "(" + COLUMN_URL + ")");
     }
 }

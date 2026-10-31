@@ -12,6 +12,7 @@ import java.net.Socket;
 import java.util.List;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 import static top.jessi.videoplayer.cache.internal.Preconditions.checkNotNull;
 import top.jessi.videoplayer.cache.source.Source;
@@ -29,6 +30,7 @@ public final class HttpProxyCacheServerClients {
     private final AtomicInteger clientsCount = new AtomicInteger(0);
     private final String url;
     private volatile HttpProxyCache proxyCache;
+    private boolean shutdown;
     private final List<CacheListener> listeners = new CopyOnWriteArrayList<>();
     private final CacheListener uiCacheListener;
     private final Config config;
@@ -40,9 +42,9 @@ public final class HttpProxyCacheServerClients {
     }
 
     public void processRequest(GetRequest request, Socket socket) throws ProxyCacheException, IOException {
-        startProcessRequest();
+        HttpProxyCache cache = startProcessRequest();
         try {
-            proxyCache.processRequest(request, socket);
+            cache.processRequest(request, socket);
         } finally {
             finishProcessRequest();
         }
@@ -59,15 +61,25 @@ public final class HttpProxyCacheServerClients {
      * <p>把自增挪进来之后，{@code clientsCount > 0} 与 {@code proxyCache != null}
      * 成为同一个临界区维护的不变量。
      */
-    private synchronized void startProcessRequest() throws ProxyCacheException {
+    private synchronized HttpProxyCache startProcessRequest() throws ProxyCacheException {
+        if (shutdown) {
+            throw new ProxyCacheException("Cache clients are shut down for " + url);
+        }
         proxyCache = proxyCache == null ? newHttpProxyCache() : proxyCache;
         clientsCount.incrementAndGet();
+        return proxyCache;
     }
 
     private synchronized void finishProcessRequest() {
-        if (clientsCount.decrementAndGet() <= 0) {
-            proxyCache.shutdown();
+        if (clientsCount.get() <= 0) {
+            return;
+        }
+        if (clientsCount.decrementAndGet() == 0) {
+            HttpProxyCache cache = proxyCache;
             proxyCache = null;
+            if (cache != null) {
+                cache.shutdown();
+            }
         }
     }
 
@@ -79,18 +91,40 @@ public final class HttpProxyCacheServerClients {
         listeners.remove(cacheListener);
     }
 
-    public void shutdown() {
+    public synchronized void shutdown() {
+        shutdown = true;
         listeners.clear();
-        if (proxyCache != null) {
-            proxyCache.registerCacheListener(null);
-            proxyCache.shutdown();
-            proxyCache = null;
+        HttpProxyCache cache = proxyCache;
+        proxyCache = null;
+        if (cache != null) {
+            cache.registerCacheListener(null);
+            cache.shutdown();
         }
         clientsCount.set(0);
     }
 
     public int getClientsCount() {
         return clientsCount.get();
+    }
+
+    /**
+     * Range fetcher shares the same HttpProxyCache/FileCache but counts as an active client,
+     * so normal socket completion cannot close the cache while bytes are being appended.
+     */
+    public long preloadRange(long offset, long maxBytes, AtomicBoolean canceled) throws ProxyCacheException {
+        HttpProxyCache cache = startProcessRequest();
+        try {
+            return cache.preloadRange(offset, maxBytes, canceled);
+        } finally {
+            finishProcessRequest();
+        }
+    }
+
+    public void cancelRangePreload() {
+        HttpProxyCache cache = proxyCache;
+        if (cache != null) {
+            cache.cancelRangePreload();
+        }
     }
 
     private HttpProxyCache newHttpProxyCache() throws ProxyCacheException {

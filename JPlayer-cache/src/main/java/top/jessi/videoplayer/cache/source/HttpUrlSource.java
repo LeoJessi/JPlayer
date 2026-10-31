@@ -55,7 +55,7 @@ public class HttpUrlSource implements Source {
     private final long timeoutMs;
     private SourceInfo sourceInfo;
     private volatile boolean contentInfoFetched;
-    private HttpURLConnection connection;
+    private volatile HttpURLConnection connection;
     private InputStream inputStream;
 
     public HttpUrlSource(String url) {
@@ -172,6 +172,17 @@ public class HttpUrlSource implements Source {
                         "If anybody know how to fix it, please visit https://github.com/danikula/AndroidVideoCache/issues/88. " +
                         "Until good solution is not know, just ignore this issue.");
             }
+            connection = null;
+        }
+    }
+
+    @Override
+    public void cancel() {
+        HttpURLConnection activeConnection = connection;
+        if (activeConnection != null) {
+            // Do not close inputStream here: Android's HttpURLConnection stream close is not
+            // safe while another thread is inside read(). The reader closes it in its finally.
+            activeConnection.disconnect();
         }
     }
 

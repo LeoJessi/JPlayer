@@ -10,6 +10,10 @@ import java.io.FileReader;
 import java.io.FileWriter;
 import java.io.IOException;
 import java.io.RandomAccessFile;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.Comparator;
+import java.util.List;
 
 /**
  * {@link Cache} that uses file for storing data.
@@ -39,13 +43,9 @@ public class FileCache implements Cache {
     private long contiguousLength;
 
     /**
-     * 离散缓存区间的起始偏移，{@code -1} 表示不存在。
-     * <p>用于缓存文件末尾的 moov：它不在连续前缀内，但播放器起播会按 Range 请求它。
+     * 连续前缀之外的离散缓存区间，按起始偏移排序且互不重叠。
      */
-    private long tailOffset = -1;
-
-    /** 离散缓存区间的长度 */
-    private long tailLength;
+    private final List<CacheRange> sparseRanges = new ArrayList<>();
 
     public FileCache(File file) throws ProxyCacheException {
         this(file, new UnlimitedDiskUsage());
@@ -75,7 +75,8 @@ public class FileCache implements Cache {
     private void loadMeta() {
         File metaFile = metaFile();
         if (!metaFile.exists()) {
-            contiguousLength = file.length();
+            // 临时文件缺少旁文件时无法判断是否含稀疏空洞；从头续拉保证不会命中空洞数据。
+            contiguousLength = isTempFile(file) ? 0 : file.length();
             return;
         }
         try (BufferedReader reader = new BufferedReader(new FileReader(metaFile))) {
@@ -83,21 +84,44 @@ public class FileCache implements Cache {
             if (line != null) {
                 String[] parts = line.trim().split("\\s+");
                 if (parts.length >= 3) {
-                    contiguousLength = Long.parseLong(parts[0]);
-                    tailOffset = Long.parseLong(parts[1]);
-                    tailLength = Long.parseLong(parts[2]);
+                    long loadedContiguousLength = Long.parseLong(parts[0]);
+                    if (loadedContiguousLength < 0 || loadedContiguousLength > file.length()) {
+                        throw new IllegalArgumentException("Invalid contiguous cache length");
+                    }
+                    contiguousLength = loadedContiguousLength;
+                    long tailOffset = Long.parseLong(parts[1]);
+                    long tailLength = Long.parseLong(parts[2]);
+                    if (tailOffset >= 0 && tailLength > 0 && tailOffset <= file.length()
+                            && tailLength <= file.length() - tailOffset) {
+                        sparseRanges.add(new CacheRange(tailOffset, tailOffset + tailLength));
+                    }
+                    // 新格式在前三个字段后按 offset/length 成对保存更多区间。
+                    for (int i = 3; i + 1 < parts.length; i += 2) {
+                        long start = Long.parseLong(parts[i]);
+                        long rangeLength = Long.parseLong(parts[i + 1]);
+                        long end = start + rangeLength;
+                        if (start >= 0 && rangeLength > 0 && start <= file.length()
+                                && rangeLength <= file.length() - start) {
+                            sparseRanges.add(new CacheRange(start, end));
+                        }
+                    }
+                    normalizeRanges();
                     return;
                 }
             }
         } catch (Exception ignored) {
-            // 旁文件损坏时退化为整文件连续
+            // 临时文件的区间元数据损坏时不能把稀疏空洞误认为有效缓存。
         }
-        contiguousLength = file.length();
+        contiguousLength = isTempFile(file) ? 0 : file.length();
+        sparseRanges.clear();
     }
 
     private void saveMeta() {
         try (BufferedWriter writer = new BufferedWriter(new FileWriter(metaFile()))) {
-            writer.write(contiguousLength + " " + tailOffset + " " + tailLength);
+            writer.write(contiguousLength + " -1 0");
+            for (CacheRange range : sparseRanges) {
+                writer.write(" " + range.start + " " + (range.end - range.start));
+            }
         } catch (IOException ignored) {
             // 旁文件只用于恢复区间，写失败不影响缓存数据本身
         }
@@ -140,6 +164,9 @@ public class FileCache implements Cache {
             if (isCompleted()) {
                 throw new ProxyCacheException("Error append cache: cache file " + file + " is completed!");
             }
+            if (offset < 0 || offset > Long.MAX_VALUE - length) {
+                throw new ProxyCacheException("Error append cache: invalid offset " + offset);
+            }
             if (length < 0 || length > data.length) {
                 throw new ProxyCacheException("Error append cache: invalid length " + length);
             }
@@ -157,26 +184,12 @@ public class FileCache implements Cache {
 
     private void updateContiguous(long offset, int length) {
         long end = offset + length;
-        if (offset == contiguousLength) {
-            contiguousLength = end;
-            // 与离散区间相连则合并成一条连续前缀
-            if (tailOffset >= 0 && contiguousLength >= tailOffset) {
-                contiguousLength = Math.max(tailOffset + tailLength, contiguousLength);
-                tailOffset = -1;
-                tailLength = 0;
-            }
-        } else if (offset > contiguousLength) {
-            if (tailOffset < 0) {
-                tailOffset = offset;
-                tailLength = length;
-            } else {
-                long min = Math.min(tailOffset, offset);
-                long max = Math.max(tailOffset + tailLength, end);
-                tailOffset = min;
-                tailLength = max - min;
-            }
+        if (offset <= contiguousLength) {
+            contiguousLength = Math.max(contiguousLength, end);
+        } else {
+            sparseRanges.add(new CacheRange(offset, end));
         }
-        // offset < contiguousLength：重叠写入，不改变区间
+        normalizeRanges();
     }
 
     /**
@@ -187,11 +200,22 @@ public class FileCache implements Cache {
         if (offset < 0 || length < 0) {
             return false;
         }
+        if (offset > Long.MAX_VALUE - length) {
+            return false;
+        }
         long end = offset + length;
         if (end <= contiguousLength) {
             return true;
         }
-        return tailOffset >= 0 && offset >= tailOffset && end <= tailOffset + tailLength;
+        for (CacheRange range : sparseRanges) {
+            if (offset < range.start) {
+                return false;
+            }
+            if (offset >= range.start && end <= range.end) {
+                return true;
+            }
+        }
+        return false;
     }
 
     @Override
@@ -210,6 +234,7 @@ public class FileCache implements Cache {
             return;
         }
 
+        File tempMetaFile = metaFile();
         close();
         String fileName = file.getName().substring(0, file.getName().length() - TEMP_POSTFIX.length());
         File completedFile = new File(file.getParentFile(), fileName);
@@ -226,9 +251,55 @@ public class FileCache implements Cache {
         }
         // 完成后整个文件都是连续的，离散区间不再需要
         contiguousLength = file.length();
-        tailOffset = -1;
-        tailLength = 0;
+        sparseRanges.clear();
         saveMeta();
+        if (tempMetaFile.exists()) {
+            // 正式缓存已写入新的 .meta，清除临时下载阶段的旁文件。
+            tempMetaFile.delete();
+        }
+    }
+
+    /**
+     * 合并重叠/相邻区间，并把与连续前缀相连的区间吸收到前缀中。
+     */
+    private void normalizeRanges() {
+        if (sparseRanges.isEmpty()) {
+            return;
+        }
+        Collections.sort(sparseRanges, new Comparator<CacheRange>() {
+            @Override
+            public int compare(CacheRange left, CacheRange right) {
+                return Long.compare(left.start, right.start);
+            }
+        });
+        List<CacheRange> merged = new ArrayList<>(sparseRanges.size());
+        for (CacheRange range : sparseRanges) {
+            if (range.end <= contiguousLength) {
+                continue;
+            }
+            if (range.start <= contiguousLength) {
+                contiguousLength = Math.max(contiguousLength, range.end);
+                continue;
+            }
+            if (merged.isEmpty() || range.start > merged.get(merged.size() - 1).end) {
+                merged.add(new CacheRange(range.start, range.end));
+            } else {
+                CacheRange previous = merged.get(merged.size() - 1);
+                previous.end = Math.max(previous.end, range.end);
+            }
+        }
+        sparseRanges.clear();
+        sparseRanges.addAll(merged);
+    }
+
+    private static final class CacheRange {
+        private final long start;
+        private long end;
+
+        private CacheRange(long start, long end) {
+            this.start = start;
+            this.end = end;
+        }
     }
 
     @Override

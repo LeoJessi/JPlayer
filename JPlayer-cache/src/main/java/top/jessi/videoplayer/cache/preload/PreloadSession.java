@@ -17,7 +17,7 @@ import androidx.lifecycle.LifecycleOwner;
  * 每页一个的预加载会话：持有 url 列表与当前下标，并负责计算预加载跨度。
  * <p>
  * 跨度为 {@code [当前下标 - backward, 当前下标 + forward]}（由
- * {@link PreloadManager#setPreloadSpan(int, int)} 配置，默认前 2 / 后 2）。
+ * {@link PreloadManager#setPreloadSpan(int, int)} 配置，默认前 1 / 后 6）。
  * 当前项<b>仅在从未预加载过</b>时纳入：首次进入时播放器无缓存，起播会回源；
  * 已预加载过的当前项由播放器自己写缓存，不重复预加载。
  * 只有落在跨度内的 url 才会被预加载，滑出跨度的任务会被取消。

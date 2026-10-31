@@ -34,6 +34,13 @@ public interface Source {
     int read(byte[] buffer) throws ProxyCacheException;
 
     /**
+     * Requests cancellation from another thread without closing the read stream there.
+     * The owning read thread remains responsible for calling {@link #close()}.
+     */
+    default void cancel() {
+    }
+
+    /**
      * Closes source and release resources. Every opened source should be closed.
      *
      * @throws ProxyCacheException if error occur while closing source.

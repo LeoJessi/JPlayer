@@ -5,7 +5,6 @@ import top.jessi.videoplayer.cache.internal.Logger;
 import java.io.File;
 import java.io.IOException;
 import java.io.RandomAccessFile;
-import java.util.Arrays;
 import java.util.Collections;
 import java.util.Comparator;
 import java.util.Date;
@@ -36,7 +35,13 @@ class Files {
         List<File> result = new LinkedList<>();
         File[] files = directory.listFiles();
         if (files != null) {
-            result = Arrays.asList(files);
+            result = new LinkedList<>();
+            for (File file : files) {
+                // 区间元数据必须与数据文件共同保留/删除，不能作为独立 LRU 项淘汰。
+                if (!file.getName().endsWith(".meta")) {
+                    result.add(file);
+                }
+            }
             Collections.sort(result, new LastModifiedComparator());
         }
         return result;

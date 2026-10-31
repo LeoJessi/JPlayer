@@ -1,5 +1,9 @@
 package top.jessi.videoplayer.cache.internal;
 
+import static java.util.concurrent.TimeUnit.MILLISECONDS;
+import static top.jessi.videoplayer.cache.internal.Preconditions.checkArgument;
+import static top.jessi.videoplayer.cache.internal.Preconditions.checkNotNull;
+
 import java.io.IOException;
 import java.io.OutputStream;
 import java.net.Proxy;
@@ -17,12 +21,9 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
 import java.util.concurrent.TimeoutException;
 
-import static top.jessi.videoplayer.cache.internal.Preconditions.checkArgument;
-import static top.jessi.videoplayer.cache.internal.Preconditions.checkNotNull;
-import static java.util.concurrent.TimeUnit.MILLISECONDS;
-import top.jessi.videoplayer.cache.source.HttpUrlSource;
 import top.jessi.videoplayer.cache.HttpProxyCacheServer;
 import top.jessi.videoplayer.cache.ProxyCacheException;
+import top.jessi.videoplayer.cache.source.HttpUrlSource;
 
 /**
  * Pings {@link HttpProxyCacheServer} to make sure it works.
@@ -44,6 +45,10 @@ public class Pinger {
         this.port = port;
     }
 
+    public void shutdown() {
+        pingExecutor.shutdownNow();
+    }
+
     public boolean ping(int maxAttempts, int startTimeout) {
         checkArgument(maxAttempts >= 1);
         checkArgument(startTimeout > 0);
@@ -51,13 +56,17 @@ public class Pinger {
         int timeout = startTimeout;
         int attempts = 0;
         while (attempts < maxAttempts) {
+            Future<Boolean> pingFuture = null;
             try {
-                Future<Boolean> pingFuture = pingExecutor.submit(new PingCallable());
+                pingFuture = pingExecutor.submit(new PingCallable());
                 boolean pinged = pingFuture.get(timeout, MILLISECONDS);
                 if (pinged) {
                     return true;
                 }
             } catch (TimeoutException e) {
+                if (pingFuture != null) {
+                    pingFuture.cancel(true);
+                }
                 Logger.warn("Error pinging server (attempt: " + attempts + ", timeout: " + timeout + "). ");
             } catch (InterruptedException | ExecutionException e) {
                 Logger.error("Error pinging server due to unexpected error");

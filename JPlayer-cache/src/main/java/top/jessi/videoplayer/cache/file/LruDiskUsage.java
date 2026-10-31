@@ -8,6 +8,7 @@ import java.util.List;
 import java.util.concurrent.Callable;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import java.util.concurrent.RejectedExecutionException;
 
 /**
  * {@link DiskUsage} that uses LRU (Least Recently Used) strategy to trim cache.
@@ -20,7 +21,19 @@ public abstract class LruDiskUsage implements DiskUsage {
 
     @Override
     public void touch(File file) throws IOException {
-        workerThread.submit(new TouchCallable(file));
+        if (workerThread.isShutdown()) {
+            return;
+        }
+        try {
+            workerThread.submit(new TouchCallable(file));
+        } catch (RejectedExecutionException ignored) {
+            // 关闭过程中的最后一次 touch 不影响缓存数据正确性。
+        }
+    }
+
+    @Override
+    public void shutdown() {
+        workerThread.shutdown();
     }
 
     private void touchInBackground(File file) throws IOException {
@@ -40,6 +53,10 @@ public abstract class LruDiskUsage implements DiskUsage {
                 long fileSize = file.length();
                 boolean deleted = file.delete();
                 if (deleted) {
+                    File metaFile = new File(file.getParentFile(), file.getName() + ".meta");
+                    if (metaFile.exists() && !metaFile.delete()) {
+                        Logger.warn("Error deleting cache metadata " + metaFile);
+                    }
                     totalCount--;
                     totalSize -= fileSize;
                     Logger.info("Cache file " + file + " is deleted because it exceeds cache limit");

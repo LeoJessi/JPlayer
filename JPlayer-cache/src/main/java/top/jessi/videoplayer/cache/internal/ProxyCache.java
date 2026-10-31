@@ -1,5 +1,7 @@
 package top.jessi.videoplayer.cache.internal;
 
+import android.os.SystemClock;
+
 import java.util.concurrent.atomic.AtomicInteger;
 
 import static top.jessi.videoplayer.cache.internal.Preconditions.checkNotNull;
@@ -44,23 +46,43 @@ class ProxyCache {
 
     public int read(byte[] buffer, long offset, int length) throws ProxyCacheException {
         ProxyCacheUtils.assertBuffer(buffer, offset, length);
+        if (length == 0) {
+            return 0;
+        }
+
+        // Range 请求落在源文件末尾时，最后一次读取不足 DEFAULT_BUFFER_SIZE 是正常情况。
+        // 若仍等待完整 length，稀疏尾部区间会在 EOF 前一直等待，导致尾部预加载/播放卡住。
+        int requiredLength = length;
+        // 完全命中时不查询源站元数据；只有读取尾部不足一个缓冲块时才需要文件总长。
+        if (!cache.isCached(offset, length)) {
+            long sourceLength = cache.isCompleted() ? cache.available() : source.length();
+            if (sourceLength >= 0) {
+                if (offset >= sourceLength) {
+                    return -1;
+                }
+                requiredLength = (int) Math.min((long) length, sourceLength - offset);
+            }
+            if (requiredLength == 0) {
+                return -1;
+            }
+        }
 
         // 记录本次请求位置：readSource 会优先从这里续传，
         // 使"末尾 moov"这类离散区间也能被缓存，而不总是从顺序前缀开头重下。
         pendingRequestOffset = offset;
 
-        boolean cacheHasEnoughData = cache.isCached(offset, length);
+        boolean cacheHasEnoughData = cache.isCached(offset, requiredLength);
 
         if (!cacheHasEnoughData && !cache.isCompleted() && !stopped) {
             // 缓存不够，启动后台线程从源读取
-            while (!cache.isCached(offset, length) && !cache.isCompleted() && !stopped) {
+            while (!cache.isCached(offset, requiredLength) && !cache.isCompleted() && !stopped) {
                 readSourceAsync();
                 waitForSourceData();
                 checkReadSourceErrorsCount();
             }
         }
 
-        int read = cache.read(buffer, offset, length);
+        int read = cache.read(buffer, offset, requiredLength);
         if (cache.isCompleted() && percentsAvailable != 100) {
             percentsAvailable = 100;
             onCachePercentsAvailableChanged(100);
@@ -109,7 +131,7 @@ class ProxyCache {
         }
     }
 
-    private void notifyNewCacheDataAvailable(long cacheAvailable, long sourceAvailable) {
+    protected final void notifyNewCacheDataAvailable(long cacheAvailable, long sourceAvailable) {
         onCacheAvailable(cacheAvailable, sourceAvailable);
 
         synchronized (wc) {
@@ -134,6 +156,8 @@ class ProxyCache {
     private void readSource() {
         long sourceAvailable = -1;
         long offset = 0;
+        long sourceReadOffset = 0;
+        long sourceReadStartedAt = SystemClock.elapsedRealtime();
         try {
             offset = cache.available();
             // 若请求的是更靠后的离散区间（如末尾 moov），从请求位置续传，
@@ -142,6 +166,7 @@ class ProxyCache {
             if (requestOffset > offset) {
                 offset = requestOffset;
             }
+            sourceReadOffset = offset;
             source.open(offset);
             sourceAvailable = source.length();
             byte[] buffer = new byte[ProxyCacheUtils.DEFAULT_BUFFER_SIZE];
@@ -163,6 +188,10 @@ class ProxyCache {
             onError(e);
         } finally {
             closeSource();
+            Logger.info("源站读取完成：offset=" + sourceReadOffset
+                    + " bytes=" + Math.max(0, offset - sourceReadOffset)
+                    + " sourceLength=" + sourceAvailable
+                    + " costMs=" + (SystemClock.elapsedRealtime() - sourceReadStartedAt));
             notifyNewCacheDataAvailable(offset, sourceAvailable);
         }
     }
