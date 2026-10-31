@@ -1,4 +1,4 @@
-package top.jessi.videoplayer.util;
+package top.jessi.videoplayer.ijk;
 
 import android.content.Context;
 import android.graphics.Bitmap;
