@@ -28,6 +28,9 @@ import top.jessi.videoplayer.cache.ProxyCacheException;
 class HttpProxyCache extends ProxyCache {
 
     private static final float NO_CACHE_BARRIER = .2f;
+    /** Persist direct reads near EOF because MP4 metadata commonly lives there. */
+    private static final long SPARSE_TAIL_CACHE_WINDOW = 2L * 1024 * 1024;
+    private static final int MAX_RANGE_READ_RETRIES = 2;
 
     private final Source source;
     private final SourceFactory sourceFactory;
@@ -75,6 +78,7 @@ class HttpProxyCache extends ProxyCache {
         Source rangeSource = sourceFactory.copy(source);
         mRangePreloadSource = rangeSource;
         long bytesRead = 0;
+        int retries = 0;
         try {
             if (canceled.get() || Thread.currentThread().isInterrupted()) {
                 return 0;
@@ -82,10 +86,15 @@ class HttpProxyCache extends ProxyCache {
             rangeSource.open(offset);
             long openedSourceLength = rangeSource.length();
             if (openedSourceLength >= 0) {
-                if (offset >= openedSourceLength) {
+                // The upstream may cap a Range response before EOF. Keep the already-known
+                // object length so the missing suffix can be fetched with another Range.
+                if (sourceLength < 0 || openedSourceLength > sourceLength) {
+                    sourceLength = openedSourceLength;
+                }
+                if (offset >= sourceLength) {
                     return 0;
                 }
-                bytesToRead = Math.min(bytesToRead, openedSourceLength - offset);
+                bytesToRead = Math.min(maxBytes, sourceLength - offset);
             }
             if (cache.isCompleted() || cache.isCached(offset, bytesToRead)) {
                 return bytesToRead;
@@ -96,7 +105,19 @@ class HttpProxyCache extends ProxyCache {
                     && !Thread.currentThread().isInterrupted()) {
                 int count = rangeSource.read(buffer);
                 if (count < 0) {
-                    break;
+                    if (retries >= MAX_RANGE_READ_RETRIES || sourceLength < 0
+                            || offset + bytesRead >= sourceLength) {
+                        break;
+                    }
+                    retries++;
+                    long retryOffset = offset + bytesRead;
+                    Logger.info("尾部 Range 提前结束，续取：offset=" + retryOffset
+                            + " remaining=" + (bytesToRead - bytesRead)
+                            + " retry=" + retries);
+                    rangeSource.close();
+                    rangeSource.open(retryOffset);
+                    openedSourceLength = Math.max(sourceLength, rangeSource.length());
+                    continue;
                 }
                 if (count == 0) {
                     continue;
@@ -161,16 +182,23 @@ class HttpProxyCache extends ProxyCache {
 
         long offset = request.rangeOffset;
         boolean cacheBacked = isUseCache(request);
+        boolean cacheSparseTail = !cacheBacked && shouldCacheSparseTail(offset);
         Logger.info("代理请求：offset=" + offset
                 + " partial=" + request.partial
-                + " path=" + (cacheBacked ? "cache-backed" : "direct-upstream")
+                + " path=" + (cacheBacked ? "cache-backed"
+                        : cacheSparseTail ? "direct-upstream-sparse-tail" : "direct-upstream")
                 + " cachedPrefix=" + cache.available()
                 + " complete=" + cache.isCompleted());
         if (cacheBacked) {
             responseWithCache(out, offset);
         } else {
-            responseWithoutCache(out, offset);
+            responseWithoutCache(out, offset, cacheSparseTail);
         }
+    }
+
+    private boolean shouldCacheSparseTail(long offset) throws ProxyCacheException {
+        long sourceLength = source.length();
+        return sourceLength > 0 && offset >= Math.max(0, sourceLength - SPARSE_TAIL_CACHE_WINDOW);
     }
 
     private boolean isRangeNotSatisfiable(GetRequest request) throws ProxyCacheException {
@@ -188,11 +216,6 @@ class HttpProxyCache extends ProxyCache {
         }
 
         long cacheAvailable = cache.available();
-        // 优化：如果有足够缓存（1MB+），假定元数据已知，优先使用缓存
-        if (cacheAvailable >= 1024 * 1024) {
-            return true;
-        }
-
         long sourceLength = source.length();
         boolean sourceLengthKnown = sourceLength > 0;
         if (request.partial && sourceLengthKnown && request.rangeOffset < sourceLength) {
@@ -261,19 +284,64 @@ class HttpProxyCache extends ProxyCache {
         out.flush();
     }
 
-    private void responseWithoutCache(OutputStream out, long offset) throws ProxyCacheException, IOException {
+    private void responseWithoutCache(OutputStream out, long offset, boolean cacheSparseTail)
+            throws ProxyCacheException, IOException {
         Source newSourceNoCache = sourceFactory.copy(source);
+        long originalOffset = offset;
+        long cacheWriteOffset = offset;
+        long cachedBytes = 0;
+        long sourceLength = source.length();
+        int retries = 0;
         try {
             newSourceNoCache.open(offset);
+            sourceLength = Math.max(sourceLength, newSourceNoCache.length());
             byte[] buffer = new byte[DEFAULT_BUFFER_SIZE];
             int readBytes;
-            while ((readBytes = newSourceNoCache.read(buffer)) != -1) {
+            while (true) {
+                readBytes = newSourceNoCache.read(buffer);
+                if (readBytes < 0) {
+                    if (sourceLength < 0 || offset >= sourceLength) {
+                        break;
+                    }
+                    if (retries >= MAX_RANGE_READ_RETRIES) {
+                        throw new ProxyCacheException("Unexpected end of source range at " + offset
+                                + " of " + sourceLength + " for " + newSourceNoCache.getUrl());
+                    }
+                    retries++;
+                    Logger.info("直连 Range 提前结束，续取：offset=" + offset
+                            + " remaining=" + (sourceLength - offset)
+                            + " retry=" + retries);
+                    newSourceNoCache.close();
+                    newSourceNoCache.open(offset);
+                    sourceLength = Math.max(sourceLength, newSourceNoCache.length());
+                    continue;
+                }
                 out.write(buffer, 0, readBytes);
+                if (cacheSparseTail && !cache.isCompleted()) {
+                    try {
+                        cache.appendAt(cacheWriteOffset, buffer, readBytes);
+                        cacheWriteOffset += readBytes;
+                        cachedBytes += readBytes;
+                        notifyNewCacheDataAvailable(cache.available(), sourceLength);
+                    } catch (ProxyCacheException e) {
+                        // This is a best-effort cache write; keep streaming if another reader
+                        // completed the file or the cache became unavailable meanwhile.
+                        if (!cache.isCompleted()) {
+                            Logger.warn("Unable to persist direct tail range at " + cacheWriteOffset
+                                    + " for " + newSourceNoCache.getUrl() + ": " + e.getMessage());
+                        }
+                        cacheSparseTail = false;
+                    }
+                }
                 offset += readBytes;
             }
             out.flush();
         } finally {
             newSourceNoCache.close();
+            if (cachedBytes > 0) {
+                Logger.info("直连尾部 Range 已写入稀疏缓存：offset=" + originalOffset
+                        + " bytes=" + cachedBytes + " sourceLength=" + sourceLength);
+            }
         }
     }
 

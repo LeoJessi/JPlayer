@@ -88,7 +88,10 @@ public class HttpUrlSource implements Source {
     }
 
     public HttpUrlSource(HttpUrlSource source) {
-        this.sourceInfo = source.sourceInfo;
+        // Keep copy metadata isolated: a capped 206 response must not overwrite
+        // the parent source's full object length.
+        SourceInfo info = source.sourceInfo;
+        this.sourceInfo = new SourceInfo(info.url, info.length, info.mime);
         this.sourceInfoStorage = source.sourceInfoStorage;
         this.headerInjector = source.headerInjector;
         this.hostnameVerifier = source.hostnameVerifier;
@@ -131,6 +134,13 @@ public class HttpUrlSource implements Source {
             String mime = connection.getContentType();
             inputStream = new BufferedInputStream(connection.getInputStream(), DEFAULT_BUFFER_SIZE);
             long length = readSourceAvailableBytes(connection, offset, responseCode);
+            if (offset > 0) {
+                Logger.debug("Source range response: status=" + responseCode
+                        + " offset=" + offset
+                        + " contentRange=" + connection.getHeaderField("Content-Range")
+                        + " contentLength=" + getContentLength(connection)
+                        + " sourceLength=" + length);
+            }
             this.sourceInfo = new SourceInfo(sourceInfo.url, length, mime);
             this.contentInfoFetched = true;
             this.sourceInfoStorage.put(sourceInfo.url, sourceInfo);
@@ -141,8 +151,42 @@ public class HttpUrlSource implements Source {
 
     private long readSourceAvailableBytes(HttpURLConnection connection, long offset, int responseCode) throws IOException {
         long contentLength = getContentLength(connection);
-        return responseCode == HTTP_OK ? contentLength
-                : responseCode == HTTP_PARTIAL ? contentLength + offset : sourceInfo.length;
+        if (responseCode == HTTP_OK) {
+            return contentLength;
+        }
+        if (responseCode == HTTP_PARTIAL) {
+            long totalLength = getContentRangeTotalLength(connection.getHeaderField("Content-Range"));
+            if (totalLength >= 0) {
+                return totalLength;
+            }
+            // Preserve a previously known full-object length when the server returns
+            // a capped 206 range without the total in Content-Range.
+            if (sourceInfo.length > 0) {
+                return sourceInfo.length;
+            }
+            return contentLength >= 0 && offset <= Long.MAX_VALUE - contentLength
+                    ? contentLength + offset : sourceInfo.length;
+        }
+        return sourceInfo.length;
+    }
+
+    private static long getContentRangeTotalLength(String contentRange) {
+        if (contentRange == null) {
+            return -1;
+        }
+        int separator = contentRange.lastIndexOf('/');
+        if (separator < 0 || separator == contentRange.length() - 1) {
+            return -1;
+        }
+        String total = contentRange.substring(separator + 1).trim();
+        if (total.isEmpty() || "*".equals(total)) {
+            return -1;
+        }
+        try {
+            return Long.parseLong(total);
+        } catch (NumberFormatException ignored) {
+            return -1;
+        }
     }
 
     private long getContentLength(HttpURLConnection connection) {

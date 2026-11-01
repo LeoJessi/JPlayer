@@ -155,6 +155,20 @@ class PreloadTask implements Runnable {
         }
     }
 
+    private static boolean isTransientStreamFailure(Throwable error) {
+        for (Throwable current = error; current != null; current = current.getCause()) {
+            if (current instanceof java.io.IOException) {
+                return true;
+            }
+            String message = current.getMessage();
+            if (message != null && message.toLowerCase(java.util.Locale.ROOT)
+                    .contains("unexpected end of stream")) {
+                return true;
+            }
+        }
+        return false;
+    }
+
     @Override
     public void run() {
         long startedAt = SystemClock.elapsedRealtime();
@@ -254,8 +268,12 @@ class PreloadTask implements Runnable {
                 Logger.info("预加载取消：" + mPosition);
             } else {
                 Logger.info("预加载异常：" + mPosition + " 异常信息：" + e.getMessage());
-                // 关入小黑屋
-                addToBlackList(mRawUrl);
+                if (isTransientStreamFailure(e)) {
+                    // A dropped proxy/upstream stream does not mean the video URL is invalid.
+                    Logger.info("预加载网络流中断，保留重试资格：" + mPosition);
+                } else {
+                    addToBlackList(mRawUrl);
+                }
             }
         } finally {
             if (connection != null) {
@@ -325,13 +343,15 @@ class PreloadTask implements Runnable {
             Logger.info("预加载末尾 Range：position=" + mPosition
                     + " offset=" + tailStart
                     + " bytes=" + tailRead + "/" + expectedTailBytes
-                    + " costMs=" + (SystemClock.elapsedRealtime() - tailStartedAt));
+                    + " costMs=" + (SystemClock.elapsedRealtime() - tailStartedAt)
+                    + " canceled=" + (mIsCanceled || canceled.get() || Thread.currentThread().isInterrupted()));
         } catch (Exception e) {
             // 末尾预加载失败不影响头部缓存的可用性，只记录
             Logger.info("预加载末尾 Range 失败：position=" + mPosition
                     + " offset=" + tailStart
                     + " bytes=" + tailRead + "/" + expectedTailBytes
                     + " costMs=" + (SystemClock.elapsedRealtime() - tailStartedAt)
+                    + " canceled=" + (mIsCanceled || canceled.get() || Thread.currentThread().isInterrupted())
                     + " error=" + e.getMessage());
         } finally {
             mTailThread = null;

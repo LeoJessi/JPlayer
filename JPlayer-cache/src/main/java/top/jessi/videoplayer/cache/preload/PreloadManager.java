@@ -82,15 +82,15 @@ public class PreloadManager {
      * 默认执行线程数：3。
      * <p>多一个线程就多一份与播放器抢带宽的力气，按网络条件调整。
      * <p><b>上界受代理侧限制</b>：{@code HttpProxyCacheServer} 的 socket 线程池固定 8 个线程，
-     * 需要为播放器和一个尾部 Range 请求各预留一个线程，避免起播请求排在预加载队列后面。
+     * 需要为播放器和两个尾部 Range 请求各预留一个线程：当前集/下一集优先，远端预载另走低优先级队列。
      * <p>实测 3 个线程可以让预加载窗口覆盖更快，且不会明显拖慢单任务速度。
      */
     static final int DEFAULT_WORKER_COUNT = 3;
 
     /**
-     * 执行线程数硬上界：代理侧 8 个 socket 线程中为播放器、尾部 Range 各预留一个。
+     * 执行线程数硬上界：代理侧 8 个 socket 线程为播放器及两个尾部 Range 预留线程。
      */
-    static final int MAX_WORKER_COUNT = 6;
+    static final int MAX_WORKER_COUNT = 5;
 
     /**
      * 执行队列容量。超出后丢弃新任务，待在途任务完成后重新计算窗口，
@@ -101,9 +101,7 @@ public class PreloadManager {
      */
     private static final int WORK_QUEUE_CAPACITY = 5;
 
-    /**
-     * 尾部 Range 请求优先级低于头部预加载，队列最多保留两个待处理任务。
-     */
+    /** 每个尾部队列最多保留两个待处理任务。 */
     private static final int TAIL_QUEUE_CAPACITY = 2;
 
     /**
@@ -146,11 +144,8 @@ public class PreloadManager {
      */
     private final ThreadPoolExecutor mWorkerPool;
 
-    /**
-     * 尾部（moov）预加载执行器：单线程串行，优先级最低。
-     * <p>尾部请求只在头部就绪后发一次。串行执行可以避免多个尾部请求并发时互相竞争，
-     * 确保每个尾部请求都能顺利完成。
-     */
+    /** 尾部 Range 执行器：近端队列服务当前/下一集，背景队列服务更远项目。 */
+    private final ExecutorService mPriorityTailExecutor;
     private final ExecutorService mTailExecutor;
 
     /**
@@ -167,6 +162,10 @@ public class PreloadManager {
      * 已提交/执行中的 url，避免重复提交
      */
     private final Set<String> mInFlight = newConcurrentSet();
+
+    /** Prevent speculative neighbors from competing during the current video's first attempt. */
+    private final Set<String> mPriorityAttemptedUrls = newBoundedSet(STATE_CACHE_SIZE);
+    private volatile String mPriorityBarrierUrl;
 
     /**
      * 队列满时有任务被拒绝；等待在途任务完成释放队列后再重算窗口。
@@ -218,9 +217,10 @@ public class PreloadManager {
     private static final long BUFFERING_DEBOUNCE_MS = 1000L;
 
     /**
-     * 播放器是否正在缓冲。为 {@code true} 时暂停一切预加载，把带宽让给当前视频。
+     * 播放器是否正在缓冲。为 {@code true} 时暂停远端项目预加载，保留当前播放视频的任务。
      */
     private volatile boolean mPlaybackBuffering;
+    private volatile String mCurrentPlaybackUrl;
 
     /**
      * 上一次因卡顿取消任务的时间，用于防抖
@@ -230,14 +230,8 @@ public class PreloadManager {
     private PreloadManager(Context context) {
         mHttpProxyCacheServer = HttpProxyCacheServer.getInstance(context);
         mScheduler = Executors.newSingleThreadExecutor(r -> new Thread(r, "preload-scheduler"));
-        mTailExecutor = new ThreadPoolExecutor(
-                1, 1, 0L, TimeUnit.MILLISECONDS,
-                new LinkedBlockingQueue<>(TAIL_QUEUE_CAPACITY),
-                r -> {
-                    Thread t = new Thread(r, "preload-tail");
-                    t.setPriority(Thread.MIN_PRIORITY);
-                    return t;
-                });
+        mPriorityTailExecutor = newTailExecutor("preload-tail-priority");
+        mTailExecutor = newTailExecutor("preload-tail-background");
         mWorkerPool = new ThreadPoolExecutor(
                 mWorkerCount,
                 mWorkerCount,
@@ -261,6 +255,17 @@ public class PreloadManager {
                 });
         // 默认埋点：只打日志，业务方调用 setPreloadListener 后可接管
         mPreloadListener = new LogPreloadListener();
+    }
+
+    private static ExecutorService newTailExecutor(String threadName) {
+        return new ThreadPoolExecutor(
+                1, 1, 0L, TimeUnit.MILLISECONDS,
+                new LinkedBlockingQueue<>(TAIL_QUEUE_CAPACITY),
+                r -> {
+                    Thread t = new Thread(r, threadName);
+                    t.setPriority(Thread.MIN_PRIORITY);
+                    return t;
+                });
     }
 
     public static PreloadManager getInstance(Context context) {
@@ -328,7 +333,7 @@ public class PreloadManager {
      * <p>调大只能让<b>多个视频同时下载</b>，对单个视频的下载速度没有帮助
      * ——缓存是连续前缀模型，单视频无法并行下载（见 {@link #MAX_WORKER_COUNT}）。
      * <p>线程数会被限制在 {@link #MAX_WORKER_COUNT} 以内。代理侧固定 8 个 socket
-     * 线程需要为播放器和尾部 Range 请求预留线程，避免起播请求排队。
+     * 线程需要为播放器和两个尾部 Range 队列预留线程，避免起播请求排队。
      *
      * @param workerCount 线程数，{@code <= 0} 时忽略
      */
@@ -462,6 +467,12 @@ public class PreloadManager {
         Map<String, Integer> desired = new HashMap<>();
         for (PreloadSession session : mSessions) {
             session.collectPreloadSpan(desired);
+            String currentUrl = session.getCurrentUrl();
+            if (currentUrl != null) {
+                // A completed head preload may omit the current URL from the speculative
+                // span while its independently queued tail Range is still running.
+                desired.put(currentUrl, 0);
+            }
         }
 
         // 取消并移除已出窗的任务
@@ -473,6 +484,10 @@ public class PreloadManager {
                 iterator.remove();
                 mInFlight.remove(entry.getKey());
                 mPositions.remove(entry.getKey());
+                mPriorityAttemptedUrls.remove(entry.getKey());
+                if (entry.getKey().equals(mPriorityBarrierUrl)) {
+                    mPriorityBarrierUrl = null;
+                }
             }
         }
 
@@ -494,53 +509,94 @@ public class PreloadManager {
             return cmp != 0 ? cmp : a.getKey().compareTo(b.getKey());
         });
 
+        // Start the current video's head and enqueue its tail range before
+        // neighboring preloads compete for upstream bandwidth.
+        Map.Entry<String, Integer> currentEntry = null;
+        for (Map.Entry<String, Integer> entry : sorted) {
+            if (entry.getValue() == 0) {
+                currentEntry = entry;
+                break;
+            }
+        }
+        if (currentEntry != null) {
+            String currentUrl = currentEntry.getKey();
+            if (mPriorityBarrierUrl != null && !mPriorityBarrierUrl.equals(currentUrl)) {
+                // A swipe changed the current item; do not hold the new item behind the old one.
+                mPriorityBarrierUrl = null;
+            }
+            if (!isPreloaded(currentUrl) && !PreloadTask.isBlackListed(currentUrl)) {
+                if (!mPriorityAttemptedUrls.contains(currentUrl)) {
+                    mPriorityAttemptedUrls.add(currentUrl);
+                    mPriorityBarrierUrl = currentUrl;
+                    submitPreloadTask(currentEntry);
+                    return;
+                }
+                if (currentUrl.equals(mPriorityBarrierUrl) && mInFlight.contains(currentUrl)) {
+                    return;
+                }
+            }
+        }
+
         // 提交入窗且未预加载的任务
         for (Map.Entry<String, Integer> entry : sorted) {
-            String url = entry.getKey();
-            if (isPreloaded(url) || mInFlight.contains(url) || PreloadTask.isBlackListed(url)) continue;
-            PreloadTask task = mTasks.get(url);
-            if (task == null) {
-                task = newTask(url);
-                mTasks.put(url, task);
-            }
-            Integer position = mPositions.get(url);
-            task.mPosition = position != null ? position : -1;
-            mInFlight.add(url);
-            PreloadListener listener = mPreloadListener;
-            if (listener != null) {
-                listener.onPreloadSubmit(url, task.mPosition);
-            }
-            task.executeOn(mWorkerPool);
+            submitPreloadTask(entry);
         }
+    }
+
+    private void submitPreloadTask(Map.Entry<String, Integer> entry) {
+        String url = entry.getKey();
+        if (isPreloaded(url) || mInFlight.contains(url) || PreloadTask.isBlackListed(url)) return;
+        PreloadTask task = mTasks.get(url);
+        if (task == null) {
+            task = newTask(url);
+            mTasks.put(url, task);
+        }
+        Integer position = mPositions.get(url);
+        task.mPosition = position != null ? position : -1;
+        task.mTailExecutor = entry.getValue() <= 1 ? mPriorityTailExecutor : mTailExecutor;
+        mInFlight.add(url);
+        PreloadListener listener = mPreloadListener;
+        if (listener != null) {
+            listener.onPreloadSubmit(url, task.mPosition);
+        }
+        task.executeOn(mWorkerPool);
     }
 
     private PreloadTask newTask(String url) {
         PreloadTask task = new PreloadTask();
+        final PreloadTask currentTask = task;
         task.mRawUrl = url;
         task.mCacheServer = mHttpProxyCacheServer;
         task.mPreloadLength = mPreloadLength;
         task.mTailExecutor = mTailExecutor;
         task.mListener = (u, preloaded, bytes, costMs) -> {
             PreloadListener listener = mPreloadListener;
+            boolean isCurrentTask = mTasks.get(u) == currentTask;
+            boolean releasePriorityBarrier = isCurrentTask && u.equals(mPriorityBarrierUrl);
             if (preloaded) {
                 mPreloadedUrls.add(u);
                 if (listener != null) {
-                    listener.onPreloadDone(u, task.mPosition, bytes, costMs);
+                    listener.onPreloadDone(u, currentTask.mPosition, bytes, costMs);
                 }
             } else {
                 // 未读满，允许下次重新磁盘检查（缓存可能已被播放器写满）
                 mCheckedUrls.remove(u);
                 // 被取消（滑出窗口 / 卡顿暂停）不算失败，但值得统计浪费了多少字节
                 if (listener != null && task.isCanceled()) {
-                    listener.onPreloadCancel(u, task.mPosition, bytes);
+                    listener.onPreloadCancel(u, currentTask.mPosition, bytes);
                 }
             }
             // 仅当该任务仍是当前任务时才清理在飞标记。
             // 否则旧任务（已出窗并被替换）的回调会误清新任务的标记，
             // 导致同一 url 被重复提交、并发下载。
-            if (mTasks.get(u) == task) {
+            if (isCurrentTask) {
                 mInFlight.remove(u);
+                if (releasePriorityBarrier) {
+                    mPriorityBarrierUrl = null;
+                }
                 if (mRetryAfterCapacity.compareAndSet(true, false)) {
+                    scheduleCompute();
+                } else if (releasePriorityBarrier) {
                     scheduleCompute();
                 }
             }
@@ -550,8 +606,8 @@ public class PreloadManager {
 
     /**
      * 通知引擎当前视频是否正在缓冲。
-     * <p>缓冲时暂停一切预加载，把带宽让给当前视频——这是"预加载把当前视频搞卡"
-     * 最直接的解法。可在任意线程调用（内部只做一次 volatile 写 + 投递到调度线程）。
+     * <p>缓冲时暂停远端视频的预加载，把带宽让给当前视频；当前视频自己的缓存任务保留，
+     * 这样尚未完成的 moov Range 不会在起播期间被取消。可在任意线程调用。
      * <p>页面侧在播放器的状态回调里调用即可，无需改动播放器：
      * <pre><code>
      * videoView.addOnStateChangeListener(new BaseVideoView.SimpleOnStateChangeListener() {
@@ -571,9 +627,8 @@ public class PreloadManager {
             long now = SystemClock.elapsedRealtime();
             if (now - mLastPauseAt >= BUFFERING_DEBOUNCE_MS) {
                 mLastPauseAt = now;
-                // 投递到调度线程执行：cancel() 会调 HttpURLConnection.disconnect()，
-                // 而本方法通常在主线程被调用，不能在那里做可能阻塞的 IO。
-                scheduleCancelAll();
+                // 投递到调度线程执行：cancel() 会断开预加载连接，不能在主线程做。
+                scheduleCancelSpeculative();
             }
         }
         scheduleCompute();
@@ -585,12 +640,47 @@ public class PreloadManager {
      * <p>取消后 {@code mPreloadedUrls} 保留，恢复时只会重试未读满的那部分；
      * 代理的 {@code .download} 临时文件仍在，重试会从断点继续，不会重下。
      */
-    private void scheduleCancelAll() {
+    private void scheduleCancelSpeculative() {
         if (mShutdown) return;
         try {
-            mScheduler.execute(this::cancelAllTasks);
+            mScheduler.execute(this::cancelSpeculativeTasks);
         } catch (RejectedExecutionException e) {
             // 调度线程已关闭，忽略
+        }
+    }
+
+    private void cancelSpeculativeTasks() {
+        Map<String, Integer> desired = new HashMap<>();
+        for (PreloadSession session : mSessions) {
+            session.collectPreloadSpan(desired);
+            String currentUrl = session.getCurrentUrl();
+            if (currentUrl != null) {
+                desired.put(currentUrl, 0);
+            }
+        }
+        String activeUrl = mCurrentPlaybackUrl;
+        if (activeUrl != null) {
+            desired.put(activeUrl, 0);
+        }
+        if (desired.isEmpty()) {
+            cancelAllTasks();
+            return;
+        }
+        Iterator<Map.Entry<String, PreloadTask>> iterator = mTasks.entrySet().iterator();
+        while (iterator.hasNext()) {
+            Map.Entry<String, PreloadTask> entry = iterator.next();
+            Integer distance = desired.get(entry.getKey());
+            if (distance != null && distance == 0) {
+                continue;
+            }
+            entry.getValue().cancel();
+            iterator.remove();
+            mInFlight.remove(entry.getKey());
+            mPositions.remove(entry.getKey());
+            mPriorityAttemptedUrls.remove(entry.getKey());
+            if (entry.getKey().equals(mPriorityBarrierUrl)) {
+                mPriorityBarrierUrl = null;
+            }
         }
     }
 
@@ -682,12 +772,19 @@ public class PreloadManager {
     public void clearPreloadState() {
         mPreloadedUrls.clear();
         mCheckedUrls.clear();
+        mPriorityAttemptedUrls.clear();
+        mPriorityBarrierUrl = null;
+        mCurrentPlaybackUrl = null;
     }
 
     /**
      * 取消指定 url 的预加载任务
      */
     public void cancelTask(String rawUrl) {
+        if (rawUrl != null && rawUrl.equals(mPriorityBarrierUrl)) {
+            mPriorityBarrierUrl = null;
+        }
+        mPriorityAttemptedUrls.remove(rawUrl);
         PreloadTask task = mTasks.get(rawUrl);
         if (task != null) {
             task.cancel();
@@ -708,6 +805,8 @@ public class PreloadManager {
         mTasks.clear();
         mInFlight.clear();
         mPositions.clear();
+        mPriorityAttemptedUrls.clear();
+        mPriorityBarrierUrl = null;
     }
 
     /**
@@ -724,6 +823,7 @@ public class PreloadManager {
      */
     public String getPlayUrl(String rawUrl) {
         if (rawUrl == null || rawUrl.isEmpty()) return rawUrl;
+        mCurrentPlaybackUrl = rawUrl;
         boolean fullyCached = mHttpProxyCacheServer.isCached(rawUrl);
         if (fullyCached) {
             mPreloadedUrls.add(rawUrl);
@@ -826,6 +926,7 @@ public class PreloadManager {
         mPreloadListener = null;
         mWorkerPool.shutdownNow();
         mScheduler.shutdownNow();
+        mPriorityTailExecutor.shutdownNow();
         mTailExecutor.shutdownNow();
     }
 }

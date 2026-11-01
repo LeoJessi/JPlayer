@@ -171,6 +171,14 @@ public class PreloadSession implements DefaultLifecycleObserver {
         return mCurIndex;
     }
 
+    /** Current active URL, including URLs already marked head-preloaded. */
+    String getCurrentUrl() {
+        if (!mActive || !mResumed) return null;
+        List<String> urls = mUrls;
+        int index = mCurIndex;
+        return index >= 0 && index < urls.size() ? urls.get(index) : null;
+    }
+
     /**
      * 收集当前会话的预加载跨度到 {@code out}，在调度线程上调用。
      *
