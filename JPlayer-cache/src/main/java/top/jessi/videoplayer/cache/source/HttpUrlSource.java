@@ -121,16 +121,7 @@ public class HttpUrlSource implements Source {
     public void open(long offset) throws ProxyCacheException {
         try {
             connection = openConnection(offset, timeoutMs);
-            int responseCode = connection.getResponseCode();
-            if (responseCode < HTTP_OK || responseCode >= 300) {
-                throw new ProxyCacheException("Error opening connection for " + sourceInfo.url
-                        + " with offset " + offset + ": unexpected response code " + responseCode);
-            }
-            if (offset > 0 && responseCode == HTTP_OK) {
-                // 请求了 Range 但服务端返回 200（忽略 Range），继续读取会导致缓存数据错位
-                throw new ProxyCacheException("Error opening connection for " + sourceInfo.url
-                        + " with offset " + offset + ": server ignored Range request (responded 200)");
-            }
+            int responseCode = getResponseCode(offset);
             String mime = connection.getContentType();
             inputStream = new BufferedInputStream(connection.getInputStream(), DEFAULT_BUFFER_SIZE);
             long length = readSourceAvailableBytes(connection, offset, responseCode);
@@ -147,6 +138,20 @@ public class HttpUrlSource implements Source {
         } catch (IOException e) {
             throw new ProxyCacheException("Error opening connection for " + sourceInfo.url + " with offset " + offset, e);
         }
+    }
+
+    private int getResponseCode(long offset) throws IOException, ProxyCacheException {
+        int responseCode = connection.getResponseCode();
+        if (responseCode < HTTP_OK || responseCode >= 300) {
+            throw new ProxyCacheException("Error opening connection for " + sourceInfo.url
+                    + " with offset " + offset + ": unexpected response code " + responseCode);
+        }
+        if (offset > 0 && responseCode == HTTP_OK) {
+            // 请求了 Range 但服务端返回 200（忽略 Range），继续读取会导致缓存数据错位
+            throw new ProxyCacheException("Error opening connection for " + sourceInfo.url
+                    + " with offset " + offset + ": server ignored Range request (responded 200)");
+        }
+        return responseCode;
     }
 
     private long readSourceAvailableBytes(HttpURLConnection connection, long offset, int responseCode) throws IOException {
@@ -308,10 +313,9 @@ public class HttpUrlSource implements Source {
     }
 
     private void applyHttpsConfiguration(HttpURLConnection connection) {
-        if (!(connection instanceof HttpsURLConnection)) {
+        if (!(connection instanceof HttpsURLConnection httpsConnection)) {
             return;
         }
-        HttpsURLConnection httpsConnection = (HttpsURLConnection) connection;
         if (hostnameVerifier != null) {
             httpsConnection.setHostnameVerifier(hostnameVerifier);
         }
