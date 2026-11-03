@@ -810,6 +810,23 @@ public class PreloadManager {
     }
 
     /**
+     * 取消指定会话的预加载任务，不影响其他会话。
+     * <p>在 {@link PreloadSession#onDestroy} 中调用，确保页面退出时只取消该页面的任务，
+     * 避免影响其他页面的预加载。
+     */
+    void cancelTasksForSession(PreloadSession session) {
+        if (session == null) return;
+        for (String url : session.getUrls()) {
+            PreloadTask task = mTasks.remove(url);
+            if (task != null) {
+                task.cancel();
+                mInFlight.remove(url);
+                mPositions.remove(url);
+            }
+        }
+    }
+
+    /**
      * 获取播放地址，统一走 {@link HttpProxyCacheServer#getProxyUrl(String)}：
      * <ul>
      *   <li>缓存已完整 → 返回 {@code file://} 指向缓存文件，直接播放；</li>

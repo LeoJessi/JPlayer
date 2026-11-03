@@ -38,6 +38,9 @@ class HttpProxyCache extends ProxyCache {
     private CacheListener listener;
     private volatile Source mRangePreloadSource;
 
+    /** 预加载取消标志：置位后 responseWithoutCache / responseWithCache 立即停止回源。 */
+    private volatile boolean mCanceled;
+
     public HttpProxyCache(Source source, FileCache cache, SourceFactory sourceFactory) {
         super(source, cache);
         this.cache = cache;
@@ -156,6 +159,19 @@ class HttpProxyCache extends ProxyCache {
         }
     }
 
+    /**
+     * 取消当前正在进行的代理请求（预加载退出时调用）。
+     * <p>置位 {@link #mCanceled}，让 {@code responseWithoutCache} /
+     * {@code responseWithCache} 的循环尽快退出，不再继续从上游源站读取。
+     * <p>注意：不在此处关闭 source，因为 source 可能正在被其他线程使用，
+     * 强制关闭会导致 OkHttp 的 AsyncTimeout 状态异常（Unbalanced enter/exit）。
+     * source 的关闭由其拥有者（preload-worker 线程）通过 finally 块负责。
+     */
+    public void cancelPreload() {
+        mCanceled = true;
+        cancelRangePreload();
+    }
+
     public void cancelRangePreload() {
         Source rangeSource = mRangePreloadSource;
         if (rangeSource == null) {
@@ -167,6 +183,7 @@ class HttpProxyCache extends ProxyCache {
 
     @Override
     public void shutdown() {
+        mCanceled = true;
         cancelRangePreload();
         super.shutdown();
     }
@@ -277,7 +294,7 @@ class HttpProxyCache extends ProxyCache {
     private void responseWithCache(OutputStream out, long offset) throws ProxyCacheException, IOException {
         byte[] buffer = new byte[DEFAULT_BUFFER_SIZE];
         int readBytes;
-        while ((readBytes = read(buffer, offset, buffer.length)) != -1) {
+        while (!mCanceled && (readBytes = read(buffer, offset, buffer.length)) != -1) {
             out.write(buffer, 0, readBytes);
             offset += readBytes;
         }
@@ -297,7 +314,7 @@ class HttpProxyCache extends ProxyCache {
             sourceLength = Math.max(sourceLength, newSourceNoCache.length());
             byte[] buffer = new byte[DEFAULT_BUFFER_SIZE];
             int readBytes;
-            while (true) {
+            while (!mCanceled) {
                 readBytes = newSourceNoCache.read(buffer);
                 if (readBytes < 0) {
                     if (sourceLength < 0 || offset >= sourceLength) {

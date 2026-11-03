@@ -127,6 +127,16 @@ public final class HttpProxyCacheServerClients {
         }
     }
 
+    /**
+     * 取消当前 URL 正在进行的代理请求（预加载退出时调用）。
+     */
+    public void cancelPreload() {
+        HttpProxyCache cache = proxyCache;
+        if (cache != null) {
+            cache.cancelPreload();
+        }
+    }
+
     private HttpProxyCache newHttpProxyCache() throws ProxyCacheException {
         Source source = config.sourceFactory.create(url, config.sourceInfoStorage, config.headerInjector);
         FileCache cache = new FileCache(config.generateCacheFile(url), config.diskUsage);

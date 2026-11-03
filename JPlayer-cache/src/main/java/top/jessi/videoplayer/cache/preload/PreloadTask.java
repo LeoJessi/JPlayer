@@ -203,12 +203,22 @@ class PreloadTask implements Runnable {
      * @return 本次实际读取的字节数（也是判断是否读满的依据）
      */
     private long start() {
+        // 取消检查：任务可能在队列中等待时已被取消
+        if (mIsCanceled) {
+            Logger.info("预加载取消（start 前检查）：" + mPosition);
+            return 0;
+        }
         // 如果在小黑屋里不加载
         if (isBlackListed(mRawUrl)) return 0;
         Logger.info("预加载开始：" + mPosition);
         HttpURLConnection connection = null;
         long read = 0;
         try {
+            // 取消检查：在建立连接之前再次检查，避免退出后仍发起请求
+            if (mIsCanceled) {
+                Logger.info("预加载取消（getProxyUrl 前检查）：" + mPosition);
+                return 0;
+            }
             //获取 HttpProxyCacheServer 的代理地址。
             // 必须传 allowCachedFileUri=false：否则缓存已完整时 getProxyUrl 会返回 file:// uri，
             // openConnection() 得到的就不是 HttpURLConnection，强转会抛 ClassCastException
@@ -387,6 +397,7 @@ class PreloadTask implements Runnable {
         }
         if (mCacheServer != null) {
             mCacheServer.cancelRangePreload(mRawUrl);
+            mCacheServer.cancelPreload(mRawUrl);
         }
         // 让尾部线程尽快观察取消令牌。
         Thread tailThread = mTailThread;

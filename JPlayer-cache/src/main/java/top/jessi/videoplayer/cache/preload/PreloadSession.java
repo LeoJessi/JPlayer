@@ -153,8 +153,7 @@ public class PreloadSession implements DefaultLifecycleObserver {
         mCurIndex = index;
         // 统计连续快速滑动：每次切页都重置计时，间隔小于阈值就累加
         long now = SystemClock.elapsedRealtime();
-        mRapidCount = (now - mLastIndexChangeAt < RAPID_SCROLL_INTERVAL_MS)
-                ? Math.min(mRapidCount + 1, 3) : 0;
+        mRapidCount = (now - mLastIndexChangeAt < RAPID_SCROLL_INTERVAL_MS) ? Math.min(mRapidCount + 1, 3) : 0;
         mLastIndexChangeAt = now;
         // 安排一次"滑动停止"检测：若该间隔内没有新的切页，就把收缩的跨度恢复。
         // removeCallbacks 必须在主线程做，否则旧的延迟任务可能在新切页之后才触发，
@@ -169,6 +168,13 @@ public class PreloadSession implements DefaultLifecycleObserver {
      */
     public int getCurrentIndex() {
         return mCurIndex;
+    }
+
+    /**
+     * 获取当前会话的 url 列表（供 {@link PreloadManager#cancelTasksForSession} 使用）
+     */
+    List<String> getUrls() {
+        return mUrls;
     }
 
     /** Current active URL, including URLs already marked head-preloaded. */
@@ -237,5 +243,7 @@ public class PreloadSession implements DefaultLifecycleObserver {
         mMainHandler.removeCallbacks(mIdleRunnable);
         owner.getLifecycle().removeObserver(this);
         mManager.unregisterSession(this);
+        // 同步取消该会话的在飞任务，避免退出后代理端仍在后台回源
+        mManager.cancelTasksForSession(this);
     }
 }

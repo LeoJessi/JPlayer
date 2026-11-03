@@ -278,6 +278,22 @@ public class HttpProxyCacheServer {
     }
 
     /**
+     * 取消指定 URL 正在进行的代理请求（预加载退出时调用）。
+     * <p>与 {@link #cancelRangePreload(String)} 不同，本方法会同时停止代理端
+     * 正在从上游源站读取的 responseWithoutCache / responseWithCache 循环，
+     * 避免预加载退出后代理仍在后台回源。
+     */
+    public void cancelPreload(String url) {
+        if (url == null) {
+            return;
+        }
+        HttpProxyCacheServerClients clients = clientsMap.get(url);
+        if (clients != null) {
+            clients.cancelPreload();
+        }
+    }
+
+    /**
      * Returns total disk space (in bytes) currently occupied by cache.
      * <p>
      * Both completed cache files and unfinished {@code .download} temp files are counted.
