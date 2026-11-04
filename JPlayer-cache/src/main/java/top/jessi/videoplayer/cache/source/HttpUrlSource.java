@@ -53,8 +53,9 @@ public class HttpUrlSource implements Source {
     private final HostnameVerifier hostnameVerifier;
     private final TrustManager[] trustAllCerts;
     private final long timeoutMs;
-    private SourceInfo sourceInfo;
+    private volatile SourceInfo sourceInfo;
     private volatile boolean contentInfoFetched;
+    private volatile boolean canceled;
     private volatile HttpURLConnection connection;
     private InputStream inputStream;
 
@@ -106,6 +107,11 @@ public class HttpUrlSource implements Source {
             fetchContentInfo();
             contentInfoFetched = true;
         }
+        return sourceInfo.length;
+    }
+
+    @Override
+    public long knownLength() {
         return sourceInfo.length;
     }
 
@@ -227,6 +233,7 @@ public class HttpUrlSource implements Source {
 
     @Override
     public void cancel() {
+        canceled = true;
         HttpURLConnection activeConnection = connection;
         if (activeConnection != null) {
             // Do not close inputStream here: Android's HttpURLConnection stream close is not
@@ -277,8 +284,17 @@ public class HttpUrlSource implements Source {
         int redirectCount = 0;
         String url = this.sourceInfo.url;
         do {
+            if (canceled) {
+                throw new ProxyCacheException("Source opening was canceled for " + sourceInfo.url);
+            }
             Logger.debug("Open connection " + (offset > 0 ? " with offset " + offset : "") + " to " + url);
             connection = (HttpURLConnection) new URL(url).openConnection();
+            this.connection = connection;
+            // cancel() may run before this connection is published to the other thread.
+            if (canceled) {
+                connection.disconnect();
+                throw new ProxyCacheException("Source opening was canceled for " + sourceInfo.url);
+            }
             // 禁用 HttpURLConnection 的自动重定向，由下方手动循环统一处理，
             // 避免自动重定向丢弃 Range 头导致缓存数据错位。
             connection.setInstanceFollowRedirects(false);
@@ -313,9 +329,10 @@ public class HttpUrlSource implements Source {
     }
 
     private void applyHttpsConfiguration(HttpURLConnection connection) {
-        if (!(connection instanceof HttpsURLConnection httpsConnection)) {
+        if (!(connection instanceof HttpsURLConnection)) {
             return;
         }
+        HttpsURLConnection httpsConnection = (HttpsURLConnection) connection;
         if (hostnameVerifier != null) {
             httpsConnection.setHostnameVerifier(hostnameVerifier);
         }

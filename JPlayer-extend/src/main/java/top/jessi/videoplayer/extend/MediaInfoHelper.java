@@ -1,4 +1,4 @@
-package top.jessi.videoplayer.ijk;
+package top.jessi.videoplayer.extend;
 
 import android.content.Context;
 import android.graphics.Bitmap;
@@ -12,8 +12,12 @@ import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 
 import java.util.HashMap;
+import java.util.Collections;
+import java.util.IdentityHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
@@ -57,14 +61,29 @@ public class MediaInfoHelper {
     /**
      * 缓存媒体信息，避免重复解析
      */
-    private static final Map<String, MediaInfo> sCache = new HashMap<>();
+    private static final Map<String, MediaInfo> sCache = new ConcurrentHashMap<>();
 
     /**
      * 正在加载中的 URI 及其 Future，用于防止重复加载和等待已有加载完成
      * key: URI 字符串
      * value: 正在执行的加载任务 Future
      */
-    private static final Map<String, Future<MediaInfo>> sLoading = new HashMap<>();
+    private static final Map<String, LoadingTask> sLoading = new HashMap<>();
+    /** Owner -> URI association, so one ExoMediaPlayer cannot cancel another's task. */
+    private static final Map<Object, String> sOwnerUris = new IdentityHashMap<>();
+
+    private static final class LoadingTask {
+        final String uri;
+        final Set<Object> owners = Collections.newSetFromMap(new IdentityHashMap<>());
+        volatile boolean canceled;
+        boolean unownedRequest;
+        boolean started;
+        volatile Future<MediaInfo> future;
+
+        LoadingTask(String uri) {
+            this.uri = uri;
+        }
+    }
 
     /**
      * 媒体信息加载回调接口
@@ -360,30 +379,111 @@ public class MediaInfoHelper {
      */
     public static void preloadMediaInfo(@NonNull Context context, @NonNull String uri,
                                         @Nullable OnMediaInfoLoadedListener listener) {
-        // 如果已有缓存，直接回调
-        MediaInfo cached = sCache.get(uri);
-        if (cached != null) {
-            if (listener != null) {
-                sMainHandler.post(() -> listener.onMediaInfoLoaded(cached));
-            }
-            return;
-        }
+        preloadMediaInfo(context, uri, listener, null);
+    }
 
-        // 如果正在加载，不再重复发起（避免竞态条件）
-        if (sLoading.containsKey(uri)) {
-            return;
-        }
-
-        // 提交单个任务：解析 + 回调（避免浪费线程池资源）
-        Future<MediaInfo> future = sExecutor.submit(() -> {
-            MediaInfo mediaInfo = getMediaInfoInternal(context, uri);
-            sLoading.remove(uri);
-            if (listener != null) {
-                sMainHandler.post(() -> listener.onMediaInfoLoaded(mediaInfo));
+    /**
+     * Starts or joins a metadata preload owned by one player instance.
+     * Releasing that owner cancels the shared task only when no other player owns it.
+     */
+    public static void preloadMediaInfo(@NonNull Context context, @NonNull String uri,
+                                        @Nullable OnMediaInfoLoadedListener listener,
+                                        @Nullable Object owner) {
+        synchronized (sLoading) {
+            if (owner != null) {
+                String previousUri = sOwnerUris.get(owner);
+                if (uri.equals(previousUri)) return;
+                if (previousUri != null) detachOwnerLocked(owner, previousUri);
             }
-            return mediaInfo;
-        });
-        sLoading.put(uri, future);
+
+            MediaInfo cached = sCache.get(uri);
+            if (cached != null) {
+                if (listener != null) {
+                    sMainHandler.post(() -> listener.onMediaInfoLoaded(cached));
+                }
+                return;
+            }
+
+            LoadingTask task = sLoading.get(uri);
+            if (task != null && !task.canceled) {
+                if (owner == null) {
+                    task.unownedRequest = true;
+                } else {
+                    task.owners.add(owner);
+                    sOwnerUris.put(owner, uri);
+                }
+                return;
+            }
+
+            task = new LoadingTask(uri);
+            if (owner == null) {
+                task.unownedRequest = true;
+            } else {
+                task.owners.add(owner);
+                sOwnerUris.put(owner, uri);
+            }
+            sLoading.put(uri, task);
+            LoadingTask submittedTask = task;
+            task.future = sExecutor.submit(() -> {
+                synchronized (sLoading) {
+                    if (submittedTask.canceled) {
+                        removeLoadingTaskLocked(submittedTask);
+                        return null;
+                    }
+                    submittedTask.started = true;
+                }
+                try {
+                    MediaInfo mediaInfo = getMediaInfoInternal(context, uri, submittedTask);
+                    if (!submittedTask.canceled && listener != null) {
+                        sMainHandler.post(() -> listener.onMediaInfoLoaded(mediaInfo));
+                    }
+                    return mediaInfo;
+                } finally {
+                    synchronized (sLoading) {
+                        removeLoadingTaskLocked(submittedTask);
+                    }
+                }
+            });
+        }
+    }
+
+    /**
+     * Cancels this player's metadata preload without affecting other players.
+     * A running native FFmpeg parse may not honor thread interruption immediately; once it
+     * returns, the task observes the cancellation flag and skips retrying or caching its result.
+     */
+    public static void cancelPreloadMediaInfo(@Nullable Object owner) {
+        if (owner == null) return;
+        synchronized (sLoading) {
+            String uri = sOwnerUris.remove(owner);
+            if (uri != null) detachOwnerLocked(owner, uri);
+        }
+    }
+
+    private static void detachOwnerLocked(Object owner, String uri) {
+        LoadingTask task = sLoading.get(uri);
+        if (task == null) return;
+        task.owners.remove(owner);
+        if (task.owners.isEmpty() && !task.unownedRequest) {
+            task.canceled = true;
+            Future<MediaInfo> future = task.future;
+            if (future != null) future.cancel(true);
+            if (!task.started) {
+                removeLoadingTaskLocked(task);
+            }
+        }
+    }
+
+    private static void removeLoadingTaskLocked(LoadingTask task) {
+        if (sLoading.get(task.uri) == task) {
+            sLoading.remove(task.uri);
+        }
+        for (Object taskOwner : task.owners) {
+            if (task.uri.equals(sOwnerUris.get(taskOwner))) {
+                sOwnerUris.remove(taskOwner);
+            }
+        }
+        task.owners.clear();
     }
 
     /**
@@ -405,12 +505,12 @@ public class MediaInfoHelper {
 
         // 如果已有正在加载的任务，立即返回 null（不阻塞主线程）
         // 调用方应使用播放器自带的轨道名称作为后备
-        if (sLoading.containsKey(uri)) {
-            return null;
+        synchronized (sLoading) {
+            if (sLoading.containsKey(uri)) return null;
         }
 
         // 没有正在加载的任务，直接解析
-        return getMediaInfoInternal(context, uri);
+        return getMediaInfoInternal(context, uri, null);
     }
 
     /**
@@ -438,10 +538,14 @@ public class MediaInfoHelper {
      * 网络流支持重试，本地文件不重试
      */
     @Nullable
-    private static MediaInfo getMediaInfoInternal(@NonNull Context context, @NonNull String uri) {
+    private static MediaInfo getMediaInfoInternal(@NonNull Context context, @NonNull String uri,
+                                                  @Nullable LoadingTask task) {
         boolean isNetwork = isNetworkUri(uri);
         int maxRetry = isNetwork ? MAX_NETWORK_RETRY : 0;
         for (int attempt = 0; attempt <= maxRetry; attempt++) {
+            if (task != null && (task.canceled || Thread.currentThread().isInterrupted())) {
+                return null;
+            }
             // 非首次尝试时，等待一段时间后重试
             if (attempt > 0) {
                 Log.d(TAG, "getMediaInfo retry " + attempt + "/" + maxRetry + " after " + RETRY_DELAY_MS + "ms");
@@ -457,15 +561,23 @@ public class MediaInfoHelper {
                 MediaInfoBuilder builder = new MediaInfoBuilder();
                 builder.from(context, Uri.parse(uri));
                 MediaInfo mediaInfo = builder.build();
+                if (task != null && (task.canceled || Thread.currentThread().isInterrupted())) {
+                    return null;
+                }
                 if (mediaInfo != null) {
                     Log.d(TAG, "getMediaInfo success (attempt " + (attempt + 1) + "): audioStreams=" + mediaInfo.getAudioStreams().size()
                             + " subtitleStreams=" + mediaInfo.getSubtitleStreams().size());
-                    sCache.put(uri, mediaInfo);
+                    synchronized (sLoading) {
+                        if (task == null || !task.canceled) sCache.put(uri, mediaInfo);
+                    }
                     return mediaInfo;
                 } else {
                     Log.w(TAG, "getMediaInfo: builder.build() returned null (attempt " + (attempt + 1) + ")");
                 }
             } catch (Throwable t) {
+                if (task != null && (task.canceled || Thread.currentThread().isInterrupted())) {
+                    return null;
+                }
                 Log.e(TAG, "getMediaInfo failed (attempt " + (attempt + 1) + ")", t);
                 // 如果是最后一次尝试，直接返回 null
                 if (attempt >= maxRetry) {
@@ -746,22 +858,34 @@ public class MediaInfoHelper {
      * 清除缓存
      */
     public static void clearCache() {
-        sCache.clear();
+        synchronized (sLoading) {
+            sCache.clear();
+        }
     }
 
     /**
      * 移除指定 URI 的缓存
      */
     public static void removeCache(@NonNull String uri) {
-        sCache.remove(uri);
+        synchronized (sLoading) {
+            sCache.remove(uri);
+        }
     }
 
     /**
      * 释放资源，在应用退出时调用
      */
     public static void release() {
+        synchronized (sLoading) {
+            for (LoadingTask task : sLoading.values()) {
+                task.canceled = true;
+                Future<MediaInfo> future = task.future;
+                if (future != null) future.cancel(true);
+            }
+            sLoading.clear();
+            sOwnerUris.clear();
+            sCache.clear();
+        }
         sExecutor.shutdownNow();
-        sCache.clear();
-        sLoading.clear();
     }
 }

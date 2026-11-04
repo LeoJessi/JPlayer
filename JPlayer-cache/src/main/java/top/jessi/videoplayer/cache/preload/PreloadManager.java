@@ -7,6 +7,7 @@ import java.io.File;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.Iterator;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -36,8 +37,8 @@ import top.jessi.videoplayer.cache.internal.Logger;
  * 页面相关的状态（url 列表、当前下标、预加载跨度）由每页一个的 {@link PreloadSession} 持有，
  * 通过 {@link #createSession(LifecycleOwner)} 创建。引擎只负责调度与执行。
  * <p>
- * 原理：主动请求 {@link HttpProxyCacheServer} 生成的代理地址，触发其缓存机制，缓存到
- * {@link #mPreloadLength} 的数据后停止请求。播放器随后请求同一代理地址时会直接命中缓存，
+ * 原理：通过 {@link HttpProxyCacheServer} 的有界 Range 接口将数据直接写入共享缓存，
+ * 读取到 {@link #mPreloadLength} 的数据后停止。播放器随后请求同一代理地址时会直接命中缓存，
  * 从而提升起播速度。
  * <p>
  * 典型用法（列表场景）：
@@ -81,14 +82,14 @@ public class PreloadManager {
     /**
      * 默认执行线程数：3。
      * <p>多一个线程就多一份与播放器抢带宽的力气，按网络条件调整。
-     * <p><b>上界受代理侧限制</b>：{@code HttpProxyCacheServer} 的 socket 线程池固定 8 个线程，
-     * 需要为播放器和两个尾部 Range 请求各预留一个线程：当前集/下一集优先，远端预载另走低优先级队列。
+     * <p>预加载直接读取源站并写入共享缓存，不占用代理 socket 线程；执行数仍需控制，
+     * 避免多个上游请求与播放器争抢带宽。近端任务优先，远端任务使用低优先级尾部队列。
      * <p>实测 3 个线程可以让预加载窗口覆盖更快，且不会明显拖慢单任务速度。
      */
     static final int DEFAULT_WORKER_COUNT = 3;
 
     /**
-     * 执行线程数硬上界：代理侧 8 个 socket 线程为播放器及两个尾部 Range 预留线程。
+     * 执行线程数硬上界：限制同时访问源站的预加载任务数，避免带宽争抢。
      */
     static final int MAX_WORKER_COUNT = 5;
 
@@ -152,6 +153,12 @@ public class PreloadManager {
      * 所有页面会话
      */
     private final Set<PreloadSession> mSessions = newConcurrentSet();
+
+    /** Serializes task-map commits with session teardown. */
+    private final Object mTaskLock = new Object();
+
+    /** Invalidates compute passes that used a stale session snapshot. */
+    private final AtomicLong mComputeGeneration = new AtomicLong();
 
     /**
      * 全局任务表：url -&gt; task
@@ -439,12 +446,20 @@ public class PreloadManager {
             throw new IllegalStateException("Cannot create preload session for a destroyed owner");
         }
         PreloadSession session = new PreloadSession(this, owner);
-        mSessions.add(session);
+        synchronized (mTaskLock) {
+            mSessions.add(session);
+            mComputeGeneration.incrementAndGet();
+        }
+        scheduleCompute();
         return session;
     }
 
     void unregisterSession(PreloadSession session) {
-        mSessions.remove(session);
+        synchronized (mTaskLock) {
+            mSessions.remove(session);
+            mComputeGeneration.incrementAndGet();
+            cancelTasksOutsideActiveSessionsLocked();
+        }
         scheduleCompute();
     }
 
@@ -455,14 +470,15 @@ public class PreloadManager {
      */
     void scheduleCompute() {
         if (mShutdown) return;
+        final long generation = mComputeGeneration.incrementAndGet();
         try {
-            mScheduler.execute(this::computePreloadSpan);
+            mScheduler.execute(() -> computePreloadSpan(generation));
         } catch (RejectedExecutionException e) {
             // 调度线程已关闭，忽略
         }
     }
 
-    private void computePreloadSpan() {
+    private void computePreloadSpan(long generation) {
         // url -&gt; 与当前下标的距离。同一 url 被多个会话命中时取最小距离。
         Map<String, Integer> desired = new HashMap<>();
         for (PreloadSession session : mSessions) {
@@ -475,79 +491,84 @@ public class PreloadManager {
             }
         }
 
-        // 取消并移除已出窗的任务
-        Iterator<Map.Entry<String, PreloadTask>> iterator = mTasks.entrySet().iterator();
-        while (iterator.hasNext()) {
-            Map.Entry<String, PreloadTask> entry = iterator.next();
-            if (!desired.containsKey(entry.getKey())) {
-                entry.getValue().cancel();
-                iterator.remove();
-                mInFlight.remove(entry.getKey());
-                mPositions.remove(entry.getKey());
-                mPriorityAttemptedUrls.remove(entry.getKey());
-                if (entry.getKey().equals(mPriorityBarrierUrl)) {
+        synchronized (mTaskLock) {
+            if (generation != mComputeGeneration.get() || mShutdown) return;
+            // 取消并移除已出窗的任务
+            Iterator<Map.Entry<String, PreloadTask>> iterator = mTasks.entrySet().iterator();
+            while (iterator.hasNext()) {
+                Map.Entry<String, PreloadTask> entry = iterator.next();
+                if (!desired.containsKey(entry.getKey())) {
+                    entry.getValue().cancel();
+                    iterator.remove();
+                    mInFlight.remove(entry.getKey());
+                    mPositions.remove(entry.getKey());
+                    mPriorityAttemptedUrls.remove(entry.getKey());
+                    if (entry.getKey().equals(mPriorityBarrierUrl)) {
+                        mPriorityBarrierUrl = null;
+                    }
+                }
+            }
+
+            // 当前视频正在缓冲时不提交新任务：带宽要让给播放器
+            if (mPlaybackBuffering || desired.isEmpty()) return;
+
+            // 按"离当前下标的距离"从近到远提交。
+            // 执行池只有 DEFAULT_WORKER_COUNT 个线程，队列满时会丢弃队尾任务，
+            // 因此必须保证最该预加载的（紧邻当前下标的）先拿到资源，
+            // 而不是听任 HashMap 的随机顺序。
+            List<Map.Entry<String, Integer>> sorted = new ArrayList<>(desired.entrySet());
+            Collections.sort(sorted, (a, b) -> {
+                // 距离为 0（当前项）绝对优先，确保当前项永远第一个执行
+                if (a.getValue() == 0) return -1;
+                if (b.getValue() == 0) return 1;
+
+                int cmp = a.getValue() - b.getValue();
+                // 距离相同时按 url 固定顺序，保证多次重算结果稳定，便于对比日志
+                return cmp != 0 ? cmp : a.getKey().compareTo(b.getKey());
+            });
+
+            // Start the current video's head and enqueue its tail range before
+            // neighboring preloads compete for upstream bandwidth.
+            Map.Entry<String, Integer> currentEntry = null;
+            for (Map.Entry<String, Integer> entry : sorted) {
+                if (entry.getValue() == 0) {
+                    currentEntry = entry;
+                    break;
+                }
+            }
+            if (currentEntry != null) {
+                String currentUrl = currentEntry.getKey();
+                if (mPriorityBarrierUrl != null && !mPriorityBarrierUrl.equals(currentUrl)) {
+                    // A swipe changed the current item; do not hold the new item behind the old one.
                     mPriorityBarrierUrl = null;
                 }
-            }
-        }
-
-        // 当前视频正在缓冲时不提交新任务：带宽要让给播放器
-        if (mPlaybackBuffering || desired.isEmpty()) return;
-
-        // 按"离当前下标的距离"从近到远提交。
-        // 执行池只有 DEFAULT_WORKER_COUNT 个线程，队列满时会丢弃队尾任务，
-        // 因此必须保证最该预加载的（紧邻当前下标的）先拿到资源，
-        // 而不是听任 HashMap 的随机顺序。
-        List<Map.Entry<String, Integer>> sorted = new ArrayList<>(desired.entrySet());
-        Collections.sort(sorted, (a, b) -> {
-            // 距离为 0（当前项）绝对优先，确保当前项永远第一个执行
-            if (a.getValue() == 0) return -1;
-            if (b.getValue() == 0) return 1;
-
-            int cmp = a.getValue() - b.getValue();
-            // 距离相同时按 url 固定顺序，保证多次重算结果稳定，便于对比日志
-            return cmp != 0 ? cmp : a.getKey().compareTo(b.getKey());
-        });
-
-        // Start the current video's head and enqueue its tail range before
-        // neighboring preloads compete for upstream bandwidth.
-        Map.Entry<String, Integer> currentEntry = null;
-        for (Map.Entry<String, Integer> entry : sorted) {
-            if (entry.getValue() == 0) {
-                currentEntry = entry;
-                break;
-            }
-        }
-        if (currentEntry != null) {
-            String currentUrl = currentEntry.getKey();
-            if (mPriorityBarrierUrl != null && !mPriorityBarrierUrl.equals(currentUrl)) {
-                // A swipe changed the current item; do not hold the new item behind the old one.
-                mPriorityBarrierUrl = null;
-            }
-            if (!isPreloaded(currentUrl) && !PreloadTask.isBlackListed(currentUrl)) {
-                if (!mPriorityAttemptedUrls.contains(currentUrl)) {
-                    mPriorityAttemptedUrls.add(currentUrl);
-                    mPriorityBarrierUrl = currentUrl;
-                    submitPreloadTask(currentEntry);
-                    return;
-                }
-                if (currentUrl.equals(mPriorityBarrierUrl) && mInFlight.contains(currentUrl)) {
-                    return;
+                if (!isPreloaded(currentUrl) && !PreloadTask.isBlackListed(currentUrl)) {
+                    if (!mPriorityAttemptedUrls.contains(currentUrl)) {
+                        mPriorityAttemptedUrls.add(currentUrl);
+                        mPriorityBarrierUrl = currentUrl;
+                        submitPreloadTask(currentEntry);
+                        return;
+                    }
+                    if (currentUrl.equals(mPriorityBarrierUrl) && mInFlight.contains(currentUrl)) {
+                        return;
+                    }
                 }
             }
-        }
 
-        // 提交入窗且未预加载的任务
-        for (Map.Entry<String, Integer> entry : sorted) {
-            submitPreloadTask(entry);
+            // 提交入窗且未预加载的任务
+            for (Map.Entry<String, Integer> entry : sorted) {
+                submitPreloadTask(entry);
+            }
         }
     }
 
     private void submitPreloadTask(Map.Entry<String, Integer> entry) {
+        if (mShutdown) return;
         String url = entry.getKey();
         if (isPreloaded(url) || mInFlight.contains(url) || PreloadTask.isBlackListed(url)) return;
+        mHttpProxyCacheServer.resumePreloadUrl(url);
         PreloadTask task = mTasks.get(url);
-        if (task == null) {
+        if (task == null || task.isCanceled()) {
             task = newTask(url);
             mTasks.put(url, task);
         }
@@ -627,7 +648,7 @@ public class PreloadManager {
             long now = SystemClock.elapsedRealtime();
             if (now - mLastPauseAt >= BUFFERING_DEBOUNCE_MS) {
                 mLastPauseAt = now;
-                // 投递到调度线程执行：cancel() 会断开预加载连接，不能在主线程做。
+                // 投递到调度线程执行，避免在页面状态回调中遍历并取消全部任务。
                 scheduleCancelSpeculative();
             }
         }
@@ -650,36 +671,34 @@ public class PreloadManager {
     }
 
     private void cancelSpeculativeTasks() {
-        Map<String, Integer> desired = new HashMap<>();
-        for (PreloadSession session : mSessions) {
-            session.collectPreloadSpan(desired);
-            String currentUrl = session.getCurrentUrl();
-            if (currentUrl != null) {
-                desired.put(currentUrl, 0);
+        synchronized (mTaskLock) {
+            Set<String> desired = new HashSet<>();
+            for (PreloadSession session : mSessions) {
+                String currentUrl = session.getCurrentUrl();
+                if (currentUrl != null) {
+                    desired.add(currentUrl);
+                }
             }
-        }
-        String activeUrl = mCurrentPlaybackUrl;
-        if (activeUrl != null) {
-            desired.put(activeUrl, 0);
-        }
-        if (desired.isEmpty()) {
-            cancelAllTasks();
-            return;
-        }
-        Iterator<Map.Entry<String, PreloadTask>> iterator = mTasks.entrySet().iterator();
-        while (iterator.hasNext()) {
-            Map.Entry<String, PreloadTask> entry = iterator.next();
-            Integer distance = desired.get(entry.getKey());
-            if (distance != null && distance == 0) {
-                continue;
+            String activeUrl = mCurrentPlaybackUrl;
+            if (activeUrl != null) {
+                desired.add(activeUrl);
             }
-            entry.getValue().cancel();
-            iterator.remove();
-            mInFlight.remove(entry.getKey());
-            mPositions.remove(entry.getKey());
-            mPriorityAttemptedUrls.remove(entry.getKey());
-            if (entry.getKey().equals(mPriorityBarrierUrl)) {
-                mPriorityBarrierUrl = null;
+            if (desired.isEmpty()) {
+                cancelAllTasks();
+                return;
+            }
+            Iterator<Map.Entry<String, PreloadTask>> iterator = mTasks.entrySet().iterator();
+            while (iterator.hasNext()) {
+                Map.Entry<String, PreloadTask> entry = iterator.next();
+                if (desired.contains(entry.getKey())) continue;
+                entry.getValue().cancel();
+                iterator.remove();
+                mInFlight.remove(entry.getKey());
+                mPositions.remove(entry.getKey());
+                mPriorityAttemptedUrls.remove(entry.getKey());
+                if (entry.getKey().equals(mPriorityBarrierUrl)) {
+                    mPriorityBarrierUrl = null;
+                }
             }
         }
     }
@@ -737,13 +756,15 @@ public class PreloadManager {
      * @return 是否删除成功
      */
     public boolean deleteCacheFile(String rawUrl) {
-        mPreloadedUrls.remove(rawUrl);
-        mCheckedUrls.remove(rawUrl);
-        PreloadTask task = mTasks.remove(rawUrl);
-        if (task != null) {
-            task.cancel();
-            mInFlight.remove(rawUrl);
-            mPositions.remove(rawUrl);
+        synchronized (mTaskLock) {
+            mPreloadedUrls.remove(rawUrl);
+            mCheckedUrls.remove(rawUrl);
+            PreloadTask task = mTasks.remove(rawUrl);
+            if (task != null) {
+                task.cancel();
+                mInFlight.remove(rawUrl);
+                mPositions.remove(rawUrl);
+            }
         }
         return mHttpProxyCacheServer.clearCacheFile(rawUrl);
     }
@@ -770,24 +791,28 @@ public class PreloadManager {
      * 导致后续不再对该 url 发起预加载。
      */
     public void clearPreloadState() {
-        mPreloadedUrls.clear();
-        mCheckedUrls.clear();
-        mPriorityAttemptedUrls.clear();
-        mPriorityBarrierUrl = null;
-        mCurrentPlaybackUrl = null;
+        synchronized (mTaskLock) {
+            mPreloadedUrls.clear();
+            mCheckedUrls.clear();
+            mPriorityAttemptedUrls.clear();
+            mPriorityBarrierUrl = null;
+            mCurrentPlaybackUrl = null;
+        }
     }
 
     /**
      * 取消指定 url 的预加载任务
      */
     public void cancelTask(String rawUrl) {
-        if (rawUrl != null && rawUrl.equals(mPriorityBarrierUrl)) {
-            mPriorityBarrierUrl = null;
-        }
-        mPriorityAttemptedUrls.remove(rawUrl);
-        PreloadTask task = mTasks.get(rawUrl);
-        if (task != null) {
-            task.cancel();
+        synchronized (mTaskLock) {
+            if (rawUrl != null && rawUrl.equals(mPriorityBarrierUrl)) {
+                mPriorityBarrierUrl = null;
+            }
+            mPriorityAttemptedUrls.remove(rawUrl);
+            PreloadTask task = mTasks.get(rawUrl);
+            if (task != null) {
+                task.cancel();
+            }
         }
     }
 
@@ -799,29 +824,55 @@ public class PreloadManager {
      * 前后台切换）时才会按需重新预加载。
      */
     public void cancelAllTasks() {
-        for (PreloadTask task : mTasks.values()) {
-            task.cancel();
+        synchronized (mTaskLock) {
+            for (PreloadTask task : mTasks.values()) {
+                task.cancel();
+            }
+            mTasks.clear();
+            mInFlight.clear();
+            mPositions.clear();
+            mPriorityAttemptedUrls.clear();
+            mPriorityBarrierUrl = null;
         }
-        mTasks.clear();
-        mInFlight.clear();
-        mPositions.clear();
-        mPriorityAttemptedUrls.clear();
-        mPriorityBarrierUrl = null;
     }
 
     /**
-     * 取消指定会话的预加载任务，不影响其他会话。
-     * <p>在 {@link PreloadSession#onDestroy} 中调用，确保页面退出时只取消该页面的任务，
-     * 避免影响其他页面的预加载。
+     * Rejects and closes proxy requests belonging to one page only. This also covers
+     * MediaInfoHelper/ExoPlayer requests queued outside {@link PreloadTask}.
      */
-    void cancelTasksForSession(PreloadSession session) {
+    public void cancelPlaybackRequests(PreloadSession session) {
         if (session == null) return;
-        for (String url : session.getUrls()) {
-            PreloadTask task = mTasks.remove(url);
-            if (task != null) {
-                task.cancel();
-                mInFlight.remove(url);
-                mPositions.remove(url);
+        Set<String> urls = new HashSet<>(session.getUrlsSnapshot());
+        synchronized (mTaskLock) {
+            // The current player URL can resolve just before the matching asynchronous
+            // preload-list callback publishes its URL snapshot.
+            if (mCurrentPlaybackUrl != null) {
+                urls.add(mCurrentPlaybackUrl);
+            }
+            for (PreloadSession other : mSessions) {
+                urls.removeAll(other.getUrlsSnapshot());
+            }
+        }
+        mHttpProxyCacheServer.cancelRequestsForUrls(urls);
+    }
+
+    private void cancelTasksOutsideActiveSessionsLocked() {
+        Set<String> activeUrls = newConcurrentSet();
+        for (PreloadSession session : mSessions) {
+            session.collectActivePreloadUrls(activeUrls);
+        }
+        Iterator<Map.Entry<String, PreloadTask>> iterator = mTasks.entrySet().iterator();
+        while (iterator.hasNext()) {
+            Map.Entry<String, PreloadTask> entry = iterator.next();
+            if (!activeUrls.contains(entry.getKey())) {
+                entry.getValue().cancel();
+                iterator.remove();
+                mInFlight.remove(entry.getKey());
+                mPositions.remove(entry.getKey());
+                mPriorityAttemptedUrls.remove(entry.getKey());
+                if (entry.getKey().equals(mPriorityBarrierUrl)) {
+                    mPriorityBarrierUrl = null;
+                }
             }
         }
     }
@@ -930,17 +981,19 @@ public class PreloadManager {
      */
     public void shutdown() {
         mShutdown = true;
-        for (PreloadTask task : mTasks.values()) {
-            task.cancel();
+        synchronized (mTaskLock) {
+            for (PreloadTask task : mTasks.values()) {
+                task.cancel();
+            }
+            mTasks.clear();
+            mInFlight.clear();
+            mPositions.clear();
+            mSessions.clear();
+            mPreloadedUrls.clear();
+            mCheckedUrls.clear();
+            // 业务方可能传入持有 Activity 的匿名内部类，不清掉会泄漏
+            mPreloadListener = null;
         }
-        mTasks.clear();
-        mInFlight.clear();
-        mPositions.clear();
-        mSessions.clear();
-        mPreloadedUrls.clear();
-        mCheckedUrls.clear();
-        // 业务方可能传入持有 Activity 的匿名内部类，不清掉会泄漏
-        mPreloadListener = null;
         mWorkerPool.shutdownNow();
         mScheduler.shutdownNow();
         mPriorityTailExecutor.shutdownNow();

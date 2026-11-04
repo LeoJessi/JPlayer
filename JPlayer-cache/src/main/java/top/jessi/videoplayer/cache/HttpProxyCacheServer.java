@@ -20,8 +20,12 @@ import java.net.InetAddress;
 import java.net.ServerSocket;
 import java.net.Socket;
 import java.net.SocketException;
+import java.util.Collection;
+import java.util.HashMap;
+import java.util.HashSet;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutorService;
@@ -66,6 +70,11 @@ import top.jessi.videoplayer.cache.internal.Logger;
  */
 public class HttpProxyCacheServer {
 
+    /** Receives source metadata discovered while a bounded cache range is opened. */
+    public interface RangePreloadListener {
+        void onSourceLengthKnown(long sourceLength);
+    }
+
     private static final String PROXY_HOST = "127.0.0.1";
 
     private static volatile HttpProxyCacheServer sInstance;
@@ -73,6 +82,10 @@ public class HttpProxyCacheServer {
     private final Object clientsLock = new Object();
     private final ExecutorService socketProcessor = Executors.newFixedThreadPool(8);
     private final Map<String, HttpProxyCacheServerClients> clientsMap = new ConcurrentHashMap<>();
+    /** URL request admission state, guarded by clientsLock. */
+    private final Set<String> mBlockedRequestUrls = new HashSet<>();
+    private final Map<String, Long> mRequestSequenceFloor = new HashMap<>();
+    private long mAcceptedRequestSequence;
     private final ServerSocket serverSocket;
     private final int port;
     private final Thread waitConnectionThread;
@@ -149,6 +162,9 @@ public class HttpProxyCacheServer {
      * @return a wrapped by proxy url if file is not fully cached or url pointed to cache file otherwise (if {@code allowCachedFileUri} is {@code true}).
      */
     public String getProxyUrl(String url, boolean allowCachedFileUri) {
+        if (url != null) {
+            resumeRequestUrl(url);
+        }
         if (allowCachedFileUri && isCached(url)) {
             File cacheFile = getCacheFile(url);
             touchFileSafely(cacheFile);
@@ -256,12 +272,45 @@ public class HttpProxyCacheServer {
      */
     public long preloadRange(String url, long offset, long maxBytes, AtomicBoolean canceled)
             throws ProxyCacheException {
+        return preloadRange(url, offset, maxBytes, canceled, null);
+    }
+
+    /**
+     * Directly reads a bounded source range into the URL's shared sparse cache.
+     * The listener runs on the calling thread after the source response exposes its length.
+     */
+    public long preloadRange(String url, long offset, long maxBytes, AtomicBoolean canceled,
+                             RangePreloadListener listener) throws ProxyCacheException {
         checkNotNull(url);
         checkNotNull(canceled);
-        if (offset < 0 || maxBytes <= 0 || mShutdown || canceled.get()) {
+        if (offset < 0 || maxBytes <= 0 || canceled.get()) {
             return 0;
         }
-        return getClients(url).preloadRange(offset, maxBytes, canceled);
+        HttpProxyCacheServerClients clients;
+        synchronized (clientsLock) {
+            if (mShutdown || !isRequestUrlOpenLocked(url) || canceled.get()) {
+                return 0;
+            }
+            clients = getClients(url);
+        }
+        return clients.preloadRange(offset, maxBytes, canceled, listener);
+    }
+
+    /** Re-opens a URL for a new speculative preload task. */
+    public void resumePreloadUrl(String url) {
+        resumeRequestUrl(url);
+    }
+
+    private void resumeRequestUrl(String url) {
+        if (url == null || mShutdown) return;
+        synchronized (clientsLock) {
+            mRequestSequenceFloor.put(url, mAcceptedRequestSequence);
+            mBlockedRequestUrls.remove(url);
+        }
+    }
+
+    private boolean isRequestUrlOpenLocked(String url) {
+        return !mShutdown && !mBlockedRequestUrls.contains(url);
     }
 
     /**
@@ -277,12 +326,27 @@ public class HttpProxyCacheServer {
         }
     }
 
+    /** Stops active proxy readers and rejects queued sockets for the supplied URLs only. */
+    public void cancelRequestsForUrls(Collection<String> urls) {
+        if (urls == null || urls.isEmpty()) return;
+        synchronized (clientsLock) {
+            for (String url : urls) {
+                if (url == null || url.isEmpty()) continue;
+                mBlockedRequestUrls.add(url);
+                mRequestSequenceFloor.put(url, mAcceptedRequestSequence);
+                HttpProxyCacheServerClients clients = clientsMap.remove(url);
+                if (clients != null) {
+                    clients.shutdown();
+                }
+            }
+        }
+    }
+
     /**
-     * 取消指定 URL 正在进行的代理请求（预加载退出时调用）。
-     * <p>与 {@link #cancelRangePreload(String)} 不同，本方法会同时停止代理端
-     * 正在从上游源站读取的 responseWithoutCache / responseWithCache 循环，
-     * 避免预加载退出后代理仍在后台回源。
+     * Cancels independent range-preload sources for this URL.
+     * @deprecated Use {@link #cancelRangePreload(String)} to make the task-scoped behavior clear.
      */
+    @Deprecated
     public void cancelPreload(String url) {
         if (url == null) {
             return;
@@ -383,22 +447,36 @@ public class HttpProxyCacheServer {
             while (!Thread.currentThread().isInterrupted()) {
                 Socket socket = serverSocket.accept();
                 Logger.debug("Accept new socket " + socket);
-                socketProcessor.submit(new SocketProcessorRunnable(socket));
+                long requestSequence;
+                synchronized (clientsLock) {
+                    requestSequence = ++mAcceptedRequestSequence;
+                }
+                socketProcessor.submit(new SocketProcessorRunnable(socket, requestSequence));
             }
         } catch (IOException e) {
             onError(new ProxyCacheException("Error during waiting connection", e));
         }
     }
 
-    private void processSocket(Socket socket) {
+    private void processSocket(Socket socket, long requestSequence) {
         try {
             GetRequest request = GetRequest.read(socket.getInputStream());
-            Logger.debug("Request to cache proxy:" + request);
             String url = ProxyCacheUtils.decode(request.uri);
+            HttpProxyCacheServerClients clients = null;
+            synchronized (clientsLock) {
+                if (!isRequestAllowedLocked(url, requestSequence)) {
+                    Logger.debug("Reject stale/canceled proxy URL: " + url);
+                    return;
+                }
+                if (!pinger.isPingRequest(url)) {
+                    clients = getClients(url);
+                }
+            }
+            Logger.debug("Request to cache proxy:" + request);
             if (pinger.isPingRequest(url)) {
                 pinger.responseToPing(socket);
             } else {
-                HttpProxyCacheServerClients clients = getClients(url);
+                if (clients == null) return;
                 clients.processRequest(request, socket);
             }
         } catch (SocketException e) {
@@ -411,6 +489,12 @@ public class HttpProxyCacheServer {
             releaseSocket(socket);
             Logger.debug("Opened connections: " + getClientsCount());
         }
+    }
+
+    private boolean isRequestAllowedLocked(String url, long requestSequence) {
+        if (mBlockedRequestUrls.contains(url)) return false;
+        Long minimumSequence = mRequestSequenceFloor.get(url);
+        return minimumSequence == null || requestSequence > minimumSequence;
     }
 
     private HttpProxyCacheServerClients getClients(String url) throws ProxyCacheException {
@@ -496,14 +580,16 @@ public class HttpProxyCacheServer {
     private final class SocketProcessorRunnable implements Runnable {
 
         private final Socket socket;
+        private final long requestSequence;
 
-        public SocketProcessorRunnable(Socket socket) {
+        public SocketProcessorRunnable(Socket socket, long requestSequence) {
             this.socket = socket;
+            this.requestSequence = requestSequence;
         }
 
         @Override
         public void run() {
-            processSocket(socket);
+            processSocket(socket, requestSequence);
         }
     }
 

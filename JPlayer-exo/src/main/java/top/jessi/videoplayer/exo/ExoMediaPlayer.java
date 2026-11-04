@@ -33,13 +33,13 @@ import androidx.media3.exoplayer.source.TrackGroupArray;
 import androidx.media3.exoplayer.trackselection.DefaultTrackSelector;
 import androidx.media3.exoplayer.trackselection.MappingTrackSelector;
 
-import io.github.anilbeesetti.nextlib.media3ext.ffdecoder.NextRenderersFactory;
-import io.github.anilbeesetti.nextlib.mediainfo.MediaInfo;
-
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
+import io.github.anilbeesetti.nextlib.media3ext.ffdecoder.NextRenderersFactory;
+import io.github.anilbeesetti.nextlib.mediainfo.MediaInfo;
+import top.jessi.videoplayer.extend.MediaInfoHelper;
 import top.jessi.videoplayer.player.AbstractPlayer;
 import top.jessi.videoplayer.player.TimedText;
 import top.jessi.videoplayer.player.TrackInfo;
@@ -52,8 +52,8 @@ public class ExoMediaPlayer extends AbstractPlayer implements Player.Listener {
     protected Context mAppContext;
     protected ExoPlayer mMediaPlayer;
     protected MediaSource mMediaSource;
-    protected ExoMediaSourceHelper mMediaSourceHelper;
-    protected ExoTrackNameProvider trackNameProvider;
+    protected top.jessi.videoplayer.exo.ExoMediaSourceHelper mMediaSourceHelper;
+    protected top.jessi.videoplayer.exo.ExoTrackNameProvider trackNameProvider;
     private PlaybackParameters mSpeedPlaybackParameters;
     private boolean mIsPreparing;
     private LoadControl mLoadControl;
@@ -76,7 +76,7 @@ public class ExoMediaPlayer extends AbstractPlayer implements Player.Listener {
 
     public ExoMediaPlayer(Context context) {
         mAppContext = context.getApplicationContext();
-        mMediaSourceHelper = ExoMediaSourceHelper.getInstance(context);
+        mMediaSourceHelper = top.jessi.videoplayer.exo.ExoMediaSourceHelper.getInstance(context);
     }
 
     @Override
@@ -123,6 +123,9 @@ public class ExoMediaPlayer extends AbstractPlayer implements Player.Listener {
 
     @Override
     public void setDataSource(String path, Map<String, String> headers) {
+        if (mSourcePath != null && !mSourcePath.equals(path)) {
+            MediaInfoHelper.cancelPreloadMediaInfo(this);
+        }
         this.headers = headers;
         this.mSourcePath = path; // 保存原始路径供 getTrackInfo 使用
         mMediaSource = mMediaSourceHelper.getMediaSource(path, headers, false, errorCode);
@@ -169,7 +172,7 @@ public class ExoMediaPlayer extends AbstractPlayer implements Player.Listener {
 
         // 在后台预加载媒体信息，避免首次获取轨道列表时卡顿
         if (mSourcePath != null && !mSourcePath.isEmpty()) {
-            MediaInfoHelper.preloadMediaInfo(mAppContext, mSourcePath, null);
+            MediaInfoHelper.preloadMediaInfo(mAppContext, mSourcePath, null, this);
         }
     }
 
@@ -226,6 +229,8 @@ public class ExoMediaPlayer extends AbstractPlayer implements Player.Listener {
 
     @Override
     public void release() {
+        // 取消当前播放器提交的媒体信息预加载；共享 URI 若仍被其他播放器使用则继续保留。
+        MediaInfoHelper.cancelPreloadMediaInfo(this);
         if (mMediaPlayer != null) {
             mMediaPlayer.removeListener(this);
             mMediaPlayer.setVideoSurface(null);
@@ -239,6 +244,7 @@ public class ExoMediaPlayer extends AbstractPlayer implements Player.Listener {
         lastSpeedBytes = 0;
         mIsPreparing = false;
         mSpeedPlaybackParameters = null;
+        mSourcePath = null;
     }
 
     @Override

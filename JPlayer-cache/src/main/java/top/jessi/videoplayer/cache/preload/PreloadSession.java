@@ -8,6 +8,7 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 import androidx.lifecycle.DefaultLifecycleObserver;
 import androidx.lifecycle.Lifecycle;
@@ -111,6 +112,7 @@ public class PreloadSession implements DefaultLifecycleObserver {
      * <p>会清空上一次列表的预加载状态并重新计算窗口。
      */
     public void setUrls(List<String> urls) {
+        if (!mActive) return;
         mUrls = urls == null || urls.isEmpty()
                 ? Collections.emptyList()
                 : Collections.unmodifiableList(new ArrayList<>(urls));
@@ -121,6 +123,7 @@ public class PreloadSession implements DefaultLifecycleObserver {
      * 追加一个 url（列表加载更多时调用）
      */
     public void addUrl(String url) {
+        if (!mActive) return;
         if (url == null || url.isEmpty()) return;
         List<String> current = mUrls;
         List<String> next = new ArrayList<>(current.size() + 1);
@@ -134,6 +137,7 @@ public class PreloadSession implements DefaultLifecycleObserver {
      * 移除一个 url（注意：移除后其后所有下标会前移）
      */
     public void removeUrl(String url) {
+        if (!mActive) return;
         if (url == null) return;
         List<String> current = mUrls;
         if (!current.contains(url)) return;
@@ -149,6 +153,7 @@ public class PreloadSession implements DefaultLifecycleObserver {
      * "后一个延迟任务取消前一个"的时序。
      */
     public void setCurrentIndex(int index) {
+        if (!mActive) return;
         if (index == mCurIndex) return;
         mCurIndex = index;
         // 统计连续快速滑动：每次切页都重置计时，间隔小于阈值就累加
@@ -170,19 +175,44 @@ public class PreloadSession implements DefaultLifecycleObserver {
         return mCurIndex;
     }
 
-    /**
-     * 获取当前会话的 url 列表（供 {@link PreloadManager#cancelTasksForSession} 使用）
-     */
-    List<String> getUrls() {
-        return mUrls;
-    }
-
     /** Current active URL, including URLs already marked head-preloaded. */
     String getCurrentUrl() {
         if (!mActive || !mResumed) return null;
         List<String> urls = mUrls;
         int index = mCurIndex;
         return index >= 0 && index < urls.size() ? urls.get(index) : null;
+    }
+
+    /**
+     * Immediately detaches this page from scheduling. Safe to call from Activity.onDestroy
+     * before Android dispatches the lifecycle observer callback.
+     */
+    public void close() {
+        if (!mActive) return;
+        mActive = false;
+        mMainHandler.removeCallbacks(mIdleRunnable);
+        mManager.unregisterSession(this);
+    }
+
+    List<String> getUrlsSnapshot() {
+        return mUrls;
+    }
+
+    /** Collect the currently eligible window without doing cache-state disk checks. */
+    void collectActivePreloadUrls(Set<String> out) {
+        if (!mActive || !mResumed) return;
+        List<String> urls = mUrls;
+        if (urls.isEmpty()) return;
+        int last = urls.size() - 1;
+        int from = Math.max(0, mCurIndex - mManager.getPreloadBackward());
+        int forward = mRapidCount > 0
+                ? Math.min(mManager.getPreloadForward(), 1)
+                : mManager.getPreloadForward();
+        int to = Math.min(last, mCurIndex + forward);
+        for (int i = from; i <= to; i++) {
+            String url = urls.get(i);
+            if (url != null && !url.isEmpty()) out.add(url);
+        }
     }
 
     /**
@@ -239,11 +269,7 @@ public class PreloadSession implements DefaultLifecycleObserver {
 
     @Override
     public void onDestroy(LifecycleOwner owner) {
-        mActive = false;
-        mMainHandler.removeCallbacks(mIdleRunnable);
+        close();
         owner.getLifecycle().removeObserver(this);
-        mManager.unregisterSession(this);
-        // 同步取消该会话的在飞任务，避免退出后代理端仍在后台回源
-        mManager.cancelTasksForSession(this);
     }
 }

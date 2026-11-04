@@ -13,6 +13,7 @@ import android.view.SurfaceHolder;
 import java.util.HashMap;
 import java.util.Map;
 
+import top.jessi.videoplayer.extend.MediaInfoHelper;
 import top.jessi.videoplayer.player.TimedText;
 import top.jessi.videoplayer.player.TrackInfo;
 import top.jessi.videoplayer.player.TrackInfoBean;
@@ -221,6 +222,9 @@ public class IjkPlayer extends AbstractPlayer implements IMediaPlayer.OnErrorLis
     @Override
     public void setDataSource(String path, Map<String, String> headers) {
         if (mMediaPlayer == null) return;
+        if (mSourcePath != null && !mSourcePath.equals(path)) {
+            MediaInfoHelper.cancelPreloadMediaInfo(this);
+        }
         this.mSourcePath = path; // 保存原始路径供 getTrackInfo 使用
         try {
             Uri uri = Uri.parse(path);
@@ -295,7 +299,7 @@ public class IjkPlayer extends AbstractPlayer implements IMediaPlayer.OnErrorLis
 
         // 在后台预加载媒体信息，避免首次获取轨道列表时卡顿
         if (mSourcePath != null && !mSourcePath.isEmpty()) {
-            MediaInfoHelper.preloadMediaInfo(mAppContext, mSourcePath, null);
+            MediaInfoHelper.preloadMediaInfo(mAppContext, mSourcePath, null, this);
         }
     }
 
@@ -335,6 +339,8 @@ public class IjkPlayer extends AbstractPlayer implements IMediaPlayer.OnErrorLis
     @Override
     public void release() {
         if (mMediaPlayer == null) return;
+        // 取消当前播放器提交的媒体信息预加载；共享 URI 若仍被其他播放器使用则继续保留。
+        MediaInfoHelper.cancelPreloadMediaInfo(this);
         mMediaPlayer.setOnErrorListener(null);
         mMediaPlayer.setOnCompletionListener(null);
         mMediaPlayer.setOnInfoListener(null);

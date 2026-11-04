@@ -28,6 +28,11 @@ public class ByteArraySource implements Source {
     }
 
     @Override
+    public long knownLength() {
+        return data.length;
+    }
+
+    @Override
     public void open(long offset) throws ProxyCacheException {
         arrayInputStream = new ByteArrayInputStream(data);
         arrayInputStream.skip(offset);

@@ -112,9 +112,15 @@ public final class HttpProxyCacheServerClients {
      * so normal socket completion cannot close the cache while bytes are being appended.
      */
     public long preloadRange(long offset, long maxBytes, AtomicBoolean canceled) throws ProxyCacheException {
+        return preloadRange(offset, maxBytes, canceled, null);
+    }
+
+    public long preloadRange(long offset, long maxBytes, AtomicBoolean canceled,
+                             HttpProxyCacheServer.RangePreloadListener listener)
+            throws ProxyCacheException {
         HttpProxyCache cache = startProcessRequest();
         try {
-            return cache.preloadRange(offset, maxBytes, canceled);
+            return cache.preloadRange(offset, maxBytes, canceled, listener);
         } finally {
             finishProcessRequest();
         }
@@ -127,9 +133,8 @@ public final class HttpProxyCacheServerClients {
         }
     }
 
-    /**
-     * 取消当前 URL 正在进行的代理请求（预加载退出时调用）。
-     */
+    /** Cancels only independent range-preload sources for this URL. */
+    @Deprecated
     public void cancelPreload() {
         HttpProxyCache cache = proxyCache;
         if (cache != null) {

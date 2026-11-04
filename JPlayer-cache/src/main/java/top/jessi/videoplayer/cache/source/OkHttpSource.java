@@ -55,8 +55,9 @@ public class OkHttpSource implements Source {
     private final HeaderInjector headerInjector;
     private final HostnameVerifier hostnameVerifier;
     private final TrustManager[] trustAllCerts;
-    private SourceInfo sourceInfo;
+    private volatile SourceInfo sourceInfo;
     private InputStream inputStream;
+    private volatile boolean canceled;
     private volatile Call activeCall;
 
     public OkHttpSource(String url) {
@@ -101,6 +102,11 @@ public class OkHttpSource implements Source {
     }
 
     @Override
+    public long knownLength() {
+        return sourceInfo.length;
+    }
+
+    @Override
     public void open(long offset) throws ProxyCacheException {
         try {
             Response response = openConnection(offset, -1);
@@ -139,6 +145,7 @@ public class OkHttpSource implements Source {
 
     @Override
     public void cancel() {
+        canceled = true;
         Call call = activeCall;
         if (call != null) {
             call.cancel();
@@ -202,6 +209,9 @@ public class OkHttpSource implements Source {
         int redirectCount = 0;
         String url = this.sourceInfo.url;
         do {
+            if (canceled) {
+                throw new ProxyCacheException("Source opening was canceled for " + sourceInfo.url);
+            }
             Logger.debug("Open connection " + (offset > 0 ? " with offset " + offset : "") + " to " + url);
             Request.Builder requestBuilder = new Request.Builder();
             requestBuilder.get();
@@ -212,6 +222,11 @@ public class OkHttpSource implements Source {
             }
             Call call = createClient(timeout).newCall(requestBuilder.build());
             activeCall = call;
+            // cancel() may run before execute() begins; publish and check the call first.
+            if (canceled) {
+                call.cancel();
+                throw new ProxyCacheException("Source opening was canceled for " + sourceInfo.url);
+            }
             response = call.execute();
             redirected = response.isRedirect();
             if (redirected) {

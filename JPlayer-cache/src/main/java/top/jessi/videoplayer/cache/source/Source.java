@@ -24,6 +24,11 @@ public interface Source {
      */
     long length() throws ProxyCacheException;
 
+    /** Returns a previously discovered length without performing network I/O. */
+    default long knownLength() {
+        return -1;
+    }
+
     /**
      * Read data to byte buffer from source with current offset.
      *

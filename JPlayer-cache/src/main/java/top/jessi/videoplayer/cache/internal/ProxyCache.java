@@ -103,6 +103,10 @@ class ProxyCache {
             Logger.debug("Shutdown proxy for " + source);
             try {
                 stopped = true;
+                // Interrupting the reader thread alone does not reliably abort an active
+                // HttpURLConnection/OkHttp call. Source.cancel() is the cross-thread-safe
+                // cancellation hook; the reader still owns close() in finally.
+                source.cancel();
                 if (sourceReaderThread != null) {
                     sourceReaderThread.interrupt();
                 }
@@ -184,6 +188,10 @@ class ProxyCache {
             tryComplete();
             onSourceRead();
         } catch (Throwable e) {
+            if (stopped || Thread.currentThread().isInterrupted()) {
+                // Shutdown cancellation is expected; avoid reporting it as a proxy error.
+                return;
+            }
             readSourceErrorsCount.incrementAndGet();
             onError(e);
         } finally {

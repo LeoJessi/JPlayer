@@ -1,24 +1,28 @@
 package top.jessi.videoplayer.cache.internal;
 
-import android.text.TextUtils;
+import static top.jessi.videoplayer.cache.internal.ProxyCacheUtils.DEFAULT_BUFFER_SIZE;
 
-import top.jessi.videoplayer.cache.file.FileCache;
+import android.text.TextUtils;
 
 import java.io.BufferedOutputStream;
 import java.io.IOException;
 import java.io.OutputStream;
 import java.net.Socket;
 import java.nio.charset.StandardCharsets;
+import java.util.Collections;
 import java.util.Locale;
+import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicBoolean;
 
-import static top.jessi.videoplayer.cache.internal.ProxyCacheUtils.DEFAULT_BUFFER_SIZE;
-import top.jessi.videoplayer.cache.source.Source;
+import top.jessi.videoplayer.cache.CacheListener;
+import top.jessi.videoplayer.cache.HttpProxyCacheServer;
+import top.jessi.videoplayer.cache.ProxyCacheException;
+import top.jessi.videoplayer.cache.file.FileCache;
 import top.jessi.videoplayer.cache.source.HttpUrlSource;
+import top.jessi.videoplayer.cache.source.Source;
 import top.jessi.videoplayer.cache.source.SourceFactory;
 import top.jessi.videoplayer.cache.sourcestorage.SourceInfo;
-import top.jessi.videoplayer.cache.CacheListener;
-import top.jessi.videoplayer.cache.ProxyCacheException;
 
 /**
  * {@link ProxyCache} that read http url and writes data to {@link Socket}
@@ -36,9 +40,13 @@ class HttpProxyCache extends ProxyCache {
     private final SourceFactory sourceFactory;
     private final FileCache cache;
     private CacheListener listener;
-    private volatile Source mRangePreloadSource;
+    /** Independent upstream Sources used by direct, non-cache-backed proxy responses. */
+    private final Set<Source> mProxyResponseSources =
+            Collections.newSetFromMap(new ConcurrentHashMap<Source, Boolean>());
+    private final Set<Source> mRangePreloadSources =
+            Collections.newSetFromMap(new ConcurrentHashMap<Source, Boolean>());
 
-    /** 预加载取消标志：置位后 responseWithoutCache / responseWithCache 立即停止回源。 */
+    /** Set only when this cache instance is shutting down, never for one preload task. */
     private volatile boolean mCanceled;
 
     public HttpProxyCache(Source source, FileCache cache, SourceFactory sourceFactory) {
@@ -58,6 +66,12 @@ class HttpProxyCache extends ProxyCache {
      */
     public long preloadRange(long offset, long maxBytes, AtomicBoolean canceled)
             throws ProxyCacheException {
+        return preloadRange(offset, maxBytes, canceled, null);
+    }
+
+    public long preloadRange(long offset, long maxBytes, AtomicBoolean canceled,
+                             HttpProxyCacheServer.RangePreloadListener listener)
+            throws ProxyCacheException {
         if (offset < 0 || maxBytes <= 0 || offset > Long.MAX_VALUE - maxBytes || canceled.get()) {
             return 0;
         }
@@ -66,7 +80,9 @@ class HttpProxyCache extends ProxyCache {
             long cachedLength = cache.available();
             return offset >= cachedLength ? 0 : Math.min(maxBytes, cachedLength - offset);
         }
-        long sourceLength = source.length();
+        // Do not call source.length() here: it may issue a metadata request before a
+        // cancellable per-range Source has been registered.
+        long sourceLength = source.knownLength();
         long bytesToRead = maxBytes;
         if (sourceLength >= 0) {
             if (offset >= sourceLength) {
@@ -74,12 +90,16 @@ class HttpProxyCache extends ProxyCache {
             }
             bytesToRead = Math.min(maxBytes, sourceLength - offset);
         }
-        if (cache.isCached(offset, bytesToRead)) {
+        if (cache.isCached(offset, bytesToRead) && (listener == null || sourceLength >= 0)) {
+            if (listener != null && sourceLength >= 0 && !canceled.get()) {
+                listener.onSourceLengthKnown(sourceLength);
+            }
+            completeIfFullyCached(sourceLength, canceled);
             return bytesToRead;
         }
 
         Source rangeSource = sourceFactory.copy(source);
-        mRangePreloadSource = rangeSource;
+        mRangePreloadSources.add(rangeSource);
         long bytesRead = 0;
         int retries = 0;
         try {
@@ -99,7 +119,11 @@ class HttpProxyCache extends ProxyCache {
                 }
                 bytesToRead = Math.min(maxBytes, sourceLength - offset);
             }
+            if (listener != null && sourceLength >= 0 && !canceled.get()) {
+                listener.onSourceLengthKnown(sourceLength);
+            }
             if (cache.isCompleted() || cache.isCached(offset, bytesToRead)) {
+                completeIfFullyCached(sourceLength, canceled);
                 return bytesToRead;
             }
             byte[] buffer = new byte[(int) Math.min((long) DEFAULT_BUFFER_SIZE, bytesToRead)];
@@ -141,6 +165,7 @@ class HttpProxyCache extends ProxyCache {
                 bytesRead += countToWrite;
                 notifyNewCacheDataAvailable(cache.available(), openedSourceLength);
             }
+            completeIfFullyCached(sourceLength, canceled);
             return bytesRead;
         } catch (ProxyCacheException e) {
             if (canceled.get() || Thread.currentThread().isInterrupted() || cache.isCompleted()) {
@@ -148,9 +173,7 @@ class HttpProxyCache extends ProxyCache {
             }
             throw e;
         } finally {
-            if (mRangePreloadSource == rangeSource) {
-                mRangePreloadSource = null;
-            }
+            mRangePreloadSources.remove(rangeSource);
             try {
                 rangeSource.close();
             } catch (ProxyCacheException e) {
@@ -159,31 +182,37 @@ class HttpProxyCache extends ProxyCache {
         }
     }
 
+    private void completeIfFullyCached(long sourceLength, AtomicBoolean canceled)
+            throws ProxyCacheException {
+        if (sourceLength > 0 && !canceled.get() && !cache.isCompleted()
+                && cache.isCached(0, sourceLength)) {
+            cache.complete();
+        }
+    }
+
     /**
-     * 取消当前正在进行的代理请求（预加载退出时调用）。
-     * <p>置位 {@link #mCanceled}，让 {@code responseWithoutCache} /
-     * {@code responseWithCache} 的循环尽快退出，不再继续从上游源站读取。
-     * <p>注意：不在此处关闭 source，因为 source 可能正在被其他线程使用，
-     * 强制关闭会导致 OkHttp 的 AsyncTimeout 状态异常（Unbalanced enter/exit）。
-     * source 的关闭由其拥有者（preload-worker 线程）通过 finally 块负责。
+     * Cancels only independent range-preload sources. Ordinary proxy playback requests
+     * share this cache instance and must not be stopped by cancelling a preload task.
      */
+    @Deprecated
     public void cancelPreload() {
-        mCanceled = true;
         cancelRangePreload();
     }
 
     public void cancelRangePreload() {
-        Source rangeSource = mRangePreloadSource;
-        if (rangeSource == null) {
-            return;
+        // Signal each independent range source; each worker owns and closes its stream.
+        for (Source rangeSource : mRangePreloadSources) {
+            rangeSource.cancel();
         }
-        // Signal the source from this thread; the range worker owns and closes its stream.
-        rangeSource.cancel();
     }
 
     @Override
     public void shutdown() {
         mCanceled = true;
+        // Cancel each request's source as well as the sequential reader source.
+        for (Source responseSource : mProxyResponseSources) {
+            responseSource.cancel();
+        }
         cancelRangePreload();
         super.shutdown();
     }
@@ -214,7 +243,7 @@ class HttpProxyCache extends ProxyCache {
     }
 
     private boolean shouldCacheSparseTail(long offset) throws ProxyCacheException {
-        long sourceLength = source.length();
+        long sourceLength = source.knownLength();
         return sourceLength > 0 && offset >= Math.max(0, sourceLength - SPARSE_TAIL_CACHE_WINDOW);
     }
 
@@ -222,7 +251,7 @@ class HttpProxyCache extends ProxyCache {
         if (!request.partial) {
             return false;
         }
-        long length = cache.isCompleted() ? cache.available() : source.length();
+        long length = cache.isCompleted() ? cache.available() : source.knownLength();
         return length >= 0 && request.rangeOffset >= length;
     }
 
@@ -233,7 +262,7 @@ class HttpProxyCache extends ProxyCache {
         }
 
         long cacheAvailable = cache.available();
-        long sourceLength = source.length();
+        long sourceLength = source.knownLength();
         boolean sourceLengthKnown = sourceLength > 0;
         if (request.partial && sourceLengthKnown && request.rangeOffset < sourceLength) {
             long requestedBytes = Math.min((long) DEFAULT_BUFFER_SIZE, sourceLength - request.rangeOffset);
@@ -303,13 +332,19 @@ class HttpProxyCache extends ProxyCache {
 
     private void responseWithoutCache(OutputStream out, long offset, boolean cacheSparseTail)
             throws ProxyCacheException, IOException {
+        if (mCanceled) return;
         Source newSourceNoCache = sourceFactory.copy(source);
+        mProxyResponseSources.add(newSourceNoCache);
         long originalOffset = offset;
         long cacheWriteOffset = offset;
         long cachedBytes = 0;
-        long sourceLength = source.length();
+        long sourceLength = source.knownLength();
         int retries = 0;
         try {
+            if (mCanceled) {
+                newSourceNoCache.cancel();
+                return;
+            }
             newSourceNoCache.open(offset);
             sourceLength = Math.max(sourceLength, newSourceNoCache.length());
             byte[] buffer = new byte[DEFAULT_BUFFER_SIZE];
@@ -354,6 +389,7 @@ class HttpProxyCache extends ProxyCache {
             }
             out.flush();
         } finally {
+            mProxyResponseSources.remove(newSourceNoCache);
             newSourceNoCache.close();
             if (cachedBytes > 0) {
                 Logger.info("直连尾部 Range 已写入稀疏缓存：offset=" + originalOffset
