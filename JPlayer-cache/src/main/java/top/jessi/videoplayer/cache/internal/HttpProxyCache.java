@@ -50,6 +50,11 @@ class HttpProxyCache extends ProxyCache {
      * <p>写 socket 不受 {@code SO_TIMEOUT} 约束，必须有这层看门狗兜底。
      */
     private static final long RESPONSE_IDLE_TIMEOUT_MS = 15000L;
+    /**
+     * 看门狗检查周期。
+     * <p>比空闲阈值密一些，让卡死连接在 15~20s 内被释放，而不是最长 30s。
+     */
+    private static final long RESPONSE_WATCHDOG_PERIOD_MS = 5000L;
 
     /** 共享的响应看门狗，单线程即可，所有 URL 的响应共用。 */
     private static final ScheduledExecutorService RESPONSE_WATCHDOG =
@@ -72,14 +77,22 @@ class HttpProxyCache extends ProxyCache {
     /** Set only when this cache instance is shutting down, never for one preload task. */
     private volatile boolean mCanceled;
 
+    /**
+     * 是否容忍越界 Range：客户端算出的偏移超出文件末尾时，改为从 0 返回整个文件，
+     * 而不是返回 416（ExoPlayer 的 MP4 提取器偶发会算出这种畸形偏移）。
+     */
+    private final boolean mTolerateOutOfRange;
+
     /** 正在进行的响应，用于空闲超时检测。 */
     private final List<ResponseGuard> mResponseGuards = new CopyOnWriteArrayList<>();
 
-    public HttpProxyCache(Source source, FileCache cache, SourceFactory sourceFactory) {
+    public HttpProxyCache(Source source, FileCache cache, SourceFactory sourceFactory,
+                          boolean tolerateOutOfRange) {
         super(source, cache);
         this.cache = cache;
         this.source = source;
         this.sourceFactory = sourceFactory;
+        this.mTolerateOutOfRange = tolerateOutOfRange;
     }
 
     public void registerCacheListener(CacheListener cacheListener) {
@@ -254,6 +267,16 @@ class HttpProxyCache extends ProxyCache {
         mResponseGuards.add(guard);
         try {
             OutputStream out = new BufferedOutputStream(socket.getOutputStream());
+            if (request.partial) {
+                long length = cache.isCompleted() ? cache.available() : source.knownLength();
+                if (length >= 0 && request.rangeOffset >= length && mTolerateOutOfRange) {
+                    // 客户端（ExoPlayer 提取器）算出了超出文件末尾的偏移。
+                    // 从 0 返回整个文件，让提取器重新解析，避免直接抛 416。
+                    Logger.warn("Range 超出文件末尾，改为返回整个文件：offset=" + request.rangeOffset
+                            + " length=" + length + " url=" + source.getUrl());
+                    request = request.withRangeOffset(0);
+                }
+            }
             String responseHeaders = newResponseHeaders(request);
             out.write(responseHeaders.getBytes(StandardCharsets.UTF_8));
             guard.touch();
@@ -292,7 +315,14 @@ class HttpProxyCache extends ProxyCache {
             return false;
         }
         long length = cache.isCompleted() ? cache.available() : source.knownLength();
-        return length >= 0 && request.rangeOffset >= length;
+        boolean notSatisfiable = length >= 0 && request.rangeOffset >= length;
+        if (notSatisfiable) {
+            // 客户端（ExoPlayer 的 MP4 提取器）算出了超出文件末尾的偏移，代理按 HTTP 规范返回 416。
+            // 记录下来便于区分"客户端畸形请求"与"代理长度判断错误"。
+            Logger.warn("Range 超出文件末尾，返回 416：offset=" + request.rangeOffset
+                    + " length=" + length + " url=" + source.getUrl());
+        }
+        return notSatisfiable;
     }
 
     private boolean isUseCache(GetRequest request) throws ProxyCacheException {
@@ -480,7 +510,7 @@ class HttpProxyCache extends ProxyCache {
                 canceled.set(true);
                 Logger.warn("代理响应空闲 " + idle + "ms，强制关闭连接：" + socket);
                 closeSocket(socket);
-            }, RESPONSE_IDLE_TIMEOUT_MS, RESPONSE_IDLE_TIMEOUT_MS, TimeUnit.MILLISECONDS);
+            }, RESPONSE_IDLE_TIMEOUT_MS, RESPONSE_WATCHDOG_PERIOD_MS, TimeUnit.MILLISECONDS);
         }
 
         void cancel() {

@@ -48,11 +48,14 @@ public class HttpUrlSource implements Source {
     private static final int HTTP_TEMP_REDIRECT = 307;
     private static final int HTTP_PERM_REDIRECT = 308;
     static final long DEFAULT_TIMEOUT_MS = 10_000L;
+    /** 读取超时：比连接超时短，让卡死的连接尽快暴露并触发重试。 */
+    static final long DEFAULT_READ_TIMEOUT_MS = 6_000L;
     private final SourceInfoStorage sourceInfoStorage;
     private final HeaderInjector headerInjector;
     private final HostnameVerifier hostnameVerifier;
     private final TrustManager[] trustAllCerts;
     private final long timeoutMs;
+    private final long readTimeoutMs;
     private volatile SourceInfo sourceInfo;
     private volatile boolean contentInfoFetched;
     private volatile boolean canceled;
@@ -78,11 +81,19 @@ public class HttpUrlSource implements Source {
 
     public HttpUrlSource(String url, SourceInfoStorage sourceInfoStorage, HeaderInjector headerInjector,
                          HostnameVerifier hostnameVerifier, TrustManager[] trustAllCerts, long timeoutMs) {
+        this(url, sourceInfoStorage, headerInjector, hostnameVerifier, trustAllCerts, timeoutMs,
+                DEFAULT_READ_TIMEOUT_MS);
+    }
+
+    public HttpUrlSource(String url, SourceInfoStorage sourceInfoStorage, HeaderInjector headerInjector,
+                         HostnameVerifier hostnameVerifier, TrustManager[] trustAllCerts, long timeoutMs,
+                         long readTimeoutMs) {
         this.sourceInfoStorage = checkNotNull(sourceInfoStorage);
         this.headerInjector = checkNotNull(headerInjector);
         this.hostnameVerifier = hostnameVerifier;
         this.trustAllCerts = trustAllCerts;
         this.timeoutMs = timeoutMs > 0 ? timeoutMs : DEFAULT_TIMEOUT_MS;
+        this.readTimeoutMs = readTimeoutMs > 0 ? readTimeoutMs : DEFAULT_READ_TIMEOUT_MS;
         SourceInfo sourceInfo = sourceInfoStorage.get(url);
         this.sourceInfo = sourceInfo != null ? sourceInfo :
                 new SourceInfo(url, Integer.MIN_VALUE, ProxyCacheUtils.getSupposablyMime(url));
@@ -98,6 +109,7 @@ public class HttpUrlSource implements Source {
         this.hostnameVerifier = source.hostnameVerifier;
         this.trustAllCerts = source.trustAllCerts;
         this.timeoutMs = source.timeoutMs;
+        this.readTimeoutMs = source.readTimeoutMs;
         this.contentInfoFetched = source.contentInfoFetched;
     }
 
@@ -126,7 +138,7 @@ public class HttpUrlSource implements Source {
     @Override
     public void open(long offset) throws ProxyCacheException {
         try {
-            connection = openConnection(offset, timeoutMs);
+            connection = openConnection(offset, timeoutMs, readTimeoutMs);
             int responseCode = getResponseCode(offset);
             String mime = connection.getContentType();
             inputStream = new BufferedInputStream(connection.getInputStream(), DEFAULT_BUFFER_SIZE);
@@ -261,7 +273,7 @@ public class HttpUrlSource implements Source {
         HttpURLConnection urlConnection = null;
         InputStream inputStream = null;
         try {
-            urlConnection = openConnection(0, timeoutMs);
+            urlConnection = openConnection(0, timeoutMs, readTimeoutMs);
             long length = getContentLength(urlConnection);
             String mime = urlConnection.getContentType();
             inputStream = urlConnection.getInputStream();
@@ -278,7 +290,7 @@ public class HttpUrlSource implements Source {
         }
     }
 
-    private HttpURLConnection openConnection(long offset, long timeout) throws IOException, ProxyCacheException {
+    private HttpURLConnection openConnection(long offset, long timeout, long readTimeout) throws IOException, ProxyCacheException {
         HttpURLConnection connection;
         boolean redirected;
         int redirectCount = 0;
@@ -306,6 +318,9 @@ public class HttpUrlSource implements Source {
             if (timeout > 0) {
                 int t = (int) Math.min(timeout, Integer.MAX_VALUE);
                 connection.setConnectTimeout(t);
+            }
+            if (readTimeout > 0) {
+                int t = (int) Math.min(readTimeout, Integer.MAX_VALUE);
                 connection.setReadTimeout(t);
             }
             int code = connection.getResponseCode();

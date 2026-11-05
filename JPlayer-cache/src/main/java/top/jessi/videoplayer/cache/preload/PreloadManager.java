@@ -891,7 +891,16 @@ public class PreloadManager {
      */
     public String getPlayUrl(String rawUrl) {
         if (rawUrl == null || rawUrl.isEmpty()) return rawUrl;
+        String previousUrl = mCurrentPlaybackUrl;
         mCurrentPlaybackUrl = rawUrl;
+        if (previousUrl != null && !previousUrl.equals(rawUrl)) {
+            // 客户端在调用本方法前已 Release 旧播放器（日志顺序：Release 旧 -> getPlayUrl(新) -> Init 新），
+            // 因此可以安全地取消旧 URL 仍在进行的代理请求，立即释放被占用的代理线程；
+            // 否则这些请求要等看门狗超时（15~20s）才会被回收，期间新页面的起播请求只能排队。
+            Logger.info("取消上一页面 URL 的代理请求：" + previousUrl);
+            cancelTask(previousUrl);
+            mHttpProxyCacheServer.cancelRequestsForUrls(Collections.singletonList(previousUrl));
+        }
         boolean fullyCached = mHttpProxyCacheServer.isCached(rawUrl);
         if (fullyCached) {
             mPreloadedUrls.add(rawUrl);

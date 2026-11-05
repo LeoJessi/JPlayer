@@ -16,20 +16,28 @@ public class HttpUrlSourceFactory implements SourceFactory {
     private final HostnameVerifier hostnameVerifier;
     private final TrustManager[] trustAllCerts;
     private final long timeoutMs;
+    private final long readTimeoutMs;
 
     public HttpUrlSourceFactory(HostnameVerifier hostnameVerifier, TrustManager[] trustAllCerts) {
         this(hostnameVerifier, trustAllCerts, HttpUrlSource.DEFAULT_TIMEOUT_MS);
     }
 
     public HttpUrlSourceFactory(HostnameVerifier hostnameVerifier, TrustManager[] trustAllCerts, long timeoutMs) {
+        this(hostnameVerifier, trustAllCerts, timeoutMs, HttpUrlSource.DEFAULT_READ_TIMEOUT_MS);
+    }
+
+    public HttpUrlSourceFactory(HostnameVerifier hostnameVerifier, TrustManager[] trustAllCerts, long timeoutMs,
+                                long readTimeoutMs) {
         this.hostnameVerifier = hostnameVerifier;
         this.trustAllCerts = trustAllCerts;
         this.timeoutMs = timeoutMs > 0 ? timeoutMs : HttpUrlSource.DEFAULT_TIMEOUT_MS;
+        this.readTimeoutMs = readTimeoutMs > 0 ? readTimeoutMs : HttpUrlSource.DEFAULT_READ_TIMEOUT_MS;
     }
 
     @Override
     public Source create(String url, SourceInfoStorage sourceInfoStorage, HeaderInjector headerInjector) {
-        return new HttpUrlSource(url, sourceInfoStorage, headerInjector, hostnameVerifier, trustAllCerts, timeoutMs);
+        return new HttpUrlSource(url, sourceInfoStorage, headerInjector, hostnameVerifier, trustAllCerts,
+                timeoutMs, readTimeoutMs);
     }
 
     @Override

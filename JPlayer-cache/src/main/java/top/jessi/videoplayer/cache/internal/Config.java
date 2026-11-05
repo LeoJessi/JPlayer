@@ -28,10 +28,12 @@ public class Config {
     public final SourceFactory sourceFactory;
     /** 本地代理 socket 的读超时（毫秒），{@code 0} 表示不设置。 */
     public final int socketTimeoutMs;
+    /** 是否容忍越界 Range（客户端算出的偏移超出文件末尾时改为返回整个文件，而不是 416）。 */
+    public final boolean tolerateOutOfRangeRange;
 
     public Config(File cacheRoot, FileNameGenerator fileNameGenerator, DiskUsage diskUsage, SourceInfoStorage sourceInfoStorage,
            HeaderInjector headerInjector, HostnameVerifier hostnameVerifier, TrustManager[] trustAllCerts,
-           SourceFactory sourceFactory, int socketTimeoutMs) {
+           SourceFactory sourceFactory, int socketTimeoutMs, boolean tolerateOutOfRangeRange) {
         this.cacheRoot = cacheRoot;
         this.fileNameGenerator = fileNameGenerator;
         this.diskUsage = diskUsage;
@@ -41,6 +43,7 @@ public class Config {
         this.trustAllCerts = trustAllCerts;
         this.sourceFactory = sourceFactory;
         this.socketTimeoutMs = socketTimeoutMs;
+        this.tolerateOutOfRangeRange = tolerateOutOfRangeRange;
     }
 
     File generateCacheFile(String url) {

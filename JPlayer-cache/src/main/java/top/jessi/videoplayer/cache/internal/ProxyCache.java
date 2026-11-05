@@ -37,6 +37,13 @@ class ProxyCache {
      */
     private static final long MAX_WAIT_FOR_SOURCE_MS = 8000L;
 
+    /**
+     * 单次回源读取失败后的最大尝试次数（含首次）。
+     * <p>源站偶发"假死"（连接不响应也不断开）时，读超时触发后从断点重开连接，
+     * 避免一次超时就让整个播放请求失败。
+     */
+    private static final int MAX_SOURCE_READ_ATTEMPTS = 3;
+
     private final Source source;
     private final Cache cache;
     private final Object wc = new Object();
@@ -197,25 +204,51 @@ class ProxyCache {
                 offset = requestOffset;
             }
             sourceReadOffset = offset;
-            source.open(offset);
             sourceAvailable = source.length();
             byte[] buffer = new byte[ProxyCacheUtils.DEFAULT_BUFFER_SIZE];
             int readBytes;
-            boolean reachedEof = true;
-            while ((readBytes = source.read(buffer)) != -1) {
-                synchronized (stopLock) {
-                    if (isStopped()) {
+            boolean reachedEof = false;
+            int attempts = 0;
+            while (!reachedEof) {
+                try {
+                    source.open(offset);
+                    sourceAvailable = source.length();
+                    boolean hitReadAheadLimit = false;
+                    while ((readBytes = source.read(buffer)) != -1) {
+                        synchronized (stopLock) {
+                            if (isStopped()) {
+                                return;
+                            }
+                            cache.appendAt(offset, buffer, readBytes);
+                        }
+                        offset += readBytes;
+                        notifyNewCacheDataAvailable(offset, sourceAvailable);
+                        if (offset - sourceReadOffset >= MAX_READ_AHEAD_BYTES) {
+                            hitReadAheadLimit = true;
+                            Logger.debug("Source read-ahead limit reached at " + offset
+                                    + " of " + sourceAvailable + " for " + source.getUrl());
+                            break;
+                        }
+                    }
+                    if (hitReadAheadLimit) {
+                        // 读满预读量即结束（非 EOF），后续由 read() 再次发起续传。
                         return;
                     }
-                    cache.appendAt(offset, buffer, readBytes);
-                }
-                offset += readBytes;
-                notifyNewCacheDataAvailable(offset, sourceAvailable);
-                if (offset - sourceReadOffset >= MAX_READ_AHEAD_BYTES) {
-                    reachedEof = false;
-                    Logger.debug("Source read-ahead limit reached at " + offset
-                            + " of " + sourceAvailable + " for " + source.getUrl());
-                    break;
+                    reachedEof = true;
+                } catch (Throwable e) {
+                    if (stopped || Thread.currentThread().isInterrupted() || cache.isCompleted()) {
+                        // 关闭/完成都是预期结束，不当作错误上报。
+                        return;
+                    }
+                    attempts++;
+                    if (attempts >= MAX_SOURCE_READ_ATTEMPTS) {
+                        readSourceErrorsCount.incrementAndGet();
+                        onError(e);
+                        return;
+                    }
+                    Logger.warn("回源读取中断，重试：offset=" + offset + " attempt=" + attempts
+                            + " error=" + e.getMessage());
+                    closeSource();
                 }
             }
             if (reachedEof) {

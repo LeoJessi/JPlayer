@@ -145,7 +145,8 @@ public final class HttpProxyCacheServerClients {
     private HttpProxyCache newHttpProxyCache() throws ProxyCacheException {
         Source source = config.sourceFactory.create(url, config.sourceInfoStorage, config.headerInjector);
         FileCache cache = new FileCache(config.generateCacheFile(url), config.diskUsage);
-        HttpProxyCache httpProxyCache = new HttpProxyCache(source, cache, config.sourceFactory);
+        HttpProxyCache httpProxyCache = new HttpProxyCache(source, cache, config.sourceFactory,
+                config.tolerateOutOfRangeRange);
         httpProxyCache.registerCacheListener(uiCacheListener);
         return httpProxyCache;
     }

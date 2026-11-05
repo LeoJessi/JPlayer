@@ -34,6 +34,20 @@ public class GetRequest {
         this.uri = findUri(request);
     }
 
+    private GetRequest(String uri, long rangeOffset, boolean partial) {
+        this.uri = uri;
+        this.rangeOffset = rangeOffset;
+        this.partial = partial;
+    }
+
+    /**
+     * 返回一个 range 起点被替换的副本，其余字段不变。
+     * <p>用于代理容忍越界 Range（客户端算出的偏移超出文件末尾）时，改为从 0 返回整个文件。
+     */
+    GetRequest withRangeOffset(long rangeOffset) {
+        return new GetRequest(this.uri, Math.max(0, rangeOffset), this.partial);
+    }
+
     public static GetRequest read(InputStream inputStream) throws IOException {
         BufferedReader reader = new BufferedReader(new InputStreamReader(inputStream, StandardCharsets.UTF_8));
         StringBuilder stringRequest = new StringBuilder();

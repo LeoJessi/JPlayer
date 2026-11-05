@@ -616,6 +616,8 @@ public class HttpProxyCacheServer {
 
         private static final long DEFAULT_MAX_SIZE = 512 * 1024 * 1024;
         private static final long DEFAULT_SOURCE_TIMEOUT_MS = 10_000L;
+        /** 源站读取超时：比连接超时短，让卡死的连接尽快暴露并触发重试。 */
+        private static final long DEFAULT_SOURCE_READ_TIMEOUT_MS = 6_000L;
         private static final int DEFAULT_SOCKET_TIMEOUT_MS = 8000;
 
         private File cacheRoot;
@@ -627,7 +629,9 @@ public class HttpProxyCacheServer {
         private TrustManager[] trustAllCerts;
         private SourceFactory sourceFactory;
         private long sourceTimeoutMs = DEFAULT_SOURCE_TIMEOUT_MS;
+        private long sourceReadTimeoutMs = DEFAULT_SOURCE_READ_TIMEOUT_MS;
         private int socketTimeoutMs = DEFAULT_SOCKET_TIMEOUT_MS;
+        private boolean tolerateOutOfRangeRange = true;
 
         public Builder(Context context) {
             this.sourceInfoStorage = SourceInfoStorageFactory.newSourceInfoStorage(context);
@@ -799,6 +803,37 @@ public class HttpProxyCacheServer {
         }
 
         /**
+         * Sets the read timeout (in milliseconds) for connections opened to the media source.
+         * <p>Kept shorter than the connect timeout so a stalled source is detected quickly and
+         * the cache reader can retry instead of blocking until the caller gives up.
+         * <p>Default value is {@value #DEFAULT_SOURCE_READ_TIMEOUT_MS} ms.
+         *
+         * @param timeoutMs timeout in milliseconds, {@code <= 0} keeps the current value.
+         * @return a builder.
+         */
+        public Builder sourceReadTimeoutMs(long timeoutMs) {
+            if (timeoutMs > 0) {
+                this.sourceReadTimeoutMs = timeoutMs;
+            }
+            return this;
+        }
+
+        /**
+         * Sets whether an out-of-range {@code Range} request should be tolerated.
+         * <p>When enabled (default), a request whose start offset is beyond the end of the media
+         * is answered with the whole file starting at 0 instead of {@code 416}, so the client's
+         * extractor can re-parse the file instead of failing the playback.
+         * <p>Disable to get strict HTTP {@code 416 RANGE NOT SATISFIABLE} responses.
+         *
+         * @param tolerate {@code true} to answer with the whole file, {@code false} to return 416.
+         * @return a builder.
+         */
+        public Builder tolerateOutOfRangeRange(boolean tolerate) {
+            this.tolerateOutOfRangeRange = tolerate;
+            return this;
+        }
+
+        /**
          * Builds new instance of {@link HttpProxyCacheServer}.
          *
          * @return proxy cache. Only single instance should be used across whole app.
@@ -810,9 +845,10 @@ public class HttpProxyCacheServer {
 
         private Config buildConfig() {
             SourceFactory sourceFactory = this.sourceFactory != null ? this.sourceFactory
-                    : new HttpUrlSourceFactory(hostnameVerifier, trustAllCerts, sourceTimeoutMs);
+                    : new HttpUrlSourceFactory(hostnameVerifier, trustAllCerts, sourceTimeoutMs,
+                            sourceReadTimeoutMs);
             return new Config(cacheRoot, fileNameGenerator, diskUsage, sourceInfoStorage, headerInjector,
-                    hostnameVerifier, trustAllCerts, sourceFactory, socketTimeoutMs);
+                    hostnameVerifier, trustAllCerts, sourceFactory, socketTimeoutMs, tolerateOutOfRangeRange);
         }
 
     }
