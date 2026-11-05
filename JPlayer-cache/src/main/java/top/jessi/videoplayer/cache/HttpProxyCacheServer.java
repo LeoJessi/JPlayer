@@ -447,6 +447,7 @@ public class HttpProxyCacheServer {
             while (!Thread.currentThread().isInterrupted()) {
                 Socket socket = serverSocket.accept();
                 Logger.debug("Accept new socket " + socket);
+                configureSocket(socket);
                 long requestSequence;
                 synchronized (clientsLock) {
                     requestSequence = ++mAcceptedRequestSequence;
@@ -455,6 +456,21 @@ public class HttpProxyCacheServer {
             }
         } catch (IOException e) {
             onError(new ProxyCacheException("Error during waiting connection", e));
+        }
+    }
+
+    /**
+     * 为已接受的 socket 设置读超时。
+     * <p>没有该超时，一个连上来却不发完整 HTTP 请求的客户端会永久占住一个代理线程。
+     */
+    private void configureSocket(Socket socket) {
+        if (config.socketTimeoutMs <= 0) {
+            return;
+        }
+        try {
+            socket.setSoTimeout(config.socketTimeoutMs);
+        } catch (SocketException e) {
+            Logger.warn("Unable to set socket timeout: " + e.getMessage());
         }
     }
 
@@ -600,6 +616,7 @@ public class HttpProxyCacheServer {
 
         private static final long DEFAULT_MAX_SIZE = 512 * 1024 * 1024;
         private static final long DEFAULT_SOURCE_TIMEOUT_MS = 10_000L;
+        private static final int DEFAULT_SOCKET_TIMEOUT_MS = 8000;
 
         private File cacheRoot;
         private FileNameGenerator fileNameGenerator;
@@ -610,6 +627,7 @@ public class HttpProxyCacheServer {
         private TrustManager[] trustAllCerts;
         private SourceFactory sourceFactory;
         private long sourceTimeoutMs = DEFAULT_SOURCE_TIMEOUT_MS;
+        private int socketTimeoutMs = DEFAULT_SOCKET_TIMEOUT_MS;
 
         public Builder(Context context) {
             this.sourceInfoStorage = SourceInfoStorageFactory.newSourceInfoStorage(context);
@@ -765,6 +783,22 @@ public class HttpProxyCacheServer {
         }
 
         /**
+         * Sets the read timeout (in milliseconds) for sockets accepted by the local proxy.
+         * <p>Without it a client that connects but never sends a complete HTTP request can
+         * pin a proxy worker thread forever.
+         * <p>Default value is {@value #DEFAULT_SOCKET_TIMEOUT_MS} ms.
+         *
+         * @param timeoutMs timeout in milliseconds, {@code <= 0} keeps the current value.
+         * @return a builder.
+         */
+        public Builder socketTimeoutMs(long timeoutMs) {
+            if (timeoutMs > 0) {
+                this.socketTimeoutMs = (int) Math.min(timeoutMs, Integer.MAX_VALUE);
+            }
+            return this;
+        }
+
+        /**
          * Builds new instance of {@link HttpProxyCacheServer}.
          *
          * @return proxy cache. Only single instance should be used across whole app.
@@ -778,7 +812,7 @@ public class HttpProxyCacheServer {
             SourceFactory sourceFactory = this.sourceFactory != null ? this.sourceFactory
                     : new HttpUrlSourceFactory(hostnameVerifier, trustAllCerts, sourceTimeoutMs);
             return new Config(cacheRoot, fileNameGenerator, diskUsage, sourceInfoStorage, headerInjector,
-                    hostnameVerifier, trustAllCerts, sourceFactory);
+                    hostnameVerifier, trustAllCerts, sourceFactory, socketTimeoutMs);
         }
 
     }

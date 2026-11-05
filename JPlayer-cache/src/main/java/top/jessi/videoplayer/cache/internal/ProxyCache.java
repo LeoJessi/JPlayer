@@ -23,6 +23,20 @@ class ProxyCache {
 
     private static final int MAX_READ_SOURCE_ATTEMPTS = 1;
 
+    /**
+     * 单次回源最多预读的字节数。
+     * <p>源站较慢时，为一个已经没人消费的请求把整集拖完会白白占住带宽与源站连接，
+     * 并让缓存文件长期处于打开状态（LRU 也无法回收）。到达该上限后本次回源结束，
+     * 后续需要更多数据时由 {@link #readSourceAsync()} 从断点继续。
+     */
+    private static final long MAX_READ_AHEAD_BYTES = 8L * 1024 * 1024;
+
+    /**
+     * {@link #read} 等待缓存数据的最长时长。
+     * <p>超过该时长仍拿不到数据就抛出异常释放代理线程，避免线程被慢源站永久占死。
+     */
+    private static final long MAX_WAIT_FOR_SOURCE_MS = 8000L;
+
     private final Source source;
     private final Cache cache;
     private final Object wc = new Object();
@@ -30,6 +44,8 @@ class ProxyCache {
     private final AtomicInteger readSourceErrorsCount;
     private volatile Thread sourceReaderThread;
     private volatile boolean stopped;
+    /** 最近一次回源读取是否已结束（用于在读满预读量后立刻续传，不必等线程终止）。 */
+    private volatile boolean sourceReadDone = true;
     private volatile int percentsAvailable = -1;
 
     /**
@@ -75,10 +91,15 @@ class ProxyCache {
 
         if (!cacheHasEnoughData && !cache.isCompleted() && !stopped) {
             // 缓存不够，启动后台线程从源读取
+            long waitStartedAt = SystemClock.elapsedRealtime();
             while (!cache.isCached(offset, requiredLength) && !cache.isCompleted() && !stopped) {
                 readSourceAsync();
                 waitForSourceData();
                 checkReadSourceErrorsCount();
+                if (SystemClock.elapsedRealtime() - waitStartedAt >= MAX_WAIT_FOR_SOURCE_MS) {
+                    throw new ProxyCacheException("Timeout waiting for source data at offset "
+                            + offset + " of " + source.getUrl());
+                }
             }
         }
 
@@ -118,8 +139,12 @@ class ProxyCache {
     }
 
     private synchronized void readSourceAsync() throws ProxyCacheException {
-        boolean readingInProgress = sourceReaderThread != null && sourceReaderThread.getState() != Thread.State.TERMINATED;
+        boolean readingInProgress = sourceReaderThread != null
+                && sourceReaderThread.getState() != Thread.State.TERMINATED
+                && !sourceReadDone;
         if (!stopped && !cache.isCompleted() && !readingInProgress) {
+            // 在同步块内置位，避免另一个 read() 并发重复启动读取线程。
+            sourceReadDone = false;
             sourceReaderThread = new Thread(new SourceReaderRunnable(), "Source reader for " + source);
             sourceReaderThread.start();
         }
@@ -158,6 +183,7 @@ class ProxyCache {
     }
 
     private void readSource() {
+        sourceReadDone = false;
         long sourceAvailable = -1;
         long offset = 0;
         long sourceReadOffset = 0;
@@ -175,6 +201,7 @@ class ProxyCache {
             sourceAvailable = source.length();
             byte[] buffer = new byte[ProxyCacheUtils.DEFAULT_BUFFER_SIZE];
             int readBytes;
+            boolean reachedEof = true;
             while ((readBytes = source.read(buffer)) != -1) {
                 synchronized (stopLock) {
                     if (isStopped()) {
@@ -184,9 +211,17 @@ class ProxyCache {
                 }
                 offset += readBytes;
                 notifyNewCacheDataAvailable(offset, sourceAvailable);
+                if (offset - sourceReadOffset >= MAX_READ_AHEAD_BYTES) {
+                    reachedEof = false;
+                    Logger.debug("Source read-ahead limit reached at " + offset
+                            + " of " + sourceAvailable + " for " + source.getUrl());
+                    break;
+                }
             }
-            tryComplete();
-            onSourceRead();
+            if (reachedEof) {
+                tryComplete();
+                onSourceRead();
+            }
         } catch (Throwable e) {
             if (stopped || Thread.currentThread().isInterrupted()) {
                 // Shutdown cancellation is expected; avoid reporting it as a proxy error.
@@ -196,6 +231,7 @@ class ProxyCache {
             onError(e);
         } finally {
             closeSource();
+            sourceReadDone = true;
             Logger.info("源站读取完成：offset=" + sourceReadOffset
                     + " bytes=" + Math.max(0, offset - sourceReadOffset)
                     + " sourceLength=" + sourceAvailable

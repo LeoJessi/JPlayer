@@ -2,6 +2,7 @@ package top.jessi.videoplayer.cache.file;
 
 import top.jessi.videoplayer.cache.Cache;
 import top.jessi.videoplayer.cache.ProxyCacheException;
+import top.jessi.videoplayer.cache.internal.Logger;
 
 import java.io.BufferedReader;
 import java.io.BufferedWriter;
@@ -47,6 +48,10 @@ public class FileCache implements Cache {
      */
     private final List<CacheRange> sparseRanges = new ArrayList<>();
 
+    /** 两次 lastAccess 刷新之间的最小间隔，避免在热路径上频繁做磁盘 IO。 */
+    private static final long LAST_ACCESS_UPDATE_INTERVAL_MS = 60_000L;
+    private long mLastAccessUpdateTime;
+
     public FileCache(File file) throws ProxyCacheException {
         this(file, new UnlimitedDiskUsage());
     }
@@ -63,6 +68,8 @@ public class FileCache implements Cache {
             this.file = completed ? file : new File(file.getParentFile(), file.getName() + TEMP_POSTFIX);
             this.dataFile = new RandomAccessFile(this.file, completed ? "r" : "rw");
             loadMeta();
+            // 打开期间标记为活跃，LRU 清理会跳过，避免文件被删后写入落到已 unlink 的 inode 上。
+            diskUsage.markActive(this.file);
         } catch (IOException e) {
             throw new ProxyCacheException("Error using file " + file + " as disc cache", e);
         }
@@ -140,7 +147,9 @@ public class FileCache implements Cache {
     public synchronized int read(byte[] buffer, long offset, int length) throws ProxyCacheException {
         try {
             dataFile.seek(offset);
-            return dataFile.read(buffer, 0, length);
+            int read = dataFile.read(buffer, 0, length);
+            updateLastAccess();
+            return read;
         } catch (IOException e) {
             String format = "Error reading %d bytes with offset %d from file[%d bytes] to buffer[%d bytes]";
             throw new ProxyCacheException(String.format(format, length, offset, available(), buffer.length), e);
@@ -177,6 +186,7 @@ public class FileCache implements Cache {
             dataFile.write(data, 0, length);
             updateContiguous(offset, length);
             saveMeta();
+            updateLastAccess();
         } catch (IOException e) {
             throw new ProxyCacheException("Error writing " + length + " bytes at " + offset + " to " + file, e);
         }
@@ -222,9 +232,28 @@ public class FileCache implements Cache {
     public synchronized void close() throws ProxyCacheException {
         try {
             dataFile.close();
+            diskUsage.markInactive(file);
             diskUsage.touch(file);
         } catch (IOException e) {
             throw new ProxyCacheException("Error closing file " + file, e);
+        }
+    }
+
+    /**
+     * 刷新访问时间，让 LRU 能正确识别"最近被使用过"的文件。
+     * <p>做了节流：调用频率远高于此时间间隔时直接返回，避免每读一个缓冲块
+     * 就触发一次磁盘 IO 和全量 trim。
+     */
+    private void updateLastAccess() {
+        long now = System.currentTimeMillis();
+        if (now - mLastAccessUpdateTime < LAST_ACCESS_UPDATE_INTERVAL_MS) {
+            return;
+        }
+        mLastAccessUpdateTime = now;
+        try {
+            diskUsage.touch(file);
+        } catch (IOException e) {
+            Logger.warn("Error updating cache last access: " + e.getMessage());
         }
     }
 
@@ -245,6 +274,7 @@ public class FileCache implements Cache {
         file = completedFile;
         try {
             dataFile = new RandomAccessFile(file, "r");
+            diskUsage.markActive(file);
             diskUsage.touch(file);
         } catch (IOException e) {
             throw new ProxyCacheException("Error opening " + file + " as disc cache", e);

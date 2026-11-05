@@ -2,6 +2,7 @@ package top.jessi.videoplayer.cache.internal;
 
 import static top.jessi.videoplayer.cache.internal.ProxyCacheUtils.DEFAULT_BUFFER_SIZE;
 
+import android.os.SystemClock;
 import android.text.TextUtils;
 
 import java.io.BufferedOutputStream;
@@ -10,9 +11,15 @@ import java.io.OutputStream;
 import java.net.Socket;
 import java.nio.charset.StandardCharsets;
 import java.util.Collections;
+import java.util.List;
 import java.util.Locale;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.CopyOnWriteArrayList;
+import java.util.concurrent.Executors;
+import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.ScheduledFuture;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 import top.jessi.videoplayer.cache.CacheListener;
@@ -36,6 +43,22 @@ class HttpProxyCache extends ProxyCache {
     private static final long SPARSE_TAIL_CACHE_WINDOW = 2L * 1024 * 1024;
     private static final int MAX_RANGE_READ_RETRIES = 2;
 
+    /**
+     * 响应写入的最大空闲时长（毫秒）。
+     * <p>超过此时长没有任何字节成功写给客户端，就认为客户端已经离开（被滑走或已释放），
+     * 主动关闭 socket 释放代理线程，避免线程被一个不再读取的连接永久占死。
+     * <p>写 socket 不受 {@code SO_TIMEOUT} 约束，必须有这层看门狗兜底。
+     */
+    private static final long RESPONSE_IDLE_TIMEOUT_MS = 15000L;
+
+    /** 共享的响应看门狗，单线程即可，所有 URL 的响应共用。 */
+    private static final ScheduledExecutorService RESPONSE_WATCHDOG =
+            Executors.newSingleThreadScheduledExecutor(r -> {
+                Thread t = new Thread(r, "proxy-response-watchdog");
+                t.setDaemon(true);
+                return t;
+            });
+
     private final Source source;
     private final SourceFactory sourceFactory;
     private final FileCache cache;
@@ -48,6 +71,9 @@ class HttpProxyCache extends ProxyCache {
 
     /** Set only when this cache instance is shutting down, never for one preload task. */
     private volatile boolean mCanceled;
+
+    /** 正在进行的响应，用于空闲超时检测。 */
+    private final List<ResponseGuard> mResponseGuards = new CopyOnWriteArrayList<>();
 
     public HttpProxyCache(Source source, FileCache cache, SourceFactory sourceFactory) {
         super(source, cache);
@@ -213,32 +239,46 @@ class HttpProxyCache extends ProxyCache {
         for (Source responseSource : mProxyResponseSources) {
             responseSource.cancel();
         }
+        // 兜底：强制断开所有仍在进行的响应连接，避免线程被不再读取的客户端占死。
+        for (ResponseGuard guard : mResponseGuards) {
+            guard.cancelAndClose();
+        }
+        mResponseGuards.clear();
         cancelRangePreload();
         super.shutdown();
     }
 
     public void processRequest(GetRequest request, Socket socket) throws IOException, ProxyCacheException {
-        OutputStream out = new BufferedOutputStream(socket.getOutputStream());
-        String responseHeaders = newResponseHeaders(request);
-        out.write(responseHeaders.getBytes(StandardCharsets.UTF_8));
-        if (isRangeNotSatisfiable(request)) {
-            out.flush();
-            return;
-        }
+        ResponseGuard guard = new ResponseGuard(socket);
+        guard.startWatchdog();
+        mResponseGuards.add(guard);
+        try {
+            OutputStream out = new BufferedOutputStream(socket.getOutputStream());
+            String responseHeaders = newResponseHeaders(request);
+            out.write(responseHeaders.getBytes(StandardCharsets.UTF_8));
+            guard.touch();
+            if (isRangeNotSatisfiable(request)) {
+                out.flush();
+                return;
+            }
 
-        long offset = request.rangeOffset;
-        boolean cacheBacked = isUseCache(request);
-        boolean cacheSparseTail = !cacheBacked && shouldCacheSparseTail(offset);
-        Logger.info("代理请求：offset=" + offset
-                + " partial=" + request.partial
-                + " path=" + (cacheBacked ? "cache-backed"
-                        : cacheSparseTail ? "direct-upstream-sparse-tail" : "direct-upstream")
-                + " cachedPrefix=" + cache.available()
-                + " complete=" + cache.isCompleted());
-        if (cacheBacked) {
-            responseWithCache(out, offset);
-        } else {
-            responseWithoutCache(out, offset, cacheSparseTail);
+            long offset = request.rangeOffset;
+            boolean cacheBacked = isUseCache(request);
+            boolean cacheSparseTail = !cacheBacked && shouldCacheSparseTail(offset);
+            Logger.info("代理请求：offset=" + offset
+                    + " partial=" + request.partial
+                    + " path=" + (cacheBacked ? "cache-backed"
+                            : cacheSparseTail ? "direct-upstream-sparse-tail" : "direct-upstream")
+                    + " cachedPrefix=" + cache.available()
+                    + " complete=" + cache.isCompleted());
+            if (cacheBacked) {
+                responseWithCache(out, offset, guard);
+            } else {
+                responseWithoutCache(out, offset, cacheSparseTail, guard);
+            }
+        } finally {
+            guard.cancel();
+            mResponseGuards.remove(guard);
         }
     }
 
@@ -320,17 +360,21 @@ class HttpProxyCache extends ProxyCache {
                 .toString();
     }
 
-    private void responseWithCache(OutputStream out, long offset) throws ProxyCacheException, IOException {
+    private void responseWithCache(OutputStream out, long offset, ResponseGuard guard)
+            throws ProxyCacheException, IOException {
         byte[] buffer = new byte[DEFAULT_BUFFER_SIZE];
         int readBytes;
-        while (!mCanceled && (readBytes = read(buffer, offset, buffer.length)) != -1) {
+        while (!mCanceled && !guard.isCanceled()
+                && (readBytes = read(buffer, offset, buffer.length)) != -1) {
             out.write(buffer, 0, readBytes);
             offset += readBytes;
+            guard.touch();
         }
         out.flush();
     }
 
-    private void responseWithoutCache(OutputStream out, long offset, boolean cacheSparseTail)
+    private void responseWithoutCache(OutputStream out, long offset, boolean cacheSparseTail,
+                                      ResponseGuard guard)
             throws ProxyCacheException, IOException {
         if (mCanceled) return;
         Source newSourceNoCache = sourceFactory.copy(source);
@@ -349,7 +393,7 @@ class HttpProxyCache extends ProxyCache {
             sourceLength = Math.max(sourceLength, newSourceNoCache.length());
             byte[] buffer = new byte[DEFAULT_BUFFER_SIZE];
             int readBytes;
-            while (!mCanceled) {
+            while (!mCanceled && !guard.isCanceled()) {
                 readBytes = newSourceNoCache.read(buffer);
                 if (readBytes < 0) {
                     if (sourceLength < 0 || offset >= sourceLength) {
@@ -369,6 +413,7 @@ class HttpProxyCache extends ProxyCache {
                     continue;
                 }
                 out.write(buffer, 0, readBytes);
+                guard.touch();
                 if (cacheSparseTail && !cache.isCompleted()) {
                     try {
                         cache.appendAt(cacheWriteOffset, buffer, readBytes);
@@ -394,6 +439,75 @@ class HttpProxyCache extends ProxyCache {
             if (cachedBytes > 0) {
                 Logger.info("直连尾部 Range 已写入稀疏缓存：offset=" + originalOffset
                         + " bytes=" + cachedBytes + " sourceLength=" + sourceLength);
+            }
+        }
+    }
+
+    /**
+     * 单个客户端连接的运行时状态：空闲检测 + 超时后强制关连接。
+     * <p>每个 {@code processRequest} 调用持有自己的 guard，因此一个卡住的客户端
+     * 不会影响同一 URL 的其他客户端。
+     */
+    private static final class ResponseGuard {
+
+        private final Socket socket;
+        private final AtomicBoolean canceled = new AtomicBoolean();
+        private volatile long lastProgressAt = SystemClock.elapsedRealtime();
+        private ScheduledFuture<?> watchdog;
+
+        ResponseGuard(Socket socket) {
+            this.socket = socket;
+        }
+
+        boolean isCanceled() {
+            return canceled.get();
+        }
+
+        /** 每次成功写出字节后刷新进度时间。 */
+        void touch() {
+            lastProgressAt = SystemClock.elapsedRealtime();
+        }
+
+        void startWatchdog() {
+            watchdog = RESPONSE_WATCHDOG.scheduleAtFixedRate(() -> {
+                if (canceled.get()) {
+                    return;
+                }
+                long idle = SystemClock.elapsedRealtime() - lastProgressAt;
+                if (idle < RESPONSE_IDLE_TIMEOUT_MS) {
+                    return;
+                }
+                canceled.set(true);
+                Logger.warn("代理响应空闲 " + idle + "ms，强制关闭连接：" + socket);
+                closeSocket(socket);
+            }, RESPONSE_IDLE_TIMEOUT_MS, RESPONSE_IDLE_TIMEOUT_MS, TimeUnit.MILLISECONDS);
+        }
+
+        void cancel() {
+            canceled.set(true);
+            ScheduledFuture<?> future = watchdog;
+            if (future != null) {
+                future.cancel(false);
+            }
+        }
+
+        void cancelAndClose() {
+            cancel();
+            closeSocket(socket);
+        }
+
+        private static void closeSocket(Socket socket) {
+            try {
+                socket.shutdownInput();
+            } catch (IOException ignored) {
+            }
+            try {
+                socket.shutdownOutput();
+            } catch (IOException ignored) {
+            }
+            try {
+                socket.close();
+            } catch (IOException ignored) {
             }
         }
     }

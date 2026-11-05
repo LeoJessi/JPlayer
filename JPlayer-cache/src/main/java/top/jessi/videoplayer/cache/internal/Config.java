@@ -26,10 +26,12 @@ public class Config {
     public final HostnameVerifier hostnameVerifier;
     public final TrustManager[] trustAllCerts;
     public final SourceFactory sourceFactory;
+    /** 本地代理 socket 的读超时（毫秒），{@code 0} 表示不设置。 */
+    public final int socketTimeoutMs;
 
     public Config(File cacheRoot, FileNameGenerator fileNameGenerator, DiskUsage diskUsage, SourceInfoStorage sourceInfoStorage,
            HeaderInjector headerInjector, HostnameVerifier hostnameVerifier, TrustManager[] trustAllCerts,
-           SourceFactory sourceFactory) {
+           SourceFactory sourceFactory, int socketTimeoutMs) {
         this.cacheRoot = cacheRoot;
         this.fileNameGenerator = fileNameGenerator;
         this.diskUsage = diskUsage;
@@ -38,6 +40,7 @@ public class Config {
         this.hostnameVerifier = hostnameVerifier;
         this.trustAllCerts = trustAllCerts;
         this.sourceFactory = sourceFactory;
+        this.socketTimeoutMs = socketTimeoutMs;
     }
 
     File generateCacheFile(String url) {
