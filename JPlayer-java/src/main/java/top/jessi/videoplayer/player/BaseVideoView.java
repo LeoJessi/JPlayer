@@ -421,40 +421,40 @@ public class BaseVideoView<P extends AbstractPlayer> extends FrameLayout
      * 释放播放器
      */
     public void release() {
-        if (!isInIdleState()) {
-            //释放播放器
-            if (mMediaPlayer != null) {
-                mMediaPlayer.release();
-                mMediaPlayer = null;
-            }
-            //释放renderView
-            if (mRenderView != null) {
-                mPlayerContainer.removeView(mRenderView.getView());
-                mRenderView.release();
-                mRenderView = null;
-            }
-            //释放Assets资源
-            if (mAssetFileDescriptor != null) {
-                try {
-                    mAssetFileDescriptor.close();
-                } catch (IOException e) {
-                    e.printStackTrace();
-                }
-            }
-            //关闭AudioFocus监听
-            if (mAudioFocusHelper != null) {
-                mAudioFocusHelper.abandonFocus();
-                mAudioFocusHelper = null;
-            }
-            //关闭屏幕常亮
-            mPlayerContainer.setKeepScreenOn(false);
-            //保存播放进度
-            saveProgress();
-            //重置播放进度
-            mCurrentPosition = 0;
-            //切换转态
-            setPlayState(STATE_IDLE);
+        // 无条件释放，避免状态判断导致泄漏或退出后音频继续
+        //释放播放器
+        if (mMediaPlayer != null) {
+            mMediaPlayer.release();
+            mMediaPlayer = null;
         }
+        //释放renderView
+        if (mRenderView != null) {
+            mPlayerContainer.removeView(mRenderView.getView());
+            mRenderView.release();
+            mRenderView = null;
+        }
+        //释放Assets资源
+        if (mAssetFileDescriptor != null) {
+            try {
+                mAssetFileDescriptor.close();
+            } catch (IOException e) {
+                e.printStackTrace();
+            }
+            mAssetFileDescriptor = null;
+        }
+        //关闭AudioFocus监听
+        if (mAudioFocusHelper != null) {
+            mAudioFocusHelper.abandonFocus();
+            mAudioFocusHelper = null;
+        }
+        //关闭屏幕常亮
+        mPlayerContainer.setKeepScreenOn(false);
+        //保存播放进度
+        saveProgress();
+        //重置播放进度
+        mCurrentPosition = 0;
+        //切换转态
+        setPlayState(STATE_IDLE);
     }
 
     /**

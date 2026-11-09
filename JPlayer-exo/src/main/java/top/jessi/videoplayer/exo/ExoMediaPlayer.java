@@ -71,6 +71,8 @@ public class ExoMediaPlayer extends AbstractPlayer implements Player.Listener {
     private long lastSpeedBytes = 0;
     // 网络错误重试计数器
     private int mNetworkRetryCount = 0;
+    // 标记是否已释放，阻止延迟重试
+    private volatile boolean mIsReleased = false;
     // 重试退避延迟基数（ms），实际延迟 = BASE_RETRY_DELAY_MS * (2 ^ retryCount)
     private static final long BASE_RETRY_DELAY_MS = 1000L;
 
@@ -110,6 +112,7 @@ public class ExoMediaPlayer extends AbstractPlayer implements Player.Listener {
         setOptions();
 
         mMediaPlayer.addListener(this);
+        mIsReleased = false;
     }
 
     public DefaultTrackSelector getTrackSelector() {
@@ -231,20 +234,23 @@ public class ExoMediaPlayer extends AbstractPlayer implements Player.Listener {
     public void release() {
         // 取消当前播放器提交的媒体信息预加载；共享 URI 若仍被其他播放器使用则继续保留。
         MediaInfoHelper.cancelPreloadMediaInfo(this);
+        mIsReleased = true; // 标记已释放，阻止延迟重试
         if (mMediaPlayer != null) {
             mMediaPlayer.removeListener(this);
             mMediaPlayer.setVideoSurface(null);
             mMediaPlayer.clearMediaItems();
             mMediaPlayer.release();
             mMediaPlayer = null;
-            mIsPreparing = false;
         }
+        // 移到 if 外面，确保无论如何都重置
+        mIsPreparing = false;
+        mSourcePath = null;
+        mMediaSource = null;
         lastTotalRxBytes = 0;
         lastTimeStamp = 0;
         lastSpeedBytes = 0;
-        mIsPreparing = false;
         mSpeedPlaybackParameters = null;
-        mSourcePath = null;
+        mNetworkRetryCount = 0;
     }
 
     @Override
@@ -429,7 +435,7 @@ public class ExoMediaPlayer extends AbstractPlayer implements Player.Listener {
      * 使用 mSourcePath（永久保存原始路径），避免 path 被置 null 后无法继续重试
      */
     private void retryWithBackoff(PlaybackException error) {
-        if (mSourcePath == null || mNetworkRetryCount >= getMaxRetryCount()) {
+        if (mIsReleased || mSourcePath == null || mNetworkRetryCount >= getMaxRetryCount()) {
             Log.w(TAG, "Retry exhausted (count=" + mNetworkRetryCount + "), reporting error");
             mNetworkRetryCount = 0;
             if (mMediaPlayer != null) {
@@ -443,7 +449,7 @@ public class ExoMediaPlayer extends AbstractPlayer implements Player.Listener {
         // 使用 Handler 延迟重试，避免立即重试
         new Handler(Looper.getMainLooper()).postDelayed(() -> {
             // 如果 Player 已释放，取消重试
-            if (mMediaPlayer == null || mSourcePath == null) return;
+            if (mIsReleased || mMediaPlayer == null || mSourcePath == null) return;
             setDataSource(mSourcePath, headers);
             prepareAsync();
             start();
